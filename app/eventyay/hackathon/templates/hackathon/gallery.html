@@ -1,0 +1,90 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        BUILT WITH CURIOSITY
+      </div>
+      <h1>
+        好想法，有了真实的样子。
+      </h1>
+      <p>
+        发现本届作品，也让每一次创造留下痕迹。
+      </p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:results' hackathon.slug %}">
+      评审结果 ↗
+    </a>
+  </section>
+  {% if not hackathon.gallery_open %}
+    <div class="message">
+      展厅尚未开放。只有通过审核并同意公开的作品，才会出现在这里。
+    </div>
+  {% endif %}
+  <form class="filter-bar" method="get">
+    <label class="sr-only" for="gallery-search">
+      搜索作品
+    </label>
+    <input id="gallery-search" name="q" value="{{ query }}" placeholder="搜索作品、问题或队伍…">
+    <button class="button secondary">
+      发现作品
+    </button>
+  </form>
+  <div class="card-grid">
+    {% for project in projects %}
+      <a class="panel gallery-card" href="{% url 'hackathon:project-detail' hackathon.slug project.pk %}">
+        <div class="poster">
+          {% for asset in project.assets.all %}
+            {% if asset.kind == "poster" %}
+              <img src="{% url 'hackathon:download' hackathon.slug asset.pk %}" alt="{{ project.title }}项目海报" loading="lazy">
+            {% endif %}
+          {% endfor %}
+        </div>
+        <span class="tag lavender">
+          {{ project.team.track.name }}
+        </span>
+        <h2>
+          {{ project.title }}
+        </h2>
+        <p>
+          {{ project.summary }}
+        </p>
+        <div class="card-bottom">
+          <span>
+            {{ project.team.name }}
+          </span>
+          <span>
+            探索作品 ↗
+          </span>
+        </div>
+      </a>
+    {% empty %}
+      <div class="empty panel">
+        <span class="empty-symbol">
+          ✳
+        </span>
+        <h2>
+          下一件作品，正在诞生。
+        </h2>
+        <p>
+          完成审核并授权公开后，你的作品就会出现在这里。
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+  {% if editions %}
+    <div class="section-heading outside">
+      <h2>
+        历届作品档案
+      </h2>
+    </div>
+    <div class="actions">
+      {% for edition in editions %}
+        <a class="button secondary" href="{% url 'hackathon:gallery' edition.slug %}">
+          {{ edition.name }}
+          ↗
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

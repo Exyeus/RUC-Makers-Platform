@@ -1,0 +1,59 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        THE MOMENT TO SHINE
+      </div>
+      <h1>
+        下一束聚光灯，为你而亮。
+      </h1>
+      <p>
+        下一队到演示位候场，再下一队完成设备检查。突发故障切换备用，不补时。
+      </p>
+    </div>
+    <div class="actions">
+      <a class="button secondary" href="?display=1" target="_blank" rel="noopener">
+        大屏模式 ↗
+      </a>
+      <button class="button secondary" type="button" data-fullscreen>
+        全屏 ⛶
+      </button>
+      {% if is_organizer %}
+        <a class="button" href="{% url 'hackathon:manage-stage' hackathon.slug %}">
+          现场调度 ↗
+        </a>
+      {% endif %}
+    </div>
+  </section>
+  {% include 'hackathon/stage_timer.html' %}
+  <section class="panel">
+    <h2>
+      路演顺序
+    </h2>
+    {% for slot in slots %}
+      <div class="list-row">
+        <strong class="queue-number">
+          {{ slot.position|stringformat:'02d' }}
+        </strong>
+        <div>
+          <strong>
+            {{ slot.project.title }}
+          </strong>
+          <small>
+            {{ slot.project.team.name }}
+            ·
+            {{ slot.project.team.code }}
+          </small>
+        </div>
+        <span class="tag state-{{ slot.state }}">
+          {{ slot.get_state_display }}
+        </span>
+      </div>
+    {% empty %}
+      <div class="empty compact">
+        路演顺序待主办方公布。
+      </div>
+    {% endfor %}
+  </section>
+{% endblock %}

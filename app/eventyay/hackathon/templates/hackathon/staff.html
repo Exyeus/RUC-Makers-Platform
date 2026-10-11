@@ -1,0 +1,65 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        THE PEOPLE BEHIND IT
+      </div>
+      <h1>
+        让每份投入，都有方向。
+      </h1>
+      <p>
+        主办方沿用 Eventyay 的活动管理权限；在这里分配本届评委和志愿者。
+      </p>
+    </div>
+  </section>
+  <div class="actions judge-live-entry">
+    <a class="button" href="{% url 'hackathon:judge-new' hackathon.slug %}">创建评委账户</a>
+    <a class="button secondary" href="{% url 'hackathon:judge-login' hackathon.slug %}">评委登录入口 ↗</a>
+    <a class="button secondary" href="{% url 'hackathon:scoring-rules' hackathon.slug %}">设置算分规则</a>
+  </div>
+  <div class="two-column">
+    <section class="panel">
+      <h2>
+        本届工作人员
+      </h2>
+      {% for assignment in assignments %}
+        <div class="list-row">
+          <div>
+            <strong>
+              {{ assignment.user.fullname|default:assignment.user.email }}
+            </strong>
+            <small>
+              {{ assignment.user.email }}
+            </small>
+          </div>
+          <span class="tag lavender">
+            {{ assignment.get_role_display }}
+          </span>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="assignment" value="{{ assignment.pk }}">
+            <button class="text-button danger" data-confirm="确认移除此人的活动角色？">
+              移除
+            </button>
+          </form>
+        </div>
+      {% empty %}
+        <div class="empty compact">
+          还没有分配工作人员。
+        </div>
+      {% endfor %}
+    </section>
+    <form method="post" class="panel">
+      {% csrf_token %}
+      <h2>
+        添加工作人员
+      </h2>
+      {% include 'hackathon/form_fields.html' %}
+      <button class="button">
+        分配角色 ↗
+      </button>
+    </form>
+  </div>
+{% endblock %}

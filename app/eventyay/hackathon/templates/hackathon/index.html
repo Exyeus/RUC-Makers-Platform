@@ -1,0 +1,62 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>
+      Hackathon Hub · eventyay
+    </title>
+    <link rel="stylesheet" href="{% static 'hackathon/hub.css' %}">
+    <link rel="stylesheet" href="{% static 'hackathon/responsive.css' %}">
+  </head>
+  <body>
+    <main class="edition-index">
+      <a class="brand" href="/">
+        eventyay
+        <small>
+          HACKATHON HUB
+        </small>
+      </a>
+      <div class="eyebrow">
+        YOUR NEXT BIG IDEA STARTS HERE
+      </div>
+      <h1>
+        把好奇心，变成真实的作品。
+      </h1>
+      <p>
+        从报名到组队，从第一行代码到路演。你的下一次黑客松，从这里开始。
+      </p>
+      <div class="card-grid">
+        {% for edition in editions %}
+          <a class="panel" href="{% url 'hackathon:home' edition.slug %}">
+            <span class="tag lavender">
+              {{ edition.event.date_from|date:'Y.m.d' }}
+            </span>
+            <h2>
+              {{ edition.name }}
+            </h2>
+            <p>
+              {{ edition.tagline }}
+            </p>
+            <span class="text-link">
+              进入活动工作台 ↗
+            </span>
+          </a>
+        {% empty %}
+          <section class="panel">
+            <h2>
+              下一次创造，正在筹备。
+            </h2>
+            <p>
+              主办方发布活动后，你就可以在这里报名、学习、组队和提交作品。
+            </p>
+            <a href="{% url 'auth.login' %}">
+              登录 Eventyay ↗
+            </a>
+          </section>
+        {% endfor %}
+      </div>
+    </main>
+  </body>
+</html>

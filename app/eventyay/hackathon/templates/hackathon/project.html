@@ -1,0 +1,244 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        MAKE IT REAL
+      </div>
+      <h1>
+        让你的作品，被看见。
+      </h1>
+      <p>
+        提交截止
+        {{ hackathon.submission_deadline|date:'m 月 d 日 H:i' }}
+        · 先保存草稿，再上传材料，最后正式提交。
+      </p>
+    </div>
+    {% if project %}
+      <span class="tag state-{{ project.state }}" data-project-badge>
+        {{ project.get_state_display }}
+        · v
+        {{ project.revision }}
+      </span>
+    {% endif %}
+  </section>
+  {% if needs_team %}
+    <div class="empty panel">
+      <span class="empty-symbol">
+        ⌘
+      </span>
+      <h2>
+        创造，先从一支队伍开始
+      </h2>
+      <p>
+        请先完成报名，然后创建或加入队伍。一人参赛也需要创建队伍。
+      </p>
+      <a class="button" href="{% url 'hackathon:teams' hackathon.slug %}">
+        前往组队广场 ↗
+      </a>
+    </div>
+  {% else %}
+    {% if project.review_note %}
+      <div class="message warning">
+        <strong>
+          主办方检查意见
+        </strong>
+        <p>
+          {{ project.review_note|linebreaksbr }}
+        </p>
+      </div>
+    {% endif %}
+    {% if project.submitted_at %}
+      <div class="message success">
+        首次提交于
+        {{ project.submitted_at|date:'Y-m-d H:i:s' }}
+        ·
+        {{ project.code }}
+        。后续修改或替换附件后，需要再次正式提交。
+      </div>
+    {% endif %}
+    {% if project %}
+      <section class="panel" data-project-status-url="{% url 'hackathon:project-status' hackathon.slug %}">
+        <h2>提交状态与凭证</h2>
+        <p data-submission-state role="status">{{ project.get_state_display }}</p>
+        {% if project.submission_receipt %}
+          <p>提交凭证：{{ project.submission_receipt }} · 服务器登记时间：{{ project.submission_intent_at|date:'Y-m-d H:i:s' }}</p>
+        {% endif %}
+        <button type="button" class="button secondary small" data-refresh-submission>查询最新状态</button>
+        <a href="{% url 'hackathon:project-status' hackathon.slug %}?download=1">保存提交凭证</a>
+        {% if captain %}
+          <button type="button" class="button secondary small" data-cancel-queue="{% url 'hackathon:cancel-submission-queue' hackathon.slug %}" {% if project.state != 'queued' %}hidden{% endif %}>取消排队提交</button>
+        {% endif %}
+        <p>排队登记会锁定当前作品信息和材料清单；材料全部校验完成后自动正式提交。取消或过期的上传不会视为提交成功。</p>
+        {% for task in upload_history %}
+          <div class="upload-task" data-upload-task data-filename="{{ task.original_filename }}" data-size="{{ task.size }}" data-kind="{{ task.kind }}" data-id="{{ task.pk }}" data-task-state="{{ task.state }}">
+            <span>{{ task.get_kind_display }} · {{ task.original_filename }} · {{ task.get_state_display }} · 已接收 {{ task.offset|filesizeformat }} / {{ task.size|filesizeformat }} · 登记 {{ task.created|date:'Y-m-d H:i:s' }}</span>
+            {% if captain %}
+              <button type="button" class="button secondary small" data-query-upload="{% url 'hackathon:upload-status' hackathon.slug task.pk %}">查询上传状态</button>
+              <a href="{% url 'hackathon:upload-status' hackathon.slug task.pk %}?download=1">保存上传凭证</a>
+              {% if task.state == 'uploading' %}
+                <button type="button" class="button secondary small" data-cancel-upload="{% url 'hackathon:upload-cancel' hackathon.slug task.pk %}">取消此任务</button>
+              {% endif %}
+            {% endif %}
+          </div>
+        {% endfor %}
+      </section>
+    {% endif %}
+    <div class="two-column">
+      <section class="panel">
+        <h2>
+          01 / 作品信息
+        </h2>
+        {% if captain %}
+          <form method="post" data-dirty-form data-project-form>
+            {% csrf_token %}
+            {% include 'hackathon/form_fields.html' %}
+            <p data-project-status role="status" aria-live="polite"></p>
+            <div class="form-actions">
+              <button class="button secondary" name="action" value="save" {% if not hackathon.submissions_open or project.state == 'queued' %}disabled{% endif %}>
+                保存草稿
+              </button>
+              <button class="button" name="action" value="submit" {% if not hackathon.submissions_open or project.state == 'queued' %}disabled{% endif %}>
+                正式提交 / 排队登记 ↗
+              </button>
+            </div>
+          </form>
+        {% else %}
+          <h3>
+            {{ project.title|default:'队长正在准备作品' }}
+          </h3>
+          <p>
+            {{ project.summary }}
+          </p>
+          <p class="preserve-lines">
+            {{ project.description }}
+          </p>
+          <p class="muted">
+            由队长统一编辑与提交，所有队友可查看进度。
+          </p>
+        {% endif %}
+      </section>
+      <aside>
+        <section class="panel">
+          <h2>
+            02 / 演示材料
+          </h2>
+          <p>
+            电子海报：作品名、问题、功能、团队与 Demo 二维码。请使用清晰的电子设计稿。
+          </p>
+          {% if project %}
+            <div class="asset-list">
+              {% for asset in project.assets.all %}
+                <a href="{% url 'hackathon:download' hackathon.slug asset.pk %}">
+                  <svg>
+                    <use href="#i-folder" />
+                  </svg>
+                  <span>
+                    <strong>
+                      {{ asset.get_kind_display }}
+                    </strong>
+                    <small>
+                      {{ asset.filename }}
+                      ·
+                      {{ asset.size|filesizeformat }}
+                      {% if asset.original_filename %}<br>原文件：{{ asset.original_filename }}{% endif %}
+                    </small>
+                  </span>
+                  <span>
+                    ↓
+                  </span>
+                </a>
+                {% if asset.original_filename|lower|slice:'-4:' == '.zip' %}
+                  <details data-archive-preview="{% url 'hackathon:asset-preview' hackathon.slug asset.pk %}">
+                    <summary>预览 ZIP 一级目录</summary>
+                    <div data-preview-content role="status"></div>
+                  </details>
+                {% endif %}
+              {% empty %}
+                <p class="muted">
+                  还没有上传材料。
+                </p>
+              {% endfor %}
+            </div>
+            {% if captain %}
+              <p class="muted">单文件最大 512 MiB，海报最大 20 MiB。支持断点续传；刷新后重新选择同一文件可继续。</p>
+              <p>截止前登记的上传可继续至凭证中的续传期限（最长 24 小时，且不超过材料冻结时间）。关闭页面会暂停上传；重新选择原文件可继续。</p>
+              <p>本机点击记录仅供沟通参考；只有服务器返回凭证才表示登记成功。哈希绑定时间晚于截止时间时，凭证不证明文件内容在截止前已经固定。</p>
+              <div data-upload-receipt role="status" aria-live="polite"></div>
+              <form method="post" enctype="multipart/form-data" action="{% url 'hackathon:upload' hackathon.slug %}" data-upload-form data-start-url="{% url 'hackathon:upload-start' hackathon.slug %}" data-project="{{ project.pk }}" data-user="{{ request.user.pk }}">
+                {% csrf_token %}
+                {% include 'hackathon/form_fields.html' with form=asset_form %}
+                <button type="submit" class="button secondary">
+                  开始 / 继续上传 ↑
+                </button>
+                <button type="button" class="button secondary" data-pause-upload hidden>暂停</button>
+                <button type="button" class="button secondary" data-cancel-current hidden>取消本次上传</button>
+                <progress data-upload-progress value="0" max="100" aria-label="文件上传进度" hidden></progress>
+                <div data-upload-status role="status" aria-live="polite"></div>
+                <noscript><p>浏览器未开启 JavaScript，将使用普通上传；大文件和断点续传请开启 JavaScript。</p></noscript>
+              </form>
+            {% endif %}
+          {% else %}
+            <div class="empty compact">
+              先保存一次草稿，即可上传材料。
+            </div>
+          {% endif %}
+        </section>
+        <section class="panel submission-check">
+          <h2>
+            03 / 提交前自查
+          </h2>
+          <ul>
+            <li>
+              Demo 从另一台设备也能打开
+            </li>
+            <li>
+              代码仓库权限已向评委开放
+            </li>
+            <li>
+              上传电子项目海报，而非立牌照片
+            </li>
+            <li>
+              准备备用录屏，检查声音和视频切换
+            </li>
+            <li>
+              演示已经实现的功能，避免只有 Idea
+            </li>
+            <li>
+              关闭系统更新，熟悉翻页笔与接线
+            </li>
+          </ul>
+          {% if submission_errors %}
+            <div class="form-errors">
+              <strong>
+                还有这些准备未完成
+              </strong>
+              <ul>
+                {% for error in submission_errors %}
+                  <li>
+                    {{ error }}
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+          <a href="{% url 'hackathon:resources' hackathon.slug %}?category=demo">
+            查看完整提交与路演指南 ↗
+          </a>
+        </section>
+      </aside>
+    </div>
+    {% if feedback %}
+      <section class="panel">
+        <h2>
+          评委给你的下一步建议
+        </h2>
+        {% for score in feedback %}
+          <blockquote>
+            {{ score.feedback|linebreaksbr }}
+          </blockquote>
+        {% endfor %}
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

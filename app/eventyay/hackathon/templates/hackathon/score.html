@@ -1,0 +1,64 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">{{ project.code }} · {{ project.team.name }} · {{ project.team.track.name }}</div>
+      <h1>{{ project.title }}</h1>
+      <p>{{ project.summary }}</p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:judging' hackathon.slug %}">全部队伍与评分</a>
+  </section>
+  {% include 'hackathon/judge_sync.html' %}
+  <nav class="judge-project-nav" aria-label="切换评审队伍">
+    <a class="button secondary small" href="#judge-scoring">填写评分 ↓</a>
+    <a class="button secondary small" href="#judge-materials">查看作品 ↓</a>
+    {% if previous %}<a class="button secondary small" href="{% url 'hackathon:score' hackathon.slug previous.pk %}">← {{ previous.team.name }}</a>{% endif %}
+    <details class="judge-team-picker">
+      <summary>选择队伍 / 回看评分（{{ confirmed }} 份已确认）</summary>
+      <div class="judge-team-links">
+        {% for entry in entries %}
+          <a href="{% url 'hackathon:score' hackathon.slug entry.project.pk %}" {% if entry.project.pk == project.pk %}aria-current="page"{% endif %}>
+            {{ entry.project.team.name }} · {% if entry.score.final %}已确认{% elif entry.score %}草稿{% else %}待评{% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    </details>
+    {% if following %}<a class="button secondary small" href="{% url 'hackathon:score' hackathon.slug following.pk %}">{{ following.team.name }} →</a>{% endif %}
+  </nav>
+  <div class="judge-score-layout">
+    <article id="judge-materials" class="panel article judge-materials">
+      <h2>作品与现场材料</h2>
+      {% for asset in assets %}
+        {% if asset.kind == 'poster' %}
+          <a href="{% url 'hackathon:download' hackathon.slug asset.pk %}" target="_blank" rel="noopener" aria-label="查看完整海报">
+            <img class="detail-poster" src="{% url 'hackathon:download' hackathon.slug asset.pk %}" alt="{{ project.title }}项目海报">
+          </a>
+        {% endif %}
+      {% endfor %}
+      <h3>作品描述</h3>
+      <div class="article-body">{{ project.description|linebreaks }}</div>
+      <h3>如何体验</h3>
+      <p>{{ project.demo_instructions|linebreaksbr }}</p>
+      <div class="actions">
+        {% if project.demo_url %}<a class="button small" href="{{ project.demo_url }}" target="_blank" rel="noopener noreferrer">体验 Demo ↗</a>{% endif %}
+        {% if project.repository_url %}<a class="button secondary small" href="{{ project.repository_url }}" target="_blank" rel="noopener noreferrer">代码仓库 ↗</a>{% endif %}
+        {% if project.backup_url %}<a class="button secondary small" href="{{ project.backup_url }}" target="_blank" rel="noopener noreferrer">备用演示 ↗</a>{% endif %}
+      </div>
+      {% for asset in assets %}
+        <a class="file-row" href="{% url 'hackathon:download' hackathon.slug asset.pk %}" target="_blank" rel="noopener">{{ asset.get_kind_display }} · {{ asset.filename }} ↓</a>
+      {% empty %}<p class="muted">该队伍尚未上传附件。</p>{% endfor %}
+    </article>
+    <form id="judge-scoring" method="post" action="{% url 'hackathon:score' hackathon.slug project.pk %}{% if follow_live %}?follow=1{% endif %}" class="panel score-form" data-once-form data-score-dirty="{{ form.is_bound|yesno:'true,false' }}">
+      {% csrf_token %}
+      <div class="eyebrow">正在为 {{ project.team.name }} 评分</div>
+      <h2>记录你的判断</h2>
+      <p>每项 0–10 整数分；草稿不参与排名。每项特别奖最多提名 3 队。</p>
+      <details class="judge-rule-note"><summary>本届算分规则</summary><p>{{ rule_description }}</p></details>
+      {% include 'hackathon/form_fields.html' %}
+      <div class="score-total">加权总分 <output data-score-total>0</output><span>/ 100</span></div>
+      <p data-score-status role="status">{% if form.is_bound %}本次修改尚未保存，请处理表单提示。{% elif form.instance.pk %}当前评分已保存{% if form.instance.final %}并确认{% else %}为草稿{% endif %}。{% else %}尚未保存评分。{% endif %}</p>
+      {% if not hackathon.judging_open or hackathon.results_published %}<p class="warning-text">评分已关闭或成绩已公布，当前仅可回看。</p>{% endif %}
+      <button type="submit" class="button" {% if not hackathon.judging_open or hackathon.results_published %}disabled{% endif %}>保存评分 ↗</button>
+    </form>
+  </div>
+{% endblock %}

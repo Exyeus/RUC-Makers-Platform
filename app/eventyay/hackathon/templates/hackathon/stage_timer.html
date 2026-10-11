@@ -1,0 +1,34 @@
+<div class="stage-board" data-stage-url="{% url 'hackathon:stage-state' hackathon.slug %}">
+  <div class="stage-board-heading">
+    <span class="live-indicator">
+      <i>
+      </i>
+      LIVE / DEMO STAGE
+    </span>
+    <span class="stage-sync" data-stage-sync role="status">
+      正在同步现场状态…
+    </span>
+  </div>
+  <div class="stage-current">
+    <span class="eyebrow" data-stage-team>
+      {{ data.current.team|default:'等待下一队' }}
+    </span>
+    <h2 data-stage-title>
+      {{ data.current.project|default:'准备好，让作品说话。' }}
+    </h2>
+  </div>
+  <div class="timer" data-stage-timer role="timer" aria-label="当前阶段剩余时间">
+    --:--
+  </div>
+  <div class="timer-phase" data-stage-phase>
+    等待开始
+  </div>
+  <p class="stage-rule">
+    {{ hackathon.demo_seconds }}
+    秒展示 ·
+    {{ hackathon.transition_seconds }}
+    秒评分与换场 · 不设现场 Q&A
+  </p>
+  <div class="next-up" data-stage-upcoming>
+  </div>
+</div>

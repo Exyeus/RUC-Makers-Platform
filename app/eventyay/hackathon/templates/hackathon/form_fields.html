@@ -1,0 +1,49 @@
+{% if form.non_field_errors %}
+  <div class="form-errors" role="alert">
+    {{ form.non_field_errors }}
+  </div>
+{% endif %}
+{% for field in form %}
+  {% if field.is_hidden %}
+    {{ field }}
+    {% if field.errors %}
+      <div class="field-error">
+        {{ field.errors }}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="form-field{% if field.field.widget.input_type == 'checkbox' and field.name != 'keywords' %} checkbox-field{% endif %}">
+      {% if field.name == 'keywords' %}
+        <fieldset class="keyword-fieldset">
+          <legend>{{ field.label }}</legend>
+          {{ field }}
+        </fieldset>
+      {% elif field.field.widget.input_type == "checkbox" %}
+        {{ field }}
+        <label for="{{ field.id_for_label }}">
+          {{ field.label }}
+        </label>
+      {% else %}
+        <label for="{{ field.id_for_label }}">
+          {{ field.label }}
+          {% if field.field.required %}
+            <span class="required">
+              *
+            </span>
+          {% endif %}
+        </label>
+        {{ field }}
+      {% endif %}
+      {% if field.help_text %}
+        <small class="field-help">
+          {{ field.help_text }}
+        </small>
+      {% endif %}
+      {% if field.errors %}
+        <div class="field-error" role="alert">
+          {{ field.errors }}
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endfor %}

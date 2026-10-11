@@ -1,0 +1,44 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        THE EVENT PLAYBOOK
+      </div>
+      <h1>
+        把经验，变成下一次的起点。
+      </h1>
+      <p>
+        统一维护公告、教程、日程和赛道，让所有人看到同一份信息。
+      </p>
+    </div>
+  </section>
+  <div class="two-column equal">
+    {% for group in groups %}
+      <section class="panel">
+        <div class="section-heading">
+          <h2>
+            {{ group.label }}
+          </h2>
+          <a class="button secondary small" href="{% url 'hackathon:content-new' hackathon.slug group.kind %}">
+            ＋ 新增
+          </a>
+        </div>
+        {% for item in group.items %}
+          <a class="list-row" href="{% url 'hackathon:content-edit' hackathon.slug group.kind item.pk %}">
+            <span>
+              {% firstof item.title item.name %}
+            </span>
+            <span>
+              编辑 ↗
+            </span>
+          </a>
+        {% empty %}
+          <div class="empty compact">
+            尚未添加内容。
+          </div>
+        {% endfor %}
+      </section>
+    {% endfor %}
+  </div>
+{% endblock %}

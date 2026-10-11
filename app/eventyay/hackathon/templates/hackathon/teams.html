@@ -1,0 +1,291 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        FIND YOUR PEOPLE
+      </div>
+      <h1>
+        一个想法，一群同路人。
+      </h1>
+      <p>
+        遇见互补的技能，让创造的过程更有趣。名单冻结：
+        {{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}
+        。
+      </p>
+    </div>
+    {% if not own_team %}
+      <a class="button" href="{% url 'hackathon:team-edit' hackathon.slug %}">
+        ＋ 发起队伍
+      </a>
+    {% endif %}
+  </section>
+  {% if own_team %}
+    <section class="panel own-team">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">
+            MY TEAM ·
+            {{ own_team.code }}
+          </span>
+          <h2>
+            {{ own_team.name }}
+          </h2>
+        </div>
+        {% if own_team.captain_id == participant.pk %}
+          <a class="button secondary small" href="{% url 'hackathon:team-edit' hackathon.slug %}">
+            管理队伍 ↗
+          </a>
+        {% endif %}
+      </div>
+      <p>
+        {{ own_team.intro }}
+      </p>
+      <div class="member-list">
+        {% for member in own_members %}
+          <span class="tag">
+            <span class="avatar tiny">
+              {{ member.name|slice:':1' }}
+            </span>
+            {{ member.name }}
+            {% if member.pk == own_team.captain_id %}
+              · 队长
+            {% endif %}
+          </span>
+        {% endfor %}
+      </div>
+      {% if own_team.captain_id == participant.pk %}
+        <div class="invite-box">
+          <span>
+            私密邀请码
+            <code>
+              {{ own_team.invite_code }}
+            </code>
+          </span>
+          <button type="button" class="button secondary small" data-copy="{{ own_team.invite_code }}">
+            复制邀请码
+          </button>
+          <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="rotate">
+            <button class="text-button" type="submit">
+              重新生成
+            </button>
+          </form>
+        </div>
+        <details class="details">
+          <summary>
+            队长交接
+          </summary>
+          <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="transfer">
+            <label for="member">
+              新队长
+            </label>
+            <select name="member" id="member">
+              {% for member in own_members %}
+                {% if member.pk != participant.pk %}
+                  <option value="{{ member.pk }}">
+                    {{ member.name }}
+                  </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <button type="submit" class="button secondary small" data-confirm="确认将队伍管理权限交给这位队友？">
+              确认交接
+            </button>
+          </form>
+        </details>
+      {% else %}
+        <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="leave">
+          <button type="submit" class="text-button danger" data-confirm="确认离开当前队伍？">
+            离开队伍
+          </button>
+        </form>
+      {% endif %}
+      {% for application in applications %}
+        <div class="application">
+          <p>
+            <strong>
+              {{ application.participant.name }}
+            </strong>
+            申请加入 ·
+            {{ application.participant.skills }}
+          </p>
+          <p>
+            {{ application.message }}
+          </p>
+          <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="actions">
+            {% csrf_token %}
+            <input type="hidden" name="application" value="{{ application.pk }}">
+            <button name="action" value="accept" class="button small">
+              同意加入
+            </button>
+            <button name="action" value="decline" class="button secondary small">
+              婉拒
+            </button>
+          </form>
+        </div>
+      {% endfor %}
+    </section>
+  {% elif participant %}
+    <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="panel invite-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="invite">
+      <div>
+        <strong>
+          已经和队友约好了？
+        </strong>
+        <p>
+          输入队长给你的私密邀请码，直接加入。
+        </p>
+      </div>
+      <label class="sr-only" for="code">
+        队伍邀请码
+      </label>
+      <input name="code" id="code" placeholder="输入队伍邀请码" required maxlength="32">
+      <button type="submit" class="button secondary">
+        加入队伍 ↗
+      </button>
+    </form>
+  {% endif %}
+  <form method="get" class="filter-bar">
+    <label class="sr-only" for="team-search">
+      搜索队伍与伙伴
+    </label>
+    <input id="team-search" name="q" value="{{ query }}" placeholder="搜索队伍、伙伴、技能或想法…">
+    <label class="sr-only" for="keyword">伙伴关键词</label>
+    <select name="keyword" id="keyword">
+      <option value="">所有伙伴关键词</option>
+      {% for keyword in keywords %}
+        <option value="{{ keyword }}" {% if selected_keyword == keyword %}selected{% endif %}>{{ keyword }}</option>
+      {% endfor %}
+    </select>
+    <label class="sr-only" for="track">
+      赛道
+    </label>
+    <select id="track" name="track">
+      <option value="">
+        所有赛道
+      </option>
+      {% for track in tracks %}
+        <option value="{{ track.pk }}" {% if selected_track == track.pk|stringformat:'s' %}selected{% endif %}>
+          {{ track.name }}
+        </option>
+      {% endfor %}
+    </select>
+    <button class="button secondary">
+      搜索
+    </button>
+  </form>
+  <div class="card-grid">
+    {% for team in teams %}
+      <article class="panel team-card">
+        <div class="section-heading">
+          <span class="tag lavender">
+            {{ team.track.name }}
+          </span>
+          <span class="muted">
+            {{ team.member_count }}
+            /
+            {{ hackathon.team_size }}
+            人
+          </span>
+        </div>
+        <span class="team-avatar">
+          {{ team.name|slice:':1' }}
+        </span>
+        <h2>
+          {{ team.name }}
+        </h2>
+        <p>
+          {{ team.intro|default:'一个正在萌芽的好想法。' }}
+        </p>
+        <div class="team-needs">
+          <span>
+            我们正在寻找
+          </span>
+          <strong>
+            {{ team.needs|default:'带着好奇心的你' }}
+          </strong>
+        </div>
+        <div class="card-bottom">
+          <code>
+            {{ team.code }}
+          </code>
+          {% if participant and not own_team and hackathon.teams_open %}
+            <details>
+              <summary class="text-link">
+                申请加入 ↗
+              </summary>
+              <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="apply">
+                <input type="hidden" name="team" value="{{ team.pk }}">
+                <label for="apply-{{ team.pk }}">
+                  介绍一下你能带来的技能
+                </label>
+                <textarea id="apply-{{ team.pk }}" name="message" required maxlength="300" rows="3">
+                </textarea>
+                <button type="submit" class="button small">
+                  发送申请
+                </button>
+              </form>
+            </details>
+          {% endif %}
+        </div>
+      </article>
+    {% empty %}
+      <div class="empty panel">
+        <h3>
+          还没有匹配的队伍
+        </h3>
+        <p>
+          换个关键词，或发起你的第一支队伍。
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="section-heading outside">
+    <div>
+      <h2>
+        还在寻找队伍的伙伴
+      </h2>
+      <p>
+        仅展示主动选择公开的选手介绍。
+      </p>
+    </div>
+    <a href="{% url 'hackathon:register' hackathon.slug %}">
+      更新我的介绍 ↗
+    </a>
+  </div>
+  <div class="card-grid">
+    {% for person in seekers %}
+      <article class="panel">
+        <span class="avatar">
+          {{ person.name|slice:':1' }}
+        </span>
+        <h3>
+          {{ person.name }}
+        </h3>
+        {% if person.tagline %}<p><strong>{{ person.tagline }}</strong></p>{% endif %}
+        <div class="keyword-tags">
+          {% for keyword in person.keywords %}<span class="tag lavender">{{ keyword }}</span>{% endfor %}
+        </div>
+        <p>
+          {{ person.bio }}
+        </p>
+        <span class="tag mint">
+          {{ person.skills|default:'保持好奇，愿意学习' }}
+        </span>
+      </article>
+    {% empty %}
+      <p class="muted">
+        暂时没有公开的找队友信息。
+      </p>
+    {% endfor %}
+  </div>
+{% endblock %}

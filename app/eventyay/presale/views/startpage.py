@@ -3,6 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from django.http import JsonResponse
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView, TemplateView
@@ -15,6 +17,7 @@ from eventyay.base.models.page import Page
 from eventyay.base.settings import GlobalSettingsObject
 from eventyay.common.permissions import is_admin_mode_active
 from eventyay.eventyay_common.navigation import get_global_navigation
+from eventyay.hackathon.models import Hackathon
 from eventyay.multidomain.urlreverse import eventreverse
 
 _SEARCH_PAGE_LIMIT = 200
@@ -60,6 +63,13 @@ class StartPageView(TemplateView):
             if not query:
                 return JsonResponse({'results': []})
             return JsonResponse({'results': _search_events(query)})
+        featured = (
+            Hackathon.objects.filter(is_public=True, event__date_to__gte=timezone.now())
+            .order_by('event__date_from')
+            .first()
+        )
+        if featured:
+            return redirect(reverse('hackathon:home', kwargs={'hackathon_slug': featured.slug}))
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):

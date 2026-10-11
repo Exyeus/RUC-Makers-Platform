@@ -1,0 +1,58 @@
+<nav class="mobile-nav" aria-label="常用功能">
+  {% if is_organizer %}
+    <a href="{% url 'hackathon:manage' hackathon.slug %}" {% if active == 'manage' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-grid" /></svg><span>总控</span>
+    </a>
+    <a href="{% url 'hackathon:submissions' hackathon.slug %}" {% if active == 'submissions' or active == 'review' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-folder" /></svg><span>作品</span>
+    </a>
+    <a href="{% url 'hackathon:manage-stage' hackathon.slug %}" {% if active == 'manage-stage' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-play" /></svg><span>路演</span>
+    </a>
+    <a href="{% url 'hackathon:results' hackathon.slug %}" {% if active == 'results' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-chart" /></svg><span>成绩</span>
+    </a>
+  {% elif is_judge %}
+    <a href="{% url 'hackathon:judge-live' hackathon.slug %}" {% if active == 'judge-live' or follow_live %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-play" /></svg><span>现场打分</span>
+    </a>
+    <a href="{% url 'hackathon:judging' hackathon.slug %}" {% if active == 'judging' or active == 'score' and not follow_live %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-chart" /></svg><span>全部评审</span>
+    </a>
+    <a href="{% url 'hackathon:schedule' hackathon.slug %}" {% if active == 'schedule' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-calendar" /></svg><span>日程</span>
+    </a>
+    <a href="{% url 'hackathon:resources' hackathon.slug %}" {% if active == 'resources' or active == 'resource' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-book" /></svg><span>指南</span>
+    </a>
+  {% elif is_staff_member %}
+    <a href="{% url 'hackathon:tasks' hackathon.slug %}" {% if active == 'tasks' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-badge" /></svg><span>我的任务</span>
+    </a>
+    <a href="{% url 'hackathon:schedule' hackathon.slug %}" {% if active == 'schedule' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-calendar" /></svg><span>日程</span>
+    </a>
+    <a href="{% url 'hackathon:resources' hackathon.slug %}" {% if active == 'resources' or active == 'resource' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-book" /></svg><span>指南</span>
+    </a>
+    <a href="{% url 'hackathon:support' hackathon.slug %}" {% if active == 'support' or active == 'support-reply' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-help" /></svg><span>支持</span>
+    </a>
+  {% else %}
+    <a href="{% url 'hackathon:home' hackathon.slug %}" {% if active == 'home' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-grid" /></svg><span>首页</span>
+    </a>
+    <a href="{% url 'hackathon:teams' hackathon.slug %}" {% if active == 'teams' or active == 'team-edit' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-users" /></svg><span>组队</span>
+    </a>
+    <a href="{% url 'hackathon:project' hackathon.slug %}" {% if active == 'project' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-folder" /></svg><span>作品</span>
+    </a>
+    <a href="{% url 'hackathon:register' hackathon.slug %}" {% if active == 'register' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-badge" /></svg><span>我的</span>
+    </a>
+  {% endif %}
+  <button type="button" data-nav-toggle aria-controls="sidebar" aria-expanded="false" aria-label="展开全部导航">
+    <svg aria-hidden="true"><use href="#i-grid" /></svg><span>更多</span>
+  </button>
+</nav>

@@ -83,3 +83,5 @@ app/eventyay/data
 # Local plugins directory for development
 /plugins
 
+# Local PostgreSQL/Redis runtime, data, and downloaded service packages
+/.local-services/

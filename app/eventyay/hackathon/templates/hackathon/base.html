@@ -1,0 +1,212 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f6f7fb">
+    <title>
+      {% block title %}
+        {{ hackathon.name }}
+        · Hackathon Hub
+      {% endblock %}
+    </title>
+    <link rel="stylesheet" href="{% static 'hackathon/hub.css' %}">
+    <link rel="stylesheet" href="{% static 'hackathon/responsive.css' %}">
+    <script type="module" src="{% static 'hackathon/hub.js' %}">
+    </script>
+    <script type="module" src="{% static 'hackathon/upload.js' %}"></script>
+    <script type="module" src="{% static 'hackathon/judging.js' %}"></script>
+    <script type="module" src="{% static 'hackathon/responsive.js' %}"></script>
+  </head>
+  <body class="{% if display %}display-mode{% endif %}">
+    {% include 'hackathon/icons.html' %}
+    <a class="skip-link" href="#main">
+      跳转至主要内容
+    </a>
+    <aside class="sidebar" id="sidebar" aria-label="主导航">
+      <button type="button" class="nav-close icon-button" data-nav-close aria-label="关闭导航">×</button>
+      <a class="brand" href="{% url 'hackathon:index' %}">
+        <span class="brand-mark">
+          e
+          <span>
+            ✳
+          </span>
+        </span>
+        <span>
+          eventyay
+          <small>
+            HACKATHON HUB
+          </small>
+        </span>
+      </a>
+      <a class="event-switch" href="{% url 'hackathon:index' %}">
+        <span class="event-avatar">
+          H
+          <span>
+            ↗
+          </span>
+        </span>
+        <span>
+          {{ hackathon.name }}
+          <small>
+            一起，把想法变成现实
+          </small>
+        </span>
+        <span class="muted">
+          ⌄
+        </span>
+      </a>
+      <div class="nav-label">
+        探索与创造
+      </div>
+      <nav>
+        {% for name, label, icon, href in navigation %}
+          <a href="{{ href }}" class="nav-item{% if active == name %} active{% endif %}" {% if active == name %}aria-current="page"{% endif %}>
+            <svg>
+              <use href="#i-{{ icon }}" />
+            </svg>
+            {{ label }}
+            {% if name == "project" %}
+              <span class="nav-dot">
+              </span>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </nav>
+      {% if staff_navigation %}
+        <div class="nav-label">
+          我的工作台
+        </div>
+        <nav>
+          {% for name, label, icon, href in staff_navigation %}
+            <a href="{{ href }}" class="nav-item{% if active == name %} active{% endif %}" {% if active == name %}aria-current="page"{% endif %}>
+              <svg>
+                <use href="#i-{{ icon }}" />
+              </svg>
+              {{ label }}
+            </a>
+          {% endfor %}
+        </nav>
+      {% endif %}
+      {% if not request.user.is_authenticated %}
+        <nav class="nav-account-links" aria-label="账户登录">
+          <a class="nav-item" href="{% url 'hackathon:student-login' hackathon.slug %}">学号登录 / 注册</a>
+          <a class="nav-item" href="{% url 'hackathon:organizer-login' hackathon.slug %}">主办方登录</a>
+        </nav>
+      {% endif %}
+      <div class="sidebar-bottom">
+        <div class="sidebar-note">
+          <svg>
+            <use href="#i-spark" />
+          </svg>
+          <strong>
+            让好想法，不止于三天。
+          </strong>
+          <p>
+            教程、队友与下一步机会，
+            <br>
+            都在这里等你。
+          </p>
+          <a href="{% url 'hackathon:resources' hackathon.slug %}?category=incubate">
+            继续你的创造之旅 ↗
+          </a>
+        </div>
+        <a class="powered" href="{% url 'presale:events.upcoming' %}">
+          Powered by
+          <strong>
+            eventyay
+          </strong>
+          <span>
+            ↗
+          </span>
+        </a>
+      </div>
+    </aside>
+    <button type="button" class="nav-backdrop" data-nav-close aria-label="关闭导航" tabindex="-1" hidden></button>
+    <div class="workspace">
+      <header class="topbar">
+        <button class="menu-toggle icon-button" data-nav-toggle type="button" aria-controls="sidebar" aria-expanded="false" aria-label="展开导航">
+          ☰
+        </button>
+        <div class="breadcrumb">
+          工作空间
+          <span>
+            /
+          </span>
+          <strong>
+            {{ hackathon.name }}
+          </strong>
+        </div>
+        <div class="topbar-actions">
+          <span class="live-indicator">
+            <i>
+            </i>
+            创意正在发生
+          </span>
+          <a class="icon-button" href="{% url 'hackathon:announcements' hackathon.slug %}" aria-label="通知公告">
+            <svg>
+              <use href="#i-bell" />
+            </svg>
+          </a>
+          {% if request.user.is_authenticated %}
+            <a class="user-chip" href="{% url 'hackathon:register' hackathon.slug %}">
+              <span class="avatar">
+                {{ request.user.fullname|default:request.user.email|slice:':1'|upper }}
+              </span>
+              <span>
+                {{ participant.name|default:request.user.fullname|default:'我的账户' }}
+                <small>
+                  {% if is_organizer %}
+                    主办方
+                  {% elif is_judge %}
+                    评委
+                  {% elif is_staff_member %}
+                    志愿者
+                  {% else %}
+                    创造者
+                  {% endif %}
+                </small>
+              </span>
+            </a>
+            <form method="post" action="{% url 'hackathon:logout' hackathon.slug %}" class="logout-form">
+              {% csrf_token %}
+              <button type="submit" class="button secondary small logout-button">退出登录</button>
+            </form>
+          {% else %}
+            <a class="organizer-login-link" href="{% url 'hackathon:organizer-login' hackathon.slug %}">主办方登录</a>
+            <a class="button small" href="{% url 'hackathon:student-login' hackathon.slug %}?next={{ request.get_full_path|urlencode }}">
+              学号登录 / 注册 ↗
+            </a>
+          {% endif %}
+        </div>
+      </header>
+      <main id="main" tabindex="-1">
+        {% for message in messages %}
+          <div class="message {{ message.tags }}" role="status">
+            {{ message }}
+          </div>
+        {% endfor %}
+        {% block content %}
+        {% endblock %}
+        <footer class="page-footer">
+          <span>
+            BUILD SOMETHING THAT MATTERS.
+          </span>
+          <span>
+            {{ hackathon.name }}
+            ·
+            {{ hackathon.event.date_from|date:'Y' }}
+            <span class="footer-dot">
+              ·
+            </span>
+            时间以
+            {{ hackathon.event.timezone }}
+            为准
+          </span>
+        </footer>
+      </main>
+    </div>
+    {% include 'hackathon/mobile_nav.html' %}
+  </body>
+</html>

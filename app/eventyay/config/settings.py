@@ -357,6 +357,7 @@ _OURS_APPS = (
     'eventyay.storage.StorageConfig',
     'eventyay.features.integrations.zoom.ZoomConfig',
     'eventyay.helpers',
+    'eventyay.hackathon.apps.HackathonConfig',
     'eventyay.mail',
     'eventyay.multidomain',
     'eventyay.person',

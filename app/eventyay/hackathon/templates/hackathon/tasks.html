@@ -1,0 +1,105 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        SMALL ACTIONS, GREAT EVENTS
+      </div>
+      <h1>
+        每一份协作，都很重要。
+      </h1>
+      <p>
+        查看岗位、操作步骤和备份负责人。开始与完成任务后，留下服务记录。
+      </p>
+    </div>
+    {% if is_organizer %}
+      <a class="button" href="{% url 'hackathon:task-new' hackathon.slug %}">
+        ＋ 安排任务
+      </a>
+    {% endif %}
+  </section>
+  <div class="message">
+    <a href="{% url 'hackathon:resources' hackathon.slug %}?category=volunteer">
+      上岗前，先读志愿者工作手册 ↗
+    </a>
+  </div>
+  <div class="card-grid">
+    {% for task in tasks %}
+      <article class="panel task-card">
+        <div class="section-heading">
+          <span class="tag {% if task.state == 'done' %}mint{% else %}lavender{% endif %}">
+            {{ task.get_state_display }}
+          </span>
+          <time>
+            {{ task.due_at|date:'m.d H:i' }}
+          </time>
+        </div>
+        <h2>
+          {{ task.title }}
+        </h2>
+        <p class="meta">
+          <svg>
+            <use href="#i-pin" />
+          </svg>
+          {{ task.location }}
+        </p>
+        <div class="article-body">
+          {{ task.description|linebreaks }}
+        </div>
+        <div class="task-owners">
+          <span>
+            负责人
+            <strong>
+              {{ task.owner.fullname|default:task.owner.email }}
+            </strong>
+          </span>
+          <span>
+            备份
+            <strong>
+              {{ task.backup.fullname|default:'未设置' }}
+            </strong>
+          </span>
+        </div>
+        <small class="muted">
+          核准志愿时长：
+          {{ task.approved_minutes }}
+          分钟
+        </small>
+        <div class="card-bottom">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="task" value="{{ task.pk }}">
+            {% if task.state == "todo" %}
+              <button class="button small" name="action" value="start">
+                我已到岗，开始任务
+              </button>
+            {% elif task.state == "doing" %}
+              <button class="button small" name="action" value="done">
+                完成任务 ✓
+              </button>
+            {% else %}
+              <span class="tag mint">
+                完成于
+                {{ task.finished_at|date:'m.d H:i' }}
+              </span>
+            {% endif %}
+          </form>
+          {% if is_organizer %}
+            <a href="{% url 'hackathon:task-edit' hackathon.slug task.pk %}">
+              编辑 / 核准 ↗
+            </a>
+          {% endif %}
+        </div>
+      </article>
+    {% empty %}
+      <div class="empty panel">
+        <h2>
+          目前没有分配给你的任务
+        </h2>
+        <p>
+          先熟悉工作手册，等待主办方安排岗位。
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

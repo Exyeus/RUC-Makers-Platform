@@ -1,0 +1,86 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        MATERIAL REVIEW ·
+        {{ project.code }}
+      </div>
+      <h1>
+        {{ project.title }}
+      </h1>
+      <p>
+        {{ project.team.name }}
+        ·
+        {{ project.summary }}
+      </p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:project-detail' hackathon.slug project.pk %}">
+      完整作品 ↗
+    </a>
+  </section>
+  <div class="two-column">
+    <form method="post" class="panel">
+      {% csrf_token %}
+      {% include 'hackathon/form_fields.html' %}
+      <button class="button">
+        保存检查结果 ↗
+      </button>
+    </form>
+    <aside>
+      <section class="panel">
+        <h2>
+          材料与演示
+        </h2>
+        <p>
+          {{ project.demo_instructions|linebreaksbr }}
+        </p>
+        <div class="link-list">
+          {% if project.demo_url %}
+            <a href="{{ project.demo_url }}" target="_blank" rel="noopener noreferrer">
+              运行 Demo ↗
+            </a>
+          {% endif %}
+          {% if project.backup_url %}
+            <a href="{{ project.backup_url }}" target="_blank" rel="noopener noreferrer">
+              备用演示 ↗
+            </a>
+          {% endif %}
+          {% for asset in assets %}
+            <a href="{% url 'hackathon:download' hackathon.slug asset.pk %}">
+              {{ asset.get_kind_display }}
+              ·
+              {{ asset.filename }}
+              ↓
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="panel">
+        <h2>
+          现场检查顺序
+        </h2>
+        <a href="{% url 'hackathon:intake' hackathon.slug project.team.pk %}">
+          处理提交故障 / 异常补录 ↗
+        </a>
+        <ol class="check-list">
+          <li>
+            从现场电脑打开 Demo 和代码仓库。
+          </li>
+          <li>
+            检查电子海报是否清晰，确认作品实际完成度。
+          </li>
+          <li>
+            投屏播放文稿，切换视频并测试声音。
+          </li>
+          <li>
+            确认翻页笔、转接线与备用录屏。
+          </li>
+          <li>
+            通知队伍检查结果，安排候场。
+          </li>
+        </ol>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

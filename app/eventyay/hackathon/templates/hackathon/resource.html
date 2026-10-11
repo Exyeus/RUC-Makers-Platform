@@ -1,0 +1,49 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <a class="back-link" href="{% url 'hackathon:resources' hackathon.slug %}">
+    ← 回到学习与指南
+  </a>
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        {{ resource.get_category_display }}
+        ·
+        {{ resource.minutes }}
+        MIN READ
+      </div>
+      <h1>
+        {{ resource.title }}
+      </h1>
+      <p>
+        {{ resource.summary }}
+      </p>
+    </div>
+  </section>
+  <article class="panel article">
+    <div class="article-body">
+      {{ resource.body|linebreaks }}
+    </div>
+    {% if resource.url %}
+      <a class="button secondary" href="{{ resource.url }}" target="_blank" rel="noopener noreferrer">
+        延伸阅读 ↗
+      </a>
+    {% endif %}
+    <hr>
+    {% if request.user.is_authenticated %}
+      <form method="post">
+        {% csrf_token %}
+        <button class="button" {% if read %}disabled{% endif %}>
+          {% if read %}
+            ✓ 已完成阅读
+          {% else %}
+            标记为已读 ✓
+          {% endif %}
+        </button>
+      </form>
+    {% else %}
+      <a class="button" href="{% url 'hackathon:student-login' hackathon.slug %}?next={{ request.path|urlencode }}">
+        登录后记录学习进度
+      </a>
+    {% endif %}
+  </article>
+{% endblock %}

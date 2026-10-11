@@ -1,0 +1,25 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div><div class="eyebrow">SCORING RULES</div><h1>本届算分规则</h1><p>四项分数均为 0–10 分，按权重换算为百分制。开始录入评分后规则锁定。</p></div>
+    <a class="button secondary" href="{% url 'hackathon:results' hackathon.slug %}">查看成绩汇总</a>
+  </section>
+  <div class="two-column">
+    <form method="post" class="panel" data-once-form>
+      {% csrf_token %}
+      {% if locked %}<p class="message" role="status">已开始评分或已公布成绩，算分规则已锁定。</p>{% endif %}
+      {% include 'hackathon/form_fields.html' %}
+      <div class="actions">
+        <button type="submit" class="button" {% if locked %}disabled{% endif %}>保存算分规则</button>
+        <button type="submit" name="action" value="defaults" class="button secondary" formnovalidate {% if locked %}disabled{% endif %}>恢复默认规则</button>
+      </div>
+    </form>
+    <aside class="panel article">
+      <h2>当前规则</h2><p>{{ rule_description }}</p>
+      <h3>默认规则</h3><p>创新性 30%、完成度与实机演示 40%、实际价值 20%、表达 10%；取全部有效评委总分的平均值。</p>
+      <h3>去极值如何计算</h3><p>先计算每位评委的加权总分，再按总分各去掉指定数量的最高分和最低分，取剩余评分的平均值；并非逐项去极值。同分时也只去掉指定份数。</p>
+      <p>例如各去掉 1 份，至少需要 3 名无回避关系的有效评委。评分人数不足时不出最终分、不排名，也不能公布成绩。</p>
+      <p>草稿、已移除或停用的评委、队伍成员自己的评分不计入结果；提名保留所有有效评委的意见，不随去极值删除。</p>
+    </aside>
+  </div>
+{% endblock %}

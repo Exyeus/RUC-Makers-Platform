@@ -1,0 +1,126 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        BEYOND THE FINISH LINE
+      </div>
+      <h1>
+        {% if is_organizer %}
+          每一份评分，都有据可循。
+        {% else %}
+          为每一次创造，喝彩。
+        {% endif %}
+      </h1>
+      <p>
+        {% if hackathon.results_published %}
+          本届评审结果已公布。同分作品并列，具体奖项由组委会确认。
+        {% else %}
+          评分实时汇总；全部有效评委完成评分后，主办方可以在活动设置公布。
+        {% endif %}
+      </p>
+    </div>
+    {% if is_organizer %}
+      <a class="button secondary" href="{% url 'hackathon:export' hackathon.slug 'results' %}">
+        导出成绩 ↓
+      </a>
+    {% endif %}
+  </section>
+  {% if rule_description %}<p class="panel">{{ rule_description }}</p>{% endif %}
+  {% if unpublished %}
+    <div class="empty panel">
+      <span class="empty-symbol">
+        ✳
+      </span>
+      <h2>
+        评审仍在进行中
+      </h2>
+      <p>
+        结果公布后，团队可以在“我的作品”查看评委建议。
+      </p>
+    </div>
+  {% else %}
+    <div class="panel table-panel">
+      <table>
+        <thead>
+          <tr>
+            <th>
+              排名
+            </th>
+            <th>
+              作品 / 队伍
+            </th>
+            <th>
+              最终得分
+            </th>
+            <th>
+              已评 / 应评
+            </th>
+            <th>
+              突破提名
+            </th>
+            <th>
+              创意提名
+            </th>
+            <th>
+              奖项 / 衔接
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>
+                <strong class="rank">
+                  {{ row.rank|default:'—' }}
+                </strong>
+              </td>
+              <td>
+                <strong>
+                  {{ row.project.title }}
+                </strong>
+                <small>
+                  {{ row.project.team.name }}
+                  ·
+                  {{ row.project.code }}
+                </small>
+              </td>
+              <td>
+                <strong>
+                  {{ row.average|default_if_none:'—' }}
+                </strong>
+                <small>采用 {{ row.counted }} 份{% if row.trimmed %} · 去极值 {{ row.trimmed }} 份{% endif %}</small>
+                {% if row.count and not row.counted %}<small class="warning-text">有效人数不足，无法去极值</small>{% endif %}
+                {% if not row.complete %}
+                  <small class="warning-text">
+                    待完成 · 暂不排名
+                  </small>
+                {% endif %}
+              </td>
+              <td>
+                {{ row.count }}
+                /
+                {{ row.expected }}
+              </td>
+              <td>
+                {{ row.breakthrough }}
+              </td>
+              <td>
+                {{ row.creativity }}
+              </td>
+              <td>
+                {{ row.project.award|default:'待组委会确认' }}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="empty">
+                尚无可统计的作品。
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endblock %}

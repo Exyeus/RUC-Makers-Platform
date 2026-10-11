@@ -1,0 +1,111 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        THE JOURNEY, TOGETHER
+      </div>
+      <h1>
+        给创造，留出时间。
+      </h1>
+      <p>
+        从见面到路演，一份清晰的活动时间线。无法到场的时段可以在参赛信息中登记。
+      </p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:register' hackathon.slug %}">
+      登记特殊时段 ↗
+    </a>
+  </section>
+  <div class="deadline-strip">
+    <div>
+      <span>
+        报名截止
+      </span>
+      <strong>
+        {{ hackathon.registration_deadline|date:'m.d H:i' }}
+      </strong>
+    </div>
+    <div>
+      <span>
+        队伍冻结
+      </span>
+      <strong>
+        {{ hackathon.team_freeze_at|date:'m.d H:i' }}
+      </strong>
+    </div>
+    <div>
+      <span>
+        建议提交
+      </span>
+      <strong>
+        {{ hackathon.soft_deadline|date:'m.d H:i' }}
+      </strong>
+    </div>
+    <div>
+      <span>
+        提交截止
+      </span>
+      <strong>
+        {{ hackathon.submission_deadline|date:'m.d H:i' }}
+      </strong>
+    </div>
+    <div>
+      <span>
+        材料冻结
+      </span>
+      <strong>
+        {{ hackathon.freeze_at|date:'m.d H:i' }}
+      </strong>
+    </div>
+  </div>
+  <div class="schedule-list">
+    {% for item in items %}
+      {% ifchanged item.starts_at.date %}
+        <h2 class="day-heading">
+          {{ item.starts_at|date:'m 月 d 日 · l' }}
+        </h2>
+      {% endifchanged %}
+      <article class="schedule-row{% if item.starts_at <= now and item.ends_at >= now %} happening{% endif %}">
+        <div class="schedule-time">
+          {{ item.starts_at|date:'H:i' }}
+          <small>
+            {{ item.ends_at|date:'H:i' }}
+          </small>
+        </div>
+        <div class="panel">
+          <div class="section-heading">
+            <span class="tag">
+              {{ item.kind }}
+            </span>
+            {% if item.starts_at <= now and item.ends_at >= now %}
+              <span class="tag mint">
+                正在进行
+              </span>
+            {% endif %}
+          </div>
+          <h2>
+            {{ item.title }}
+          </h2>
+          <p>
+            {{ item.description|linebreaksbr }}
+          </p>
+          <span class="meta">
+            <svg>
+              <use href="#i-pin" />
+            </svg>
+            {{ item.location }}
+          </span>
+        </div>
+      </article>
+    {% empty %}
+      <div class="empty panel">
+        <h2>
+          日程正在准备中
+        </h2>
+        <p>
+          以主办方在这里发布的日程为准。
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

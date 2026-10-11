@@ -3,7 +3,7 @@ import json
 import logging
 import time
 from typing import cast
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 import webauthn
 from django.conf import settings
@@ -24,7 +24,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.http import HttpRequest
 from django.shortcuts import redirect, render
-from django.urls import reverse
+from django.urls import Resolver404, resolve, reverse
 from django.utils.functional import cached_property
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
@@ -121,6 +121,22 @@ def login(request):
     Render and process a most basic login form. Takes an URL as GET
     parameter "next" for redirection after successful login
     """
+    next_url = request.GET.get('next', '')
+    if (
+        request.method == 'GET'
+        and next_url.startswith('/hackathon/')
+        and url_has_allowed_host_and_scheme(next_url, allowed_hosts=None)
+    ):
+        try:
+            target = resolve(urlparse(next_url).path)
+        except Resolver404:
+            pass
+        else:
+            if 'hackathon' in target.namespaces and target.kwargs.get('hackathon_slug'):
+                login_url = reverse(
+                    'hackathon:organizer-login', kwargs={'hackathon_slug': target.kwargs['hackathon_slug']}
+                )
+                return redirect(login_url + '?' + urlencode({'next': next_url}))
     ctx = {}
     backenddict = get_auth_backends()
     backends = sorted(backenddict.values(), key=lambda b: (b.identifier != 'native', b.verbose_name))

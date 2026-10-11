@@ -1,0 +1,64 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        STAY IN THE LOOP
+      </div>
+      <h1>
+        重要的事，都在这里。
+      </h1>
+      <p>
+        一处获取所有活动更新，不再翻找聊天记录。
+      </p>
+    </div>
+    {% if is_organizer %}
+      <a class="button" href="{% url 'hackathon:content-new' hackathon.slug 'announcement' %}">
+        ＋ 发布通知
+      </a>
+    {% endif %}
+  </section>
+  <div class="reading-width">
+    {% for notice in notices %}
+      <article class="panel announcement" id="notice-{{ notice.pk }}">
+        <div class="section-heading">
+          <span>
+            {% if notice.pinned %}
+              <span class="tag orange">
+                置顶通知
+              </span>
+            {% endif %}
+            {% if notice.audience == "staff" %}
+              <span class="tag lavender">
+                工作人员
+              </span>
+            {% endif %}
+          </span>
+          <time class="muted">
+            {{ notice.created|date:'m 月 d 日 H:i' }}
+          </time>
+        </div>
+        <h2>
+          {{ notice.title }}
+        </h2>
+        <div class="article-body">
+          {{ notice.body|linebreaks }}
+        </div>
+        {% if is_organizer %}
+          <a href="{% url 'hackathon:content-edit' hackathon.slug 'announcement' notice.pk %}">
+            编辑通知 ↗
+          </a>
+        {% endif %}
+      </article>
+    {% empty %}
+      <div class="empty panel">
+        <h2>
+          暂时没有新通知
+        </h2>
+        <p>
+          有新的安排时，我们会在这里更新。
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

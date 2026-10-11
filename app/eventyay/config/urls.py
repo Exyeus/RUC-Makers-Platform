@@ -63,6 +63,7 @@ _paypal_webhook_aliases = plugin_webhook_compat_paths('eventyay_paypal', '_paypa
 
 
 base_patterns = [
+    path('hackathon/', include('eventyay.hackathon.urls')),
     path(
         'download/<id>/',
         cachedfiles.DownloadView.as_view(),

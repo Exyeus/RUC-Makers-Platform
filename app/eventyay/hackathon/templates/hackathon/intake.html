@@ -1,0 +1,66 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        AUDITED EXCEPTION ·
+        {{ team.code }}
+      </div>
+      <h1>
+        作品异常补录 ·
+        {{ team.name }}
+      </h1>
+      <p>
+        用于核实过的提交故障。每次保存都记录原因与操作人；材料冻结
+        {{ hackathon.freeze_at|date:'m.d H:i' }}
+        后禁止补录。
+      </p>
+    </div>
+  </section>
+  <div class="message warning">
+    先核查支持工单与材料原始编辑时间。补录会使已通过的作品重新进入检查状态，需要再次正式提交并审核。
+  </div>
+  <div class="two-column">
+    <form method="post" class="panel">
+      {% csrf_token %}
+      <h2>
+        作品信息
+      </h2>
+      {% include 'hackathon/form_fields.html' %}
+      <div class="form-actions">
+        <button class="button secondary" name="action" value="save">
+          保存补录草稿
+        </button>
+        <button class="button" name="action" value="submit">
+          确认补录提交 ↗
+        </button>
+      </div>
+    </form>
+    <section class="panel">
+      <h2>
+        材料补录
+      </h2>
+      {% if project %}
+        {% for asset in project.assets.all %}
+          <a class="file-row" href="{% url 'hackathon:download' hackathon.slug asset.pk %}">
+            {{ asset.get_kind_display }}
+            ·
+            {{ asset.filename }}
+            ↓
+          </a>
+        {% endfor %}
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% include 'hackathon/form_fields.html' with form=asset_form %}
+          <button class="button secondary" name="action" value="upload">
+            补录 / 替换材料 ↑
+          </button>
+        </form>
+      {% else %}
+        <p>
+          先保存作品草稿，再上传材料。
+        </p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div><div class="eyebrow">LIVE JUDGING</div><h1>现场评委工作台</h1><p>{{ rule_description }}</p></div>
+    <a class="button secondary" href="{% url 'hackathon:judging' hackathon.slug %}">全部队伍与评分</a>
+  </section>
+  {% include 'hackathon/judge_sync.html' %}
+  <section class="panel empty">
+    {% if current %}
+      <h2>当前队伍需回避或尚未通过材料审核</h2>
+      <p>你仍可回看其他队伍。下一支可评审队伍开始路演时，本页会自动进入评分。</p>
+    {% else %}
+      <h2>等候主持人开始路演</h2>
+      <p>本页会自动跟随现场，也可先回看已审核的作品。</p>
+    {% endif %}
+    <a class="button" href="{% url 'hackathon:judging' hackathon.slug %}">回看其他队伍 ↗</a>
+  </section>
+{% endblock %}

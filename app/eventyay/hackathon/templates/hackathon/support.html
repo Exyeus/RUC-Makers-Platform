@@ -1,0 +1,95 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        YOU DON'T HAVE TO FIGURE IT OUT ALONE
+      </div>
+      <h1>
+        把卡住的地方，告诉我们。
+      </h1>
+      <p>
+        技术支持、提交异常、时段调整，都能在这里跟踪进度。
+      </p>
+    </div>
+  </section>
+  {% if hackathon.contact %}
+    <div class="message">
+      紧急现场问题请联系：
+      {{ hackathon.contact }}
+    </div>
+  {% endif %}
+  <div class="two-column">
+    <section>
+      <h2>
+        {% if is_organizer %}
+          本届支持工单
+        {% else %}
+          我的工单
+        {% endif %}
+      </h2>
+      {% for ticket in tickets %}
+        <article class="panel">
+          <div class="section-heading">
+            <span class="eyebrow">
+              #
+              {{ ticket.pk }}
+              ·
+              {{ ticket.get_category_display }}
+            </span>
+            <span class="tag {% if ticket.state == 'resolved' %}mint{% else %}orange{% endif %}">
+              {{ ticket.get_state_display }}
+            </span>
+          </div>
+          <h3>
+            {{ ticket.subject }}
+          </h3>
+          <p>
+            {{ ticket.body|linebreaksbr }}
+          </p>
+          <small class="muted">
+            {{ ticket.created|date:'m.d H:i' }}
+            {% if is_organizer %}
+              ·
+              {{ ticket.user.email }}
+            {% endif %}
+          </small>
+          {% if ticket.reply %}
+            <div class="ticket-reply">
+              <strong>
+                组委会回复
+              </strong>
+              <p>
+                {{ ticket.reply|linebreaksbr }}
+              </p>
+            </div>
+          {% endif %}
+          {% if is_organizer %}
+            <a href="{% url 'hackathon:support-reply' hackathon.slug ticket.pk %}">
+              处理工单 ↗
+            </a>
+          {% endif %}
+        </article>
+      {% empty %}
+        <div class="empty panel">
+          <h3>
+            暂时没有工单
+          </h3>
+          <p>
+            遇到问题时，提供发生时间和错误信息，有助于更快处理。
+          </p>
+        </div>
+      {% endfor %}
+    </section>
+    <form method="post" class="panel">
+      {% csrf_token %}
+      <h2>
+        提交一个问题
+      </h2>
+      {% include 'hackathon/form_fields.html' %}
+      <button class="button">
+        提交支持请求 ↗
+      </button>
+    </form>
+  </div>
+{% endblock %}

@@ -735,7 +735,7 @@ class User(
         """
         key_salt = 'eventyay.base.models.User.get_session_auth_hash'
         payload = self.password
-        payload += self.email
+        payload += self.email or ''
         payload += self.session_token
         return salted_hmac(key_salt, payload).hexdigest()
 

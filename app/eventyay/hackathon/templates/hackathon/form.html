@@ -1,0 +1,33 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        HACKATHON WORKSPACE
+      </div>
+      <h1>
+        {{ title }}
+      </h1>
+      {% if subtitle %}
+        <p class="preserve-lines">
+          {{ subtitle }}
+        </p>
+      {% endif %}
+    </div>
+  </section>
+  <form method="post" class="panel form-panel">
+    {% csrf_token %}
+    {% include 'hackathon/form_fields.html' %}
+    <div class="form-actions">
+      <button type="submit" class="button">
+        {{ button|default:'保存' }}
+        <span>
+          ↗
+        </span>
+      </button>
+      <a class="button secondary" href="{% url 'hackathon:home' hackathon.slug %}">
+        回到总览
+      </a>
+    </div>
+  </form>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        SHOWTIME, UNDER CONTROL
+      </div>
+      <h1>
+        把舞台，交给作品。
+      </h1>
+      <p>
+        先检查、再就绪、再开始。倒计时自动进入评分换场，调度员确认后切换下一队。
+      </p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:stage' hackathon.slug %}?display=1" target="_blank" rel="noopener">
+      打开大屏 ↗
+    </a>
+  </section>
+  {% include 'hackathon/stage_timer.html' %}
+  <div class="actions stage-toolbar">
+    <form method="post">
+      {% csrf_token %}
+      <button name="action" value="generate" class="button">
+        ＋ 将新通过作品加入队列
+      </button>
+    </form>
+    <a class="button secondary" href="{% url 'hackathon:bundle' hackathon.slug %}">
+      下载所有材料 ↓
+    </a>
+  </div>
+  <div class="panel table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th>
+            顺序
+          </th>
+          <th>
+            作品 / 队伍
+          </th>
+          <th>
+            状态 / 调整记录
+          </th>
+          <th>
+            调度操作
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for slot in slots %}
+          <tr>
+            <td>
+              <strong class="queue-number">
+                {{ slot.position|stringformat:'02d' }}
+              </strong>
+            </td>
+            <td>
+              <strong>
+                {{ slot.project.title }}
+              </strong>
+              <small>
+                {{ slot.project.team.name }}
+                ·
+                {{ slot.project.team.code }}
+              </small>
+              <a href="{% url 'hackathon:review' hackathon.slug slot.project.pk %}">
+                检查材料与设备 ↗
+              </a>
+            </td>
+            <td>
+              <span class="tag state-{{ slot.state }}">
+                {{ slot.get_state_display }}
+              </span>
+              <small>
+                {{ slot.note }}
+              </small>
+            </td>
+            <td>
+              <form method="post" class="actions compact-actions">
+                {% csrf_token %}
+                <input type="hidden" name="slot" value="{{ slot.pk }}">
+                {% if slot.state == "live" %}
+                  {% if slot.paused_remaining != None %}
+                    <button class="button secondary small" name="action" value="resume">
+                      继续
+                    </button>
+                  {% else %}
+                    <button class="button secondary small" name="action" value="pause">
+                      暂停
+                    </button>
+                  {% endif %}
+                  <button class="button small" name="action" value="finish" data-confirm="确认结束本队展示并关闭本地播放助手打开的文稿？">
+                    结束本队
+                  </button>
+                {% elif slot.state != "done" %}
+                  {% if slot.state == "ready" %}
+                    <button class="button small" name="action" value="start">
+                      开始展示 ▶
+                    </button>
+                  {% else %}
+                    <button class="button secondary small" name="action" value="ready">
+                      标为就绪 ✓
+                    </button>
+                  {% endif %}
+                  <button class="button secondary small" name="action" value="up" aria-label="上移 {{ slot.project.team.name }}">
+                    ↑
+                  </button>
+                  <button class="button secondary small" name="action" value="down" aria-label="下移 {{ slot.project.team.name }}">
+                    ↓
+                  </button>
+                {% endif %}
+              </form>
+              {% if slot.state != "live" and slot.state != "done" %}
+                <details>
+                  <summary class="text-link">
+                    顺延 / 特殊安排
+                  </summary>
+                  <form method="post" class="inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="slot" value="{{ slot.pk }}">
+                    <label class="sr-only" for="note-{{ slot.pk }}">
+                      顺延原因
+                    </label>
+                    <input id="note-{{ slot.pk }}" name="note" required maxlength="250" placeholder="填写顺延原因">
+                    <button class="button secondary small" name="action" value="defer">
+                      移至队尾
+                    </button>
+                  </form>
+                </details>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="empty">
+              先检查作品，再将通过审核的作品加入路演队列。
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <section class="panel">
+    <div class="section-heading">
+      <div>
+        <h2>
+          现场播放助手
+        </h2>
+        <p>
+          下载、校验并预加载材料，在开始路演时打开文稿，到点关闭它自己启动的播放进程。
+        </p>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <button name="action" value="token" class="button secondary">
+          生成 12 小时连接令牌
+        </button>
+      </form>
+    </div>
+    {% if token %}
+      <div class="message warning">
+        令牌只显示这一次，请仅复制到现场受信任电脑。新令牌已使旧令牌失效。
+      </div>
+      <code class="token-block">
+        {{ token }}
+      </code>
+      <p>
+        现场助手地址：
+        <code>
+          {{ station_url }}
+        </code>
+      </p>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <button class="text-button danger" name="action" value="revoke" data-confirm="确认撤销当前播放助手的访问权限？">
+        撤销播放助手访问
+      </button>
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">YOUR NEXT TEAM STARTS HERE</div>
+      <h1>{{ title }}</h1>
+      <p>无需邮箱，用学号和你设置的密码进入黑客松。</p>
+    </div>
+  </section>
+  <form method="post" class="panel form-panel" data-once-form>
+    {% csrf_token %}
+    {% include 'hackathon/form_fields.html' %}
+    {% if signup %}<p class="muted">请使用自己的真实学号。本账户用于本站，不会获取或验证校园系统密码。</p>{% endif %}
+    <div class="form-actions">
+      <button type="submit" class="button">{% if signup %}注册并完善资料{% else %}登录{% endif %} ↗</button>
+      <a class="button secondary" href="{{ other_url }}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">{% if signup %}已有学号账户，去登录{% else %}首次参加，用学号注册{% endif %}</a>
+    </div>
+    <p><a href="{{ email_login }}">已有邮箱账户 / 主办方登录 ↗</a></p>
+  </form>
+{% endblock %}

@@ -1,0 +1,495 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        YOUR NEXT BIG IDEA STARTS HERE
+      </div>
+      <h1>
+        {% if participant %}
+          嗨，
+          {{ participant.name }}
+          。
+        {% else %}
+          你好，创造者。
+        {% endif %}
+        <span class="wave">
+          ✳
+        </span>
+      </h1>
+      <p>
+        从第一个想法，到第一次 Demo。每一步，都在这里。
+      </p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:schedule' hackathon.slug %}">
+      <svg>
+        <use href="#i-calendar" />
+      </svg>
+      查看活动日程
+    </a>
+  </section>
+  <section class="hero">
+    <div class="hero-copy">
+      <div class="hero-kicker">
+        <span class="pill">
+          {% if hackathon.submissions_open %}
+            正在集结
+          {% else %}
+            创造进行时
+          {% endif %}
+        </span>
+        <span>
+          {{ hackathon.event.date_from|date:'Y' }}
+          · HACKATHON
+        </span>
+      </div>
+      <h2>
+        {{ hackathon.tagline }}
+      </h2>
+      <p>
+        {{ hackathon.description|default:'找到志同道合的伙伴，用代码回应真实的问题。带上好奇心，我们一起把想法做出来。'|truncatechars:140 }}
+      </p>
+      <div class="hero-meta">
+        <span>
+          <svg>
+            <use href="#i-calendar" />
+          </svg>
+          {{ hackathon.event.date_from|date:'m.d' }}
+          —
+          {{ hackathon.event.date_to|date:'m.d' }}
+        </span>
+        <span>
+          <svg>
+            <use href="#i-pin" />
+          </svg>
+          {{ hackathon.venue|default:'活动场地待公布' }}
+        </span>
+      </div>
+      <div class="hero-actions">
+        <a class="button dark" href="{{ journey_url }}">
+          {% if participant %}
+            继续我的参赛旅程
+          {% else %}
+            加入这场创造
+          {% endif %}
+          <svg>
+            <use href="#i-arrow" />
+          </svg>
+        </a>
+        <a href="{% url 'hackathon:resources' hackathon.slug %}?category=guide">
+          先读参赛指南 ↗
+        </a>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <span class="art-label">
+        IDEA → BUILD → DEMO
+      </span>
+      <div class="orbit orbit-one">
+      </div>
+      <div class="orbit orbit-two">
+      </div>
+      <div class="art-star star-one">
+        ✳
+      </div>
+      <div class="art-star star-two">
+        ✦
+      </div>
+      <div class="code-window">
+        <div class="window-bar">
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <span>
+            hello, possibility.
+          </span>
+        </div>
+        <div class="window-code">
+          <span class="code-gray">
+            01
+          </span>
+          <span class="code-purple">
+            const
+          </span>
+          idea =
+          <span class="code-green">
+            'what if?'
+          </span>
+          ;
+          <br>
+          <span class="code-gray">
+            02
+          </span>
+          <br>
+          <span class="code-gray">
+            03
+          </span>
+          <span class="code-purple">
+            while
+          </span>
+          (curiosity) {
+          <br>
+          <span class="code-gray">
+            04
+          </span>
+          &nbsp; build(idea);
+          <br>
+          <span class="code-gray">
+            05
+          </span>
+          &nbsp;
+          <span class="code-green">
+            makeItReal
+          </span>
+          ();
+          <br>
+          <span class="code-gray">
+            06
+          </span>
+          }
+        </div>
+        <div class="terminal">
+          <span>
+            ❯
+          </span>
+          your next chapter starts here
+          <span class="cursor">
+            ▌
+          </span>
+        </div>
+      </div>
+      <div class="art-tag">
+        <svg>
+          <use href="#i-code" />
+        </svg>
+        <span>
+          LESS TALK.
+          <strong>
+            MORE BUILD.
+          </strong>
+        </span>
+        ↗
+      </div>
+      <span class="art-coordinate">
+        CREATE / COLLABORATE / REPEAT
+      </span>
+    </div>
+  </section>
+  <section class="metrics" aria-label="活动数据">
+    <div class="metric">
+      <span class="metric-icon lavender">
+        <svg>
+          <use href="#i-users" />
+        </svg>
+      </span>
+      <div>
+        <span>
+          已集结的创造者
+        </span>
+        <strong>
+          {{ participant_count }}
+          <small>
+            人
+          </small>
+        </strong>
+      </div>
+    </div>
+    <div class="metric">
+      <span class="metric-icon blue">
+        <svg>
+          <use href="#i-code" />
+        </svg>
+      </span>
+      <div>
+        <span>
+          正在创造的队伍
+        </span>
+        <strong>
+          {{ team_count }}
+          <small>
+            支
+          </small>
+        </strong>
+      </div>
+    </div>
+    <div class="metric">
+      <span class="metric-icon mint">
+        <svg>
+          <use href="#i-folder" />
+        </svg>
+      </span>
+      <div>
+        <span>
+          已提交的作品
+        </span>
+        <strong>
+          {{ project_count }}
+          <small>
+            个
+          </small>
+        </strong>
+      </div>
+    </div>
+    <div class="metric deadline">
+      <span class="metric-icon peach">
+        <svg>
+          <use href="#i-clock" />
+        </svg>
+      </span>
+      <div>
+        <span>
+          作品提交截止
+        </span>
+        <strong>
+          {{ hackathon.submission_deadline|date:'m.d' }}
+          <small>
+            {{ hackathon.submission_deadline|date:'H:i' }}
+          </small>
+        </strong>
+      </div>
+    </div>
+  </section>
+  <div class="dashboard-grid">
+    <div class="main-column">
+      <section class="panel journey">
+        <div class="section-heading">
+          <h2>
+            <span class="section-icon">
+              ↗
+            </span>
+            我的参赛旅程
+          </h2>
+          <span class="muted">
+            已完成
+            {{ progress }}
+            %
+          </span>
+        </div>
+        <progress value="{{ progress }}" max="100" aria-label="参赛准备进度">
+          {{ progress }}
+          %
+        </progress>
+        <div class="journey-list">
+          {% for item in checklist %}
+            <a class="journey-item{% if item.done %} complete{% endif %}" href="{{ item.url }}">
+              <span class="step-number">
+                {% if item.done %}
+                  <svg>
+                    <use href="#i-check" />
+                  </svg>
+                {% else %}
+                  {{ forloop.counter|stringformat:'02d' }}
+                {% endif %}
+              </span>
+              <span>
+                <strong>
+                  {{ item.title }}
+                </strong>
+                <small>
+                  {{ item.detail }}
+                </small>
+              </span>
+              <span class="step-status">
+                {% if item.done %}
+                  已完成
+                {% else %}
+                  去完成
+                  <span>
+                    ↗
+                  </span>
+                {% endif %}
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+      <section>
+        <div class="section-heading outside">
+          <div>
+            <h2>
+              选择一个方向，开始创造
+            </h2>
+            <p>
+              不同的起点，一样的无限可能。
+            </p>
+          </div>
+          <a href="{% url 'hackathon:teams' hackathon.slug %}">
+            寻找队友 ↗
+          </a>
+        </div>
+        <div class="track-grid">
+          {% for track in tracks %}
+            <a class="track-card track-{{ forloop.counter0|divisibleby:2|yesno:'purple,green' }}" href="{% url 'hackathon:teams' hackathon.slug %}?track={{ track.pk }}">
+              <div class="track-top">
+                <span class="track-symbol">
+                  {% cycle '✳' '⌘' '↗' '◇' %}
+                </span>
+                <span>
+                  0
+                  {{ forloop.counter }}
+                  / TRACK
+                </span>
+              </div>
+              <h3>
+                {{ track.name }}
+              </h3>
+              <p>
+                {{ track.description|truncatechars:65 }}
+              </p>
+              <span class="track-link">
+                探索这个赛道
+                <span>
+                  ↗
+                </span>
+              </span>
+            </a>
+          {% empty %}
+            <div class="empty compact">
+              赛道即将公布，先去认识未来的队友。
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+      <section>
+        <div class="section-heading outside">
+          <div>
+            <h2>
+              给创造力，充一点电
+            </h2>
+            <p>
+              从零起步也没关系，我们准备好了。
+            </p>
+          </div>
+          <a href="{% url 'hackathon:resources' hackathon.slug %}">
+            全部教程 ↗
+          </a>
+        </div>
+        <div class="learning-grid">
+          {% for resource in featured_resources %}
+            <a class="learning-card" href="{% url 'hackathon:resource' hackathon.slug resource.pk %}">
+              <span class="learning-cover cover-{{ forloop.counter }}">
+                <span>
+                  {% cycle '&lt;/&gt;' '⌘ G' '▶' %}
+                </span>
+                <small>
+                  {{ resource.get_category_display }}
+                </small>
+              </span>
+              <div>
+                <span class="eyebrow">
+                  {{ resource.minutes }}
+                  MIN READ
+                  {% if resource.required %}
+                    · 必读
+                  {% endif %}
+                </span>
+                <h3>
+                  {{ resource.title }}
+                </h3>
+                <p>
+                  {{ resource.summary|truncatechars:50 }}
+                </p>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+    <aside class="right-column" aria-label="活动动态">
+      <section class="panel">
+        <div class="section-heading">
+          <h2>
+            最新通知
+            <span class="little-dot">
+            </span>
+          </h2>
+          <a href="{% url 'hackathon:announcements' hackathon.slug %}" aria-label="查看全部通知">
+            ↗
+          </a>
+        </div>
+        <div class="notice-list">
+          {% for notice in notices %}
+            <a href="{% url 'hackathon:announcements' hackathon.slug %}#notice-{{ notice.pk }}" class="notice">
+              <div>
+                {% if notice.pinned %}
+                  <span class="tag orange">
+                    置顶
+                  </span>
+                {% endif %}
+                <time>
+                  {{ notice.created|date:'m.d' }}
+                </time>
+              </div>
+              <h3>
+                {{ notice.title }}
+              </h3>
+              <p>
+                {{ notice.body|truncatechars:66 }}
+              </p>
+            </a>
+          {% empty %}
+            <p class="muted">
+              还没有通知，活动更新会集中出现在这里。
+            </p>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="panel">
+        <div class="section-heading">
+          <h2>
+            接下来
+          </h2>
+          <a href="{% url 'hackathon:schedule' hackathon.slug %}">
+            完整日程 ↗
+          </a>
+        </div>
+        <div class="mini-timeline">
+          {% for item in upcoming %}
+            <div class="timeline-item">
+              <span class="timeline-dot">
+              </span>
+              <time>
+                {{ item.starts_at|date:'m.d · H:i' }}
+              </time>
+              <h3>
+                {{ item.title }}
+              </h3>
+              <p>
+                <svg>
+                  <use href="#i-pin" />
+                </svg>
+                {{ item.location }}
+              </p>
+            </div>
+          {% empty %}
+            <p class="muted">
+              日程待公布。你可以先阅读参赛指南。
+            </p>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="help-card">
+        <div class="help-card-icon">
+          ☻
+        </div>
+        <h3>
+          卡住了？我们在。
+        </h3>
+        <p>
+          无论是组队、部署，还是路演，
+          <br>
+          把问题交给我们，一起解决。
+        </p>
+        <a class="button secondary" href="{% url 'hackathon:support' hackathon.slug %}">
+          联系支持团队
+          <svg>
+            <use href="#i-arrow" />
+          </svg>
+        </a>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        A LITTLE LEARNING, A BIG LEAP
+      </div>
+      <h1>
+        从「不会」，到「我做出来了」。
+      </h1>
+      <p>
+        参赛规则、开发教程、演示技巧。一份持续更新的创造者手册。
+      </p>
+    </div>
+  </section>
+  <form method="get" class="filter-bar">
+    <label class="sr-only" for="search">
+      搜索学习资料
+    </label>
+    <input id="search" name="q" value="{{ query }}" placeholder="你想学点什么？">
+    <input type="hidden" name="category" value="{{ category }}">
+    <button class="button secondary">
+      搜索
+    </button>
+  </form>
+  <nav class="tabs" aria-label="教程分类">
+    <a class="{% if not category %}selected{% endif %}" href="?">
+      全部内容
+    </a>
+    {% for value, label in categories %}
+      <a class="{% if category == value %}selected{% endif %}" href="?category={{ value }}">
+        {{ label }}
+      </a>
+    {% endfor %}
+  </nav>
+  <div class="card-grid">
+    {% for resource in resources %}
+      <a class="panel resource-card" href="{% url 'hackathon:resource' hackathon.slug resource.pk %}">
+        <div class="resource-art art-{% cycle 'purple' 'green' 'peach' %}">
+          <span>
+            {% cycle '&lt;/&gt;' '⌘' '▶' '✳' %}
+          </span>
+          <small>
+            {{ resource.get_category_display }}
+          </small>
+        </div>
+        <div class="section-heading">
+          <span class="eyebrow">
+            {{ resource.minutes }}
+            MIN READ
+          </span>
+          {% if resource.pk in read_ids %}
+            <span class="tag mint">
+              已读 ✓
+            </span>
+          {% elif resource.required %}
+            <span class="tag orange">
+              参赛必读
+            </span>
+          {% endif %}
+        </div>
+        <h2>
+          {{ resource.title }}
+        </h2>
+        <p>
+          {{ resource.summary }}
+        </p>
+        <span class="text-link">
+          开始阅读 ↗
+        </span>
+      </a>
+    {% empty %}
+      <div class="empty panel">
+        <h2>
+          没有找到相关资料
+        </h2>
+        <p>
+          换个关键词试试，或在支持中心告诉我们你想了解什么。
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

@@ -1,13 +1,137 @@
-Eventyay
-========
+黑客松一体化平台 · 基于 Eventyay
+========================================
 
-Eventyay is an open source event management platform by `FOSSASIA <https://fossasia.org>`_. It provides event ticketing, registration, call for participation, speaker and session management, scheduling, online event video, attendee check-in, badge printing, organiser administration, APIs, and plugin based extensions.
+本仓库是在 `Eventyay <https://github.com/fossasia/eventyay>`_ 基础上开发的黑客松定制版本，
+把参赛报名、学习资料、组队、作品提交、现场路演、评委打分和主办方管理放在同一个网站中。
+支持电脑、平板和手机访问，各端保留相同的业务功能。
 
-Eventyay has been in development since 2014. Parts of the system historically originated from separate components for tickets, talks, and video. The current repository contains the unified Eventyay codebase.
+**首次使用：** 阅读下方「功能简介」和「如何启动」。已有运行环境时，直接执行「启动与访问」中的命令。
+完整操作说明见 `黑客松工作区文档 <doc/hackathon-workspace.md>`_。
+
+功能简介
+--------
+
+* **参赛者：** 学号注册与登录、报名信息填写、关键词和一句话自我介绍、寻找队友与组队、
+  查看教程、公告和赛程、提交作品、查看提交状态与成绩。学号注册不等同于学校统一身份认证。
+* **作品与文件：** 上传海报、演示文稿、视频和源代码等材料；海报上限 20 MiB，
+  其他支持类型的单文件上限 512 MiB。采用分片上传、校验、重试和续传，
+  自动命名与归档，处理重复请求和并发提交；支持截止前排队提交与凭证。
+  文件保存在私有磁盘目录，按权限访问，数据库保存关联信息。
+* **主办方：** 管理报名和团队信息、审核作品、检查路演材料、维护教程和公告、
+  管理工作人员与评委、导出数据和作品材料、安排路演队列与现场计时、发布结果。
+* **评委：** 独立登录入口；评分页跟随当前路演团队，同页查看海报、作品描述和材料，
+  也可回看其他团队。支持草稿与正式评分，以及自定义维度权重和去极值规则。
+  默认按创新性、完成度与实机演示、实际价值、表达的 30% / 40% / 20% / 10% 加权，再取评委平均分。
+* **现场协作：** 志愿者任务、签到与工时记录、求助处理、路演展示和作品展示。
+* **多端界面：** 手机底部角色导航与单列布局，平板抽屉导航与适配布局，桌面完整工作台。
+
+如何启动
+--------
+
+请使用**当前定制仓库的代码**。单独克隆上游 Eventyay 仓库不会包含这里的黑客松模块。
+下面以活动标识 ``next`` 为例；更换 ``--slug`` 后，访问地址中的 ``next`` 也要相应替换。
+
+首次准备
+~~~~~~~~
+
+可选择 Docker 或本地 Python 环境，两者不需要同时配置：
+
+* **Docker：** 按 `Quick start with Docker`_ 配置并启动服务，该节包含活动初始化命令。
+* **本地 Python：** 按 `Python based local development`_ 安装依赖、配置 PostgreSQL 和 Redis，
+  完成数据库迁移与静态资源构建。然后在 ``app/`` 目录执行：
+
+.. code-block:: bash
+
+   . .venv/bin/activate
+   python manage.py migrate
+   python manage.py create_admin_user
+   python manage.py setup_hackathon --organizer hackathon --event next-hackathon \
+     --slug next --name '下一届黑客松' --publish
+
+``create_admin_user`` 会提示创建管理员，请保存自己设置的登录信息；已有管理员时可跳过此命令。仓库不提供通用默认密码。
+``setup_hackathon`` 创建活动、教程和赛程等初始内容，不创建虚构选手或作品。
+未指定 ``--start-date YYYY-MM-DD`` 时，活动开始日期默认为执行日的 30 天后；正式开放前请检查日期与截止时间。
+``--publish`` 使活动对参赛者可见。重复执行初始化不会覆盖已有活动配置。
+
+启动与访问
+~~~~~~~~~~
+
+本地环境已配置好后，确认 PostgreSQL 和 Redis 正在运行，在仓库根目录执行：
+
+.. code-block:: bash
+
+   cd app
+   . .venv/bin/activate
+   python manage.py run_hackathon_preview 0.0.0.0:8000 --insecure
+
+保持终端运行，浏览器访问 http://localhost:8000/hackathon/next/ 。按 ``Ctrl+C`` 停止预览。
+这个预览命令使用 WSGI，以流式方式提供大文件下载；``--insecure`` 用于本地预览时提供静态文件。
+生产部署请参考 `Deployment`_ 和 `黑客松工作区文档 <doc/hackathon-workspace.md>`_ 的存储与大文件部署说明。
+
+手机或平板预览时，设备与服务器需能通过局域网互通，且服务器开放 8000 端口。
+将以下地址替换为运行服务的电脑 IP，并在同一个终端设置后启动：
+
+.. code-block:: bash
+
+   export EVY_SITE_URL=http://192.168.1.100:8000
+   export EVY_SHORT_URL=http://192.168.1.100:8000
+   export EVY_TALK_HOSTNAME=http://192.168.1.100:8000
+   python manage.py run_hackathon_preview 0.0.0.0:8000 --insecure
+
+随后在移动设备打开 ``http://192.168.1.100:8000/hackathon/next/``。
+移动设备上的 ``localhost`` 指向设备自身，不是运行网站的电脑。
+
+登录入口与常用页面
+~~~~~~~~~~~~~~~~~~
+
+以下路径均相对于网站地址，例如 ``http://localhost:8000``：
+
+* 活动首页：``/hackathon/next/``
+* 参赛者注册：``/hackathon/next/account/signup/``
+* 参赛者登录：``/hackathon/next/account/login/``
+* 主办方登录：``/hackathon/next/account/organizer/``
+* 主办方工作台：``/hackathon/next/manage/``
+* 评委登录：``/hackathon/next/account/judge/``
+* 评委现场评分：``/hackathon/next/judging/live/``
+* 路演展示：``/hackathon/next/stage/``
+
+首次主办方登录使用上面创建的管理员账号。主办方可在工作台创建评委账号或为已有用户分配活动角色；
+普通参赛者注册不会自动获得主办方或评委权限。登录后可通过账户菜单退出。
+黑客松管理请使用 ``/hackathon/next/manage/``，``/control/`` 和 ``/orga/`` 是原 Eventyay 管理界面。
+
+数据保存与常见问题
+~~~~~~~~~~~~~~~~~~
+
+* **数据库连接失败：** 检查 PostgreSQL 是否启动，以及 ``app/eventyay.local.toml`` 或 ``EVY_POSTGRES_*``
+  环境变量中的地址、端口、用户和数据库名。非默认端口必须显式配置。
+* **活动不存在或不可见：** 确认执行过 ``migrate`` 和带 ``--publish`` 的 ``setup_hackathon``，并使用正确的活动标识。
+* **页面无样式：** 本地预览使用上述带 ``--insecure`` 的命令；完整静态资源构建方法见下方开发说明。
+* **HTTP 500：** 查看运行终端或 ``docker compose logs -f web`` 中的异常，先核对迁移和服务连接，
+  不要用删除数据库的方式处理普通启动问题。
+* **文件持久化：** 同时备份 PostgreSQL 和 ``DATA_DIR/hackathon-private/``，容器部署须为数据目录配置持久化存储。
+  大文件访问还取决于磁盘空间、反向代理限制和超时配置，详见工作区文档。
+
+项目声明与致谢
+--------------
+
+本仓库是面向黑客松场景的 Eventyay 衍生定制版本，不是 Eventyay 上游官方发行版，
+也不表示获得 FOSSASIA 或 Eventyay 团队的背书。此处的黑客松功能、界面和使用说明属于本仓库的定制内容；
+相关问题请在本仓库反馈。
+
+感谢 `FOSSASIA <https://fossasia.org>`_、`Eventyay 项目及其贡献者 <https://github.com/fossasia/eventyay>`_
+提供开源活动管理平台，以及账户、活动、权限、管理和部署等基础设施。
+也感谢原项目所依赖的开源社区；历史来源与第三方署名见 `NOTICE <NOTICE>`_。
+
+本仓库保留原项目版权与署名，根目录 `LICENSE <LICENSE>`_ 为 Apache License 2.0。
+各组件和依赖的许可与声明以对应文件为准；本 README 不替代或变更这些许可。
+上游通用功能、开发和部署资料保留在下文，黑客松特有行为以本仓库实现和工作区文档为准。
 
 Contents
 --------
 
+- `功能简介`_
+- `如何启动`_
+- `项目声明与致谢`_
 - `Project status and branch model`_
 - `Main features`_
 - `Technology stack`_
@@ -31,9 +155,9 @@ Contents
 Project status and branch model
 -------------------------------
 
-Eventyay is actively developed.
+This repository adds a hackathon workspace to Eventyay. The following branch conventions describe the upstream project; use the branch containing the hackathon changes when running this customized version.
 
-The repository uses the following branch model:
+Upstream uses the following branch model:
 
 * ``main`` is the production ready branch.
 * ``dev`` is the testing and active development branch.
@@ -70,7 +194,7 @@ Technology stack
 Backend:
 
 * Python 3.12
-* Django 5.2
+* Django (version pinned in ``app/uv.lock``)
 * Django REST Framework
 * PostgreSQL
 * Redis
@@ -95,6 +219,14 @@ Docker is the recommended way to start quickly for local development and first t
 
 The local Docker stack starts the Django web service, Celery worker, Celery beat, Redis, and PostgreSQL. It also mounts ``./plugins`` for local plugin development.
 
+For hackathon file-upload and download previews, create ``docker-compose.override.yml`` in the repository root with the following override before starting the stack. This uses the WSGI preview command instead of the default ASGI development server:
+
+.. code-block:: yaml
+
+   services:
+     web:
+       command: python manage.py run_hackathon_preview 0.0.0.0:8000 --insecure
+
 Requirements:
 
 * Docker
@@ -105,25 +237,25 @@ Steps:
 
 .. code-block:: bash
 
-   git clone https://github.com/fossasia/eventyay.git
-   cd eventyay
-   git switch dev
+   # Run from the root of this customized repository.
 
    cp deployment/env.dev.sample .env.dev
 
    docker compose up -d --build
 
-Create an admin user:
+Create an admin user and initialize the hackathon workspace (after the web service has completed its startup migrations):
 
 .. code-block:: bash
 
-   docker exec -ti eventyay-next-web python manage.py create_admin_user
+   docker compose exec web python manage.py create_admin_user
+   docker compose exec web python manage.py setup_hackathon --organizer hackathon \
+     --event next-hackathon --slug next --name '下一届黑客松' --publish
 
 Open the local site:
 
 .. code-block:: text
 
-   http://localhost:8000
+   http://localhost:8000/hackathon/next/
 
 View logs:
 
@@ -153,13 +285,7 @@ Requirements:
 * Node.js and npm
 * Debian or Ubuntu packages listed in ``deb-packages.txt`` or equivalent packages for your distribution
 
-Clone the repository:
-
-.. code-block:: bash
-
-   git clone https://github.com/fossasia/eventyay.git
-   cd eventyay
-   git switch dev
+Run the following setup steps from the root of this customized repository.
 
 Install external dependencies on Debian or Ubuntu:
 
@@ -241,6 +367,8 @@ Create an admin user:
 .. code-block:: bash
 
    python manage.py create_admin_user
+   python manage.py setup_hackathon --organizer hackathon --event next-hackathon \
+     --slug next --name '下一届黑客松' --publish
 
 Build frontend and static assets:
 
@@ -254,13 +382,13 @@ Run the development server:
 
 .. code-block:: bash
 
-   python manage.py runserver
+   python manage.py run_hackathon_preview 0.0.0.0:8000 --insecure
 
 Open:
 
 .. code-block:: text
 
-   http://localhost:8000
+   http://localhost:8000/hackathon/next/
 
 Run Celery locally when working on background tasks:
 
@@ -549,7 +677,7 @@ Run development server:
 
 .. code-block:: bash
 
-   python manage.py runserver
+   python manage.py run_hackathon_preview 0.0.0.0:8000 --insecure
 
 Run Celery worker:
 
@@ -600,6 +728,8 @@ Important local endpoints include:
 
 .. code-block:: text
 
+   /hackathon/               Hackathon workspace entry
+   /hackathon/next/manage/    Hackathon organiser workspace
    /                         Public start page
    /orga/                    Organiser area for talks and speakers configuration and setup
    /control/                 Ticketing control and organiser management area
@@ -773,6 +903,8 @@ https://docs.eventyay.com
 
 Useful entry points:
 
+- `Hackathon workspace guide <doc/hackathon-workspace.md>`_
+
 - `Deployment guide <DEPLOYMENT.md>`_
 - `Contribution guide <CONTRIBUTING.md>`_
 - `Contributor License Agreement <CLA.md>`_
@@ -857,7 +989,7 @@ Support
 
 Eventyay is free and open source software.
 
-Professional support is available to customers of the hosted Eventyay service or Eventyay enterprise offerings.
+The following support information refers to upstream Eventyay services, not support commitments for this customized hackathon repository. Professional support is available to customers of the hosted Eventyay service or Eventyay enterprise offerings.
 
 For commercial support, hosting services, custom development, deployment support, integrations, or financial support of the project, visit `eventyay.com <https://eventyay.com>`_.
 
@@ -870,4 +1002,4 @@ See `NOTICE <NOTICE>`_ for attribution and upstream project notices.
 
 Contributions are accepted under the Apache License 2.0. See `CONTRIBUTING.md <CONTRIBUTING.md>`_ and `CLA.md <CLA.md>`_ for details.
 
-This project is maintained by `FOSSASIA <https://fossasia.org>`_.
+The upstream Eventyay project is maintained by `FOSSASIA <https://fossasia.org>`_. This customized repository is a derivative project; see `项目声明与致谢`_.

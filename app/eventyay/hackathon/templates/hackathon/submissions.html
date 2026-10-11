@@ -1,0 +1,114 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        READY FOR THE SPOTLIGHT
+      </div>
+      <h1>
+        作品检查，一目了然。
+      </h1>
+      <p>
+        材料齐全后再通过审核；检查设备、声音和备用演示后再安排上场。
+      </p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:bundle' hackathon.slug %}">
+      下载路演材料包 ↓
+    </a>
+  </section>
+  <nav class="tabs" aria-label="作品状态">
+    <a class="{% if not state %}selected{% endif %}" href="?">
+      全部作品
+    </a>
+    {% for value, label in states %}
+      <a class="{% if value == state %}selected{% endif %}" href="?state={{ value }}">
+        {{ label }}
+      </a>
+    {% endfor %}
+  </nav>
+  <div class="panel table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th>
+            作品 / 队伍
+          </th>
+          <th>
+            赛道
+          </th>
+          <th>
+            提交状态
+          </th>
+          <th>
+            材料
+          </th>
+          <th>
+            设备演练
+          </th>
+          <th>
+            操作
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for project in projects %}
+          <tr>
+            <td>
+              <strong>
+                {{ project.title }}
+              </strong>
+              <small>
+                {{ project.team.name }}
+                ·
+                {{ project.code }}
+              </small>
+            </td>
+            <td>
+              {{ project.team.track.name }}
+            </td>
+            <td>
+              <span class="tag state-{{ project.state }}">
+                {{ project.get_state_display }}
+              </span>
+              <small>
+                {{ project.submitted_at|date:'m.d H:i'|default:'尚未提交' }}
+              </small>
+            </td>
+            <td>
+              {% for asset in project.assets.all %}
+                <a class="tag" href="{% url 'hackathon:download' hackathon.slug asset.pk %}">
+                  {{ asset.get_kind_display }}
+                  ↓
+                </a>
+              {% empty %}
+                —
+              {% endfor %}
+            </td>
+            <td>
+              {% if project.equipment_checked %}
+                <span class="tag mint">
+                  已演练 ✓
+                </span>
+              {% else %}
+                <span class="tag orange">
+                  待检查
+                </span>
+              {% endif %}
+            </td>
+            <td>
+              <a class="button secondary small" href="{% url 'hackathon:review' hackathon.slug project.pk %}">
+                检查 ↗
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="empty">
+              还没有对应状态的作品。
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        {{ project.code }}
+        ·
+        {{ project.team.track.name }}
+      </div>
+      <h1>
+        {{ project.title }}
+      </h1>
+      <p>
+        {{ project.summary }}
+      </p>
+    </div>
+    <span class="tag">
+      {{ project.team.name }}
+      ·
+      {{ project.team.code }}
+    </span>
+  </section>
+  <div class="two-column">
+    <article class="panel article">
+      <h2>
+        作品介绍
+      </h2>
+      <div class="article-body">
+        {{ project.description|linebreaks }}
+      </div>
+      <h2>
+        如何体验
+      </h2>
+      <p>
+        {{ project.demo_instructions|linebreaksbr }}
+      </p>
+      <div class="actions">
+        {% if project.demo_url %}
+          <a class="button" href="{{ project.demo_url }}" target="_blank" rel="noopener noreferrer">
+            体验 Demo ↗
+          </a>
+        {% endif %}
+        {% if project.repository_url %}
+          <a class="button secondary" href="{{ project.repository_url }}" target="_blank" rel="noopener noreferrer">
+            代码仓库 ↗
+          </a>
+        {% endif %}
+        {% if project.backup_url %}
+          <a class="button secondary" href="{{ project.backup_url }}" target="_blank" rel="noopener noreferrer">
+            备用演示 ↗
+          </a>
+        {% endif %}
+      </div>
+    </article>
+    <aside class="panel">
+      <h2>
+        项目材料
+      </h2>
+      {% for asset in assets %}
+        {% if asset.kind == "poster" %}
+          <img class="detail-poster" src="{% url 'hackathon:download' hackathon.slug asset.pk %}" alt="{{ project.title }}项目海报">
+        {% endif %}
+        <a class="file-row" href="{% url 'hackathon:download' hackathon.slug asset.pk %}">
+          {{ asset.get_kind_display }}
+          ·
+          {{ asset.filename }}
+          ↓
+        </a>
+      {% endfor %}
+      {% if hackathon.results_published and project.award %}
+        <div class="award">
+          ✳
+          {{ project.award }}
+        </div>
+      {% endif %}
+    </aside>
+  </div>
+{% endblock %}

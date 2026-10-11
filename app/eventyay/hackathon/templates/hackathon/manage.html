@@ -1,0 +1,203 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        MISSION CONTROL
+      </div>
+      <h1>
+        全局清晰，现场从容。
+      </h1>
+      <p>
+        名单、材料、特殊安排和待办，共用一份真实的数据。
+      </p>
+    </div>
+    <a class="button" href="{% url 'hackathon:manage-stage' hackathon.slug %}">
+      打开路演调度 ↗
+    </a>
+  </section>
+  <section class="metrics">
+    <div class="metric">
+      <div>
+        <span>
+          报名 / 已签到
+        </span>
+        <strong>
+          {{ participant_count }}
+          <small>
+            /
+            {{ checked_in }}
+          </small>
+        </strong>
+      </div>
+    </div>
+    <div class="metric">
+      <div>
+        <span>
+          队伍 / 已提交
+        </span>
+        <strong>
+          {{ team_count }}
+          <small>
+            /
+            {{ submitted }}
+          </small>
+        </strong>
+      </div>
+    </div>
+    <div class="metric">
+      <div>
+        <span>
+          作品待检查
+        </span>
+        <strong>
+          {{ pending }}
+        </strong>
+      </div>
+      <a href="{% url 'hackathon:submissions' hackathon.slug %}?state=submitted">
+        去处理 ↗
+      </a>
+    </div>
+    <div class="metric">
+      <div>
+        <span>
+          未解决工单
+        </span>
+        <strong>
+          {{ tickets }}
+        </strong>
+      </div>
+      <a href="{% url 'hackathon:support' hackathon.slug %}">
+        去处理 ↗
+      </a>
+    </div>
+  </section>
+  <div class="two-column">
+    <div>
+      <section class="panel">
+        <div class="section-heading">
+          <h2>
+            需要关注 · 尚未提交的队伍
+          </h2>
+          <a href="{% url 'hackathon:content-new' hackathon.slug 'announcement' %}">
+            发布提醒 ↗
+          </a>
+        </div>
+        {% for team in missing %}
+          <div class="list-row">
+            <strong>
+              {{ team.name }}
+            </strong>
+            <code>
+              {{ team.code }}
+            </code>
+            <span class="tag orange">
+              未提交
+            </span>
+          </div>
+        {% empty %}
+          <div class="empty compact">
+            目前没有未提交的队伍。
+          </div>
+        {% endfor %}
+      </section>
+      <section class="panel">
+        <h2>
+          特殊时段与到场安排
+        </h2>
+        <p class="muted">
+          安排开学典礼、远程或其他冲突队伍的展示机会，调整后通过支持中心和公告确认。
+        </p>
+        {% for person in special %}
+          <div class="list-row">
+            <div>
+              <strong>
+                {{ person.name }}
+                ·
+                {{ person.team.name|default:'尚未组队' }}
+              </strong>
+              <p>
+                {{ person.availability }}
+              </p>
+            </div>
+            <code>
+              {{ person.code }}
+            </code>
+          </div>
+        {% empty %}
+          <p class="muted">
+            暂未收到特殊时段登记。
+          </p>
+        {% endfor %}
+      </section>
+    </div>
+    <aside>
+      <section class="panel">
+        <h2>
+          一键交接
+        </h2>
+        <div class="link-list">
+          <a href="{% url 'hackathon:export' hackathon.slug 'participants' %}">
+            统一选手名单 CSV
+            <span>
+              ↓
+            </span>
+          </a>
+          <a href="{% url 'hackathon:export' hackathon.slug 'projects' %}">
+            作品与提交记录 CSV
+            <span>
+              ↓
+            </span>
+          </a>
+          <a href="{% url 'hackathon:bundle' hackathon.slug %}">
+            全部已提交作品材料 ZIP
+            <span>
+              ↓
+            </span>
+          </a>
+          <a href="{% url 'hackathon:export' hackathon.slug 'volunteers' %}">
+            志愿服务时长 CSV
+            <span>
+              ↓
+            </span>
+          </a>
+          <a href="{% url 'hackathon:export' hackathon.slug 'results' %}">
+            评审成绩 CSV
+            <span>
+              ↓
+            </span>
+          </a>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>
+          最近操作
+        </h2>
+        {% for entry in log %}
+          <div class="audit-entry">
+            <strong>
+              {{ entry.action }}
+            </strong>
+            <small>
+              {{ entry.actor.fullname|default:'工作人员' }}
+              ·
+              {{ entry.created|date:'m.d H:i' }}
+            </small>
+            <code>
+              {{ entry.target }}
+            </code>
+            {% if entry.detail %}
+              <p>
+                {{ entry.detail|truncatechars:140 }}
+              </p>
+            {% endif %}
+          </div>
+        {% empty %}
+          <p class="muted">
+            操作日志将记录关键变更。
+          </p>
+        {% endfor %}
+      </section>
+    </aside>
+  </div>
+{% endblock %}

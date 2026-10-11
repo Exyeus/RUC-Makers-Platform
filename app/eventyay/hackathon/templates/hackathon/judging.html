@@ -1,0 +1,110 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        JUDGE THE WORK, HELP IT GROW
+      </div>
+      <h1>
+        看见作品，也看见可能。
+      </h1>
+      <p>
+        {{ rule_description }}个人所属队伍自动回避。
+      </p>
+    </div>
+  </section>
+  {% include 'hackathon/judge_sync.html' %}
+  <a class="button judge-live-entry" href="{% url 'hackathon:judge-live' hackathon.slug %}">进入现场打分 · 跟随当前队伍 ↗</a>
+  <div class="deadline-strip">
+    <div>
+      <span>
+        已确认评分
+      </span>
+      <strong>
+        {{ confirmed }}
+        份
+      </strong>
+    </div>
+    <div>
+      <span>
+        最佳突破提名
+      </span>
+      <strong>
+        {{ breakthrough }}
+        / 3
+      </strong>
+    </div>
+    <div>
+      <span>
+        最佳创意提名
+      </span>
+      <strong>
+        {{ creativity }}
+        / 3
+      </strong>
+    </div>
+    <div>
+      <span>
+        评分窗口
+      </span>
+      <strong>
+        {% if hackathon.judging_open and not hackathon.results_published %}
+          开放中
+        {% else %}
+          已关闭
+        {% endif %}
+      </strong>
+    </div>
+  </div>
+  <div class="card-grid">
+    {% for entry in entries %}
+      <article class="panel">
+        <div class="section-heading">
+          <span class="tag">
+            {{ entry.project.team.track.name }}
+          </span>
+          <span class="tag {% if entry.score.final %}mint{% else %}orange{% endif %}">
+            {% if entry.score.final %}
+              已确认
+            {% elif entry.score %}
+              草稿
+            {% else %}
+              待评审
+            {% endif %}
+          </span>
+        </div>
+        <h2>
+          {{ entry.project.title }}
+        </h2>
+        <p>
+          {{ entry.project.summary }}
+        </p>
+        <p class="muted">
+          {{ entry.project.team.name }}
+          ·
+          {{ entry.project.code }}
+        </p>
+        <div class="card-bottom">
+          <strong>
+            {% if entry.score %}
+              {{ entry.score.total }}
+              / 100
+            {% endif %}
+          </strong>
+          <a class="button small" href="{% url 'hackathon:score' hackathon.slug entry.project.pk %}">
+            进入评审 ↗
+          </a>
+        </div>
+      </article>
+    {% empty %}
+      <div class="empty panel">
+        <h2>
+          暂无待评审作品
+        </h2>
+        <p>
+          通过材料检查的作品会出现在这里。
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}
