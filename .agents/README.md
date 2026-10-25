@@ -11,6 +11,6 @@
 | 查看自动检查与复现失败 | [development-ci.md](../doc/development-ci.md) |
 | 找业务代码、环境与技能 | [context/architecture.md](context/architecture.md)、[skills/README.md](skills/README.md) |
 | 独立复看实质改动 | [skills/adversarial-audit/SKILL.md](skills/adversarial-audit/SKILL.md) |
-| 往届材料匿名统计 | [previous-submissions-summary.md](../doc/research/previous-submissions-summary.md) |
+| 往届材料匿名统计 | [数据管理参考](../doc/problems/首届黑客松提交作品数据总结-本次开发数据管理参考.md) |
 
 任务卡和 PR 使用合成/脱敏示例；选手原件、联系方式、密钥、完整数据库与备份保留在受限渠道。统计建议不是本届已冻结容量。
