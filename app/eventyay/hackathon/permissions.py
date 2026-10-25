@@ -34,6 +34,8 @@ def event_view(access='public'):
         @wraps(view)
         def wrapped(request, hackathon_slug, *args, **kwargs):
             hackathon = get_object_or_404(Hackathon.objects.select_related('event__organizer'), slug=hackathon_slug)
+            if hackathon.program != Hackathon.Program.MAKER_CAMP:
+                raise Http404
             with scope(event=hackathon.event), timezone.override(hackathon.event.timezone):
                 request.hackathon = hackathon
                 request.hackathon_organizer = is_organizer(request.user, hackathon)

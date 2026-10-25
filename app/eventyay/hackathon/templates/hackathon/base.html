@@ -8,16 +8,18 @@
     <title>
       {% block title %}
         {{ hackathon.name }}
-        · Hackathon Hub
+        · 创客营
       {% endblock %}
     </title>
     <link rel="stylesheet" href="{% static 'hackathon/hub.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'hackathon/camp.css' %}">
     <script type="module" src="{% static 'hackathon/hub.js' %}">
     </script>
     <script type="module" src="{% static 'hackathon/upload.js' %}"></script>
     <script type="module" src="{% static 'hackathon/judging.js' %}"></script>
     <script type="module" src="{% static 'hackathon/responsive.js' %}"></script>
+    <script type="module" src="{% static 'hackathon/camp.js' %}"></script>
   </head>
   <body class="{% if display %}display-mode{% endif %}">
     {% include 'hackathon/icons.html' %}
@@ -36,13 +38,13 @@
         <span>
           eventyay
           <small>
-            HACKATHON HUB
+            MAKER CAMP
           </small>
         </span>
       </a>
       <a class="event-switch" href="{% url 'hackathon:index' %}">
         <span class="event-avatar">
-          H
+          M
           <span>
             ↗
           </span>
@@ -89,9 +91,11 @@
           {% endfor %}
         </nav>
       {% endif %}
-      {% if not request.user.is_authenticated %}
+      {% if not is_organizer %}
         <nav class="nav-account-links" aria-label="账户登录">
-          <a class="nav-item" href="{% url 'hackathon:student-login' hackathon.slug %}">学号登录 / 注册</a>
+          {% if not request.user.is_authenticated %}
+            <a class="nav-item" href="{% url 'hackathon:student-login' hackathon.slug %}">学号登录 / 注册</a>
+          {% endif %}
           <a class="nav-item" href="{% url 'hackathon:organizer-login' hackathon.slug %}">主办方登录</a>
         </nav>
       {% endif %}
@@ -101,7 +105,7 @@
             <use href="#i-spark" />
           </svg>
           <strong>
-            让好想法，不止于三天。
+            让好想法，继续生长。
           </strong>
           <p>
             教程、队友与下一步机会，
@@ -149,8 +153,16 @@
               <use href="#i-bell" />
             </svg>
           </a>
+          {% if is_organizer %}
+            <a class="button secondary small organizer-backend-link" href="{% url 'hackathon:manage' hackathon.slug %}" aria-label="主办方后台" title="主办方后台">
+              <svg aria-hidden="true"><use href="#i-settings" /></svg>
+              <span>主办方后台</span>
+            </a>
+          {% else %}
+            <a class="organizer-login-link" href="{% url 'hackathon:organizer-login' hackathon.slug %}">主办方登录</a>
+          {% endif %}
           {% if request.user.is_authenticated %}
-            <a class="user-chip" href="{% url 'hackathon:register' hackathon.slug %}">
+            <a class="user-chip" href="{% url 'hackathon:register' hackathon.slug %}" aria-label="个人资料">
               <span class="avatar">
                 {{ request.user.fullname|default:request.user.email|slice:':1'|upper }}
               </span>
@@ -174,7 +186,6 @@
               <button type="submit" class="button secondary small logout-button">退出登录</button>
             </form>
           {% else %}
-            <a class="organizer-login-link" href="{% url 'hackathon:organizer-login' hackathon.slug %}">主办方登录</a>
             <a class="button small" href="{% url 'hackathon:student-login' hackathon.slug %}?next={{ request.get_full_path|urlencode }}">
               学号登录 / 注册 ↗
             </a>

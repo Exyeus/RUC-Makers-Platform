@@ -11,10 +11,13 @@ from PIL import Image, UnidentifiedImageError
 
 from eventyay.base.forms.auth import LoginForm
 from eventyay.base.models import User
-from eventyay.hackathon.constants import ALLOWED_EXTENSIONS, KEYWORDS, MAX_UPLOAD_SIZE, POSTER_MAX_SIZE
+from eventyay.hackathon.constants import ALLOWED_EXTENSIONS, KEYWORD_CHOICES, KEYWORDS, MAX_UPLOAD_SIZE, POSTER_MAX_SIZE
 from eventyay.hackathon.models import (
     Announcement,
     Asset,
+    BonusRule,
+    CommunityPost,
+    CommunityResponse,
     Hackathon,
     Participant,
     Project,
@@ -29,6 +32,7 @@ from eventyay.hackathon.models import (
     VolunteerTask,
 )
 from eventyay.hackathon.scoring import CRITERIA, weights
+from eventyay.hackathon.widgets import CategorizedTags, TagsField, UnavailableHoursField
 
 
 class OrganizerLoginForm(LoginForm):
@@ -156,17 +160,32 @@ def validate_demo_url(value):
 class ParticipantForm(forms.ModelForm):
     consent = forms.BooleanField(label='同意组委会为报名、联络、评审和证书使用上述信息')
     keywords = forms.MultipleChoiceField(
-        label='个人关键词（最多 6 个）',
-        choices=[(tag, tag) for tag in KEYWORDS],
+        label='个人标签（数量不限）',
+        choices=KEYWORD_CHOICES,
         required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'keyword-choices'}),
+        widget=CategorizedTags,
+    )
+    custom_keywords = TagsField(
+        label='自定义标签', required=False, help_text='用逗号或换行分隔，数量不限，每个最多 40 字。'
     )
 
-    def clean_keywords(self):
-        values = self.cleaned_data['keywords']
-        if len(values) > 6:
-            raise ValidationError('最多选择 6 个最能代表你的关键词。')
-        return values
+    def __init__(self, *args, hackathon=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        hackathon = hackathon or (self.instance.hackathon if self.instance.hackathon_id else None)
+        self.fields['unavailable_slots'] = UnavailableHoursField(
+            hackathon=hackathon,
+            label='无法到场的时段（两天，精确到小时）',
+            help_text='圈选无法到场的小时，可拖动连续选择，也可用键盘逐格勾选。仅工作人员可见。',
+        )
+        self.initial['unavailable_slots'] = self.instance.unavailable_slots
+        self.initial['keywords'] = [tag for tag in self.instance.keywords if tag in KEYWORDS]
+        self.initial['custom_keywords'] = ', '.join(tag for tag in self.instance.keywords if tag not in KEYWORDS)
+        self.fields['availability'].label = '其他特殊安排（仅工作人员可见）'
+
+    def clean(self):
+        data = super().clean()
+        data['keywords'] = list(dict.fromkeys(data.get('keywords', []) + data.get('custom_keywords', [])))
+        return data
 
     class Meta:
         model = Participant
@@ -180,6 +199,7 @@ class ParticipantForm(forms.ModelForm):
             'bio',
             'looking_for_team',
             'availability',
+            'unavailable_slots',
             'certificate_name',
             'consent',
         ]
@@ -187,6 +207,7 @@ class ParticipantForm(forms.ModelForm):
 
 
 class TeamForm(forms.ModelForm):
+    version = forms.IntegerField(min_value=1, required=False, widget=forms.HiddenInput)
     track = forms.ModelChoiceField(label='赛道', queryset=None)
 
     class Meta:
@@ -198,6 +219,7 @@ class TeamForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.hackathon = hackathon
         self.fields['track'].queryset = Track.objects.filter(hackathon=hackathon)
+        self.fields['version'].initial = self.instance.roster_version if self.instance.created else 1
 
     def clean_name(self):
         value = self.cleaned_data['name'].strip()
@@ -451,6 +473,26 @@ class AnnouncementForm(forms.ModelForm):
     class Meta:
         model = Announcement
         fields = ['title', 'body', 'pinned', 'audience']
+
+
+class CommunityPostForm(forms.ModelForm):
+    class Meta:
+        model = CommunityPost
+        fields = ['kind', 'title', 'body', 'invitation', 'demo_url', 'is_public', 'is_open']
+        widgets = {'body': forms.Textarea(attrs={'rows': 5})}
+
+
+class CommunityResponseForm(forms.ModelForm):
+    class Meta:
+        model = CommunityResponse
+        fields = ['body', 'private']
+        widgets = {'body': forms.Textarea(attrs={'rows': 3})}
+
+
+class BonusRuleForm(forms.ModelForm):
+    class Meta:
+        model = BonusRule
+        fields = ['title', 'description', 'points', 'active', 'position']
 
 
 class ResourceForm(forms.ModelForm):

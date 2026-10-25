@@ -3,6 +3,7 @@ from django.core.cache import cache
 from django.test import Client
 from django.urls import reverse
 
+from eventyay.base.models import Team as OrganizerTeam
 from eventyay.hackathon.models import StudentAccount
 from tests.hackathon.test_workflows import endpoint
 
@@ -38,6 +39,24 @@ def test_protected_management_uses_organizer_login(client, hackathon):
     assert response.url.startswith(endpoint(hackathon, 'organizer-login') + '?next=')
 
 
+def test_event_organizer_login_keeps_management_navigation(client, hackathon, user):
+    team = OrganizerTeam.objects.create(
+        organizer=hackathon.event.organizer, name='Camp organizers', can_change_event_settings=True, all_events=False
+    )
+    team.members.add(user)
+    team.limit_events.add(hackathon.event)
+    response = client.post(
+        endpoint(hackathon, 'organizer-login'), {'email': user.email, 'password': 'a-strong-test-password'}
+    )
+    assert response.url == endpoint(hackathon, 'manage')
+    assert client.get(response.url).status_code == 200
+    response = client.get(endpoint(hackathon, 'home'))
+    assert response.context['is_organizer']
+    assert 'manage' in [item[0] for item in response.context['staff_navigation']]
+    assert 'aria-label="主办方后台"' in response.content.decode()
+    assert client.get(endpoint(hackathon, 'organizer-login')).url == endpoint(hackathon, 'manage')
+
+
 def test_old_login_link_redirects_into_hub(client, hackathon):
     target = endpoint(hackathon, 'submissions') + '?state=submitted'
     response = client.get(reverse('auth.login'), {'next': target})
@@ -52,6 +71,9 @@ def test_email_participant_keeps_participant_permissions(client, hackathon, part
     )
     assert response.url == endpoint(hackathon, 'home')
     assert client.get(endpoint(hackathon, 'manage')).status_code == 403
+    body = client.get(endpoint(hackathon, 'home')).content.decode()
+    assert 'aria-label="主办方后台"' not in body
+    assert 'href="' + endpoint(hackathon, 'organizer-login') + '"' in body
 
 
 def test_wrong_password_stays_in_hub(client, hackathon, organizer_user):

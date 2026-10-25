@@ -1,0 +1,47 @@
+.hour-calendar { margin-bottom: 24px; }
+.hour-calendar .section-heading { align-items: start; gap: 12px; }
+.hour-calendar h2 { margin: 0 0 6px; font-size: 17px; }
+.hour-calendar p { margin: 0; font-size: 12px; }
+.hour-calendar-scroll { overflow-x: auto; padding: 10px 0; }
+.hour-calendar-row, .hour-calendar-scale { display: grid; grid-template-columns: 46px repeat(24, minmax(10px, 1fr)); gap: 4px; min-width: 360px; align-items: center; margin: 5px 0; }
+.hour-calendar-row time, .hour-calendar-scale { font-size: 10px; color: var(--muted, #767485); }
+.hour-cell { display: block; padding: 0; min-height: 12px; height: auto; aspect-ratio: 1; border: 1px solid #dddce7; border-radius: 3px; cursor: pointer; }
+.hour-cell.empty { background: #f0eff5; }
+.hour-cell.event { background: #b5dec8; border-color: #9ccbb3; }
+.hour-cell.deadline { background: #dc9671; border-color: #c27b55; }
+.hour-cell:focus-visible, .hour-cell:hover { outline: 2px solid #7460bb; outline-offset: 2px; }
+.calendar-legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0; font-size: 11px; color: #716f81; }
+.calendar-legend span { display: flex; gap: 5px; align-items: center; }
+.calendar-legend i { width: 12px; min-height: 12px; }
+.hour-calendar .calendar-detail { min-height: 2.5em; margin-top: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.tag-category, .attendance-day { border: 0; padding: 0; margin: 0 0 20px; min-width: 0; }
+.tag-category legend { font-size: 13px; font-weight: 600; color: #71648b; margin-bottom: 10px; }
+.categorized-tags .keyword-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.categorized-tags .keyword-choices label { margin: 0; display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid #e4e0ed; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.categorized-tags label:has(input:checked) { background: #eeeafb; border-color: #b6a4de; }
+.categorized-tags input[type=checkbox], .attendance-hour input[type=checkbox] { width: 16px; height: 16px; min-height: 0; margin: 0; flex: 0 0 auto; accent-color: #8065b5; }
+.attendance-days { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.attendance-hours { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; touch-action: pan-y; }
+.attendance-hour { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 10px; padding: 8px 2px; border: 1px solid #e2deeb; border-radius: 6px; cursor: pointer; user-select: none; }
+.attendance-hour:has(input:checked) { background: #f8e1d5; border-color: #cb8d6a; }
+.attendance-hour:has(input:focus-visible) { outline: 2px solid #7460bb; outline-offset: 2px; }
+.attendance-picker output { display: block; font-size: 12px; color: #777184; margin-top: 8px; }
+.square-tabs { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+.community-invitation { background: #f4f0fa; border-radius: 8px; padding: 12px; color: #77608d; }
+.community-card h3, .community-card p { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .topbar-actions > .icon-button { display: inline-flex; }
+  .attendance-days { grid-template-columns: 1fr; }
+  .attendance-hours { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .attendance-hour { flex-direction: column; font-size: 9px; padding: 7px 1px; }
+  .hour-calendar .section-heading { flex-wrap: wrap; }
+  .square-tabs { font-size: 12px; gap: 14px; }
+}
+.topbar-actions > a.icon-button { display: inline-flex; }
+.topbar .breadcrumb { min-width: 0; }
+.topbar .breadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.organizer-backend-link { white-space: nowrap; }
+@media (max-width: 767px) {
+  .topbar .organizer-backend-link { min-width: 44px; min-height: 44px; padding: 10px; }
+  .organizer-backend-link span { display: none; }
+}

@@ -1,0 +1,43 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">创客营 · 组队广场</div>
+      <h1>{{ post.title }}</h1>
+      <p>{{ post.author.name }} · {{ post.get_kind_display }} · {{ post.created|date:'m-d H:i' }}</p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:teams' hackathon.slug %}">返回组队广场</a>
+  </section>
+  <article class="panel">
+    <p>{{ post.body|linebreaksbr }}</p>
+    <p class="community-invitation">{{ post.invitation }}</p>
+    {% if post.demo_url %}
+      <a href="{{ post.demo_url }}" target="_blank" rel="noopener noreferrer">打开作品、图片或录屏 ↗</a>
+    {% endif %}
+    {% if post.author_id == participant.pk %}
+      <p><a href="{% url 'hackathon:post-edit' hackathon.slug post.pk %}">编辑 / 关闭回应 / 设为草稿</a></p>
+    {% endif %}
+  </article>
+  <div class="section-heading outside"><h2>围绕这件事聊一聊</h2></div>
+  {% for response in responses %}
+    <article class="panel">
+      <strong>{{ response.author.name }}</strong>
+      {% if response.private %}<span class="tag">私密回应</span>{% endif %}
+      <p>{{ response.body|linebreaksbr }}</p>
+    </article>
+  {% empty %}
+    <p>还没有回应。可以分享你的经历，给点建议，或一起试试。</p>
+  {% endfor %}
+  {% if post.is_open and post.is_public %}
+    <form method="post" class="panel form-panel">
+      {% csrf_token %}
+      {% include 'hackathon/form_fields.html' %}
+      <button class="button" type="submit">发送回应</button>
+    </form>
+  {% else %}
+    <p class="panel">这张卡片暂不接受回应。</p>
+  {% endif %}
+  {% if hackathon.matching_enabled %}
+    <p><a href="{% url 'hackathon:matching' hackathon.slug %}#people">想继续合作？到匹配页面发送定向交流意向 ↗</a></p>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading"><div><div class="eyebrow">MAKER CAMP</div><h1>{{ title }}</h1><p>{{ subtitle }}</p></div></section>
+  <form method="post" class="panel form-panel">
+    {% csrf_token %}
+    <input type="hidden" name="idempotency_key" value="{{ request_key }}">
+    {% include 'hackathon/form_fields.html' %}
+    <div class="actions"><button class="button" type="submit">保存并继续</button><a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}">返回 组队广场</a></div>
+  </form>
+{% endblock %}

@@ -1,0 +1,28 @@
+<section class="hour-calendar panel" aria-label="逐小时活动日历">
+  <div class="section-heading">
+    <div>
+      <h2>活动小时历</h2>
+      <p class="muted">每格 1 小时 · 悬停、聚焦或点按查看安排</p>
+    </div>
+    <a href="{% url 'hackathon:schedule' hackathon.slug %}">完整日程 ↗</a>
+  </div>
+  <div class="hour-calendar-scroll">
+    <div class="hour-calendar-scale" aria-hidden="true"><span></span>{% for cell in calendar_days.0.hours %}<span>{% if cell.hour|divisibleby:3 %}{{ cell.hour }}{% endif %}</span>{% endfor %}</div>
+    {% for day in calendar_days %}
+      <div class="hour-calendar-row">
+        <time datetime="{{ day.date|date:'Y-m-d' }}">{{ day.date|date:'m.d' }}</time>
+        {% for cell in day.hours %}
+          <button type="button"
+                  class="hour-cell {{ cell.level }}"
+                  title="{{ cell.label }}"
+                  aria-label="{{ cell.label }}"
+                  data-hour-detail="{{ cell.label }}"></button>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  <div class="calendar-legend"><span><i class="hour-cell empty"></i>暂无安排</span><span><i class="hour-cell event"></i>活动</span><span><i class="hour-cell deadline"></i>重要截止</span></div>
+  <p class="calendar-detail"
+     data-calendar-detail
+     aria-live="polite">选择一个小时查看具体安排。时间以 {{ hackathon.event.timezone }} 为准。</p>
+</section>

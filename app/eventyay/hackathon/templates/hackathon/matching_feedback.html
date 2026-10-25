@@ -1,0 +1,9 @@
+<form method="post" class="actions" action="{% url 'hackathon:matching' hackathon.slug %}">
+  {% csrf_token %}
+  <input type="hidden" name="operation" value="feedback">
+  <input type="hidden" name="idempotency_key" value="{{ request_key }}:{{ target_id }}:feedback">
+  <input type="hidden" name="target_id" value="{{ target_id }}">
+  <input type="hidden" name="target_type" value="{{ target_type }}">
+  <button name="decision" value="save" type="submit" class="text-button">收藏</button>
+  <button name="decision" value="dismiss" type="submit" class="text-button">暂不考虑</button>
+</form>

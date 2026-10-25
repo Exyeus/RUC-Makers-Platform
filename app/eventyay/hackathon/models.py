@@ -45,6 +45,11 @@ class StudentAccount(TimestampedModel):
 class Hackathon(TimestampedModel):
     """Public event registry; children are isolated by the linked Event scope."""
 
+    class Program(models.TextChoices):
+        MAKER_CAMP = 'maker_camp', '创客营'
+        HACKATHON = 'hackathon', '黑客松（暂未开放）'
+
+    program = models.CharField('业务板块', max_length=16, choices=Program.choices, default=Program.MAKER_CAMP)
     event = models.OneToOneField('base.Event', on_delete=models.CASCADE, related_name='hackathon')
     slug = models.SlugField(unique=True)
     name = models.CharField('活动名称', max_length=120)
@@ -58,7 +63,7 @@ class Hackathon(TimestampedModel):
     submission_deadline = models.DateTimeField('作品提交截止')
     freeze_at = models.DateTimeField('材料最终冻结')
     team_size = models.PositiveSmallIntegerField(
-        '每队人数上限', default=5, validators=[MinValueValidator(1), MaxValueValidator(20)]
+        '每队人数上限', default=3, validators=[MinValueValidator(1), MaxValueValidator(20)]
     )
     demo_seconds = models.PositiveSmallIntegerField(
         '展示秒数', default=120, validators=[MinValueValidator(30), MaxValueValidator(1800)]
@@ -92,6 +97,19 @@ class Hackathon(TimestampedModel):
         '两端各去掉的评分数量', default=1, validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
     scoring_revision = models.PositiveIntegerField(default=0)
+    matching_capacity = models.PositiveIntegerField('正式录取容量', default=150, validators=[MinValueValidator(1)])
+    matching_enabled = models.BooleanField('启用 Idea Market', default=False)
+    matching_roster_enabled = models.BooleanField('已批准名单政策，启用全员确认入队', default=False)
+    matching_policy_version = models.PositiveIntegerField(default=1)
+    matching_frozen_at = models.DateTimeField(null=True, blank=True, editable=False)
+    matching_freeze_snapshot = models.JSONField(default=dict, blank=True, editable=False)
+    matching_min_common_slots = models.PositiveSmallIntegerField(default=1)
+    matching_intent_limit = models.PositiveSmallIntegerField(default=10)
+    matching_cooldown_hours = models.PositiveSmallIntegerField(default=24)
+    matching_expiry_hours = models.PositiveSmallIntegerField(default=72)
+    matching_min_pair_score = models.FloatField(default=0.25, validators=[MinValueValidator(0), MaxValueValidator(1)])
+    matching_idea_min_chars = models.PositiveSmallIntegerField('原方案 Idea 各要素最低字数（批准后设置）', default=0)
+    matching_single_allowed = models.BooleanField('批准单人参赛', default=False)
 
     class Meta:
         ordering = ['-event__date_from']
@@ -116,7 +134,7 @@ class Hackathon(TimestampedModel):
 
     @property
     def teams_open(self):
-        return timezone.now() < self.team_freeze_at
+        return self.matching_frozen_at is None and timezone.now() < self.team_freeze_at
 
 
 class EventRecord(TimestampedModel):
@@ -148,7 +166,18 @@ class Participant(EventRecord):
     bio = models.TextField('自我介绍与想做的项目', max_length=1000, blank=True)
     looking_for_team = models.BooleanField('在组队广场展示我的名字、技能和介绍', default=False)
     availability = models.CharField('无法到场的时段 / 特殊安排（仅工作人员可见）', max_length=250, blank=True)
+    unavailable_slots = models.JSONField('无法到场的小时（仅工作人员可见）', default=list, blank=True)
     consent = models.BooleanField('同意组委会为组织本次活动使用上述信息', default=False)
+    admission_state = models.CharField(
+        max_length=12,
+        default='pending',
+        choices=[
+            ('pending', '待审核'),
+            ('admitted', '已录取'),
+            ('waitlisted', '候补'),
+            ('withdrawn', '已退出'),
+        ],
+    )
     checked_in = models.BooleanField(default=False)
     certificate_name = models.CharField('证书姓名', max_length=80, blank=True)
     team = models.ForeignKey('Team', on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
@@ -172,6 +201,18 @@ class Team(EventRecord):
     intro = models.TextField('项目想法 / 招募说明', max_length=1000, blank=True)
     needs = models.CharField('希望队友具备的技能', max_length=200, blank=True)
     recruiting = models.BooleanField('公开招募队友', default=True)
+    roster_version = models.PositiveIntegerField(default=1)
+    state = models.CharField(
+        max_length=12,
+        default='recruiting',
+        choices=[
+            ('recruiting', '招募中'),
+            ('ready', '已就绪'),
+            ('frozen', '已冻结'),
+            ('completed', '已完成'),
+            ('dissolved', '已解散'),
+        ],
+    )
     invite_code = models.CharField(max_length=32, unique=True, default=invitation_code)
 
     class Meta:
@@ -459,3 +500,262 @@ class StationToken(EventRecord):
     digest = models.CharField(max_length=64, unique=True)
     expires_at = models.DateTimeField()
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+
+class MatchingProfile(EventRecord):
+    class Visibility(models.TextChoices):
+        EVENT = 'event', '本活动可见'
+        RECOMMEND = 'recommend', '仅推荐与邀请'
+        PAUSED = 'paused', '暂停匹配 / 单人参赛'
+
+    participant = models.OneToOneField(Participant, on_delete=models.CASCADE, related_name='matching_profile')
+    skills = models.JSONField(default=dict, blank=True)
+    needs = models.JSONField(default=dict, blank=True)
+    interests = models.JSONField(default=list, blank=True)
+    learning_roles = models.JSONField(default=list, blank=True)
+    slots = models.JSONField(null=True, blank=True)
+    goal = models.CharField(max_length=20, blank=True)
+    async_ok = models.BooleanField(default=False)
+    visibility = models.CharField(max_length=12, choices=Visibility.choices, default=Visibility.PAUSED)
+    opt_in = models.BooleanField(default=False)
+    batch_opt_in = models.BooleanField(default=False)
+    help_requested = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
+    confirmed_at = models.DateTimeField(default=timezone.now)
+
+
+class MatchingContact(EventRecord):
+    participant = models.OneToOneField(Participant, on_delete=models.CASCADE)
+    text = models.CharField(max_length=200, blank=True)
+    share_on_accept = models.BooleanField(default=False)
+
+
+class MatchingBlock(EventRecord):
+    source = models.ForeignKey(Participant, on_delete=models.CASCADE, related_name='+')
+    target = models.ForeignKey(Participant, on_delete=models.CASCADE, related_name='+')
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['source', 'target'], name='hack_matching_block')]
+
+
+class Idea(EventRecord):
+    class Mode(models.TextChoices):
+        RECRUIT = 'recruit', '组队型'
+        CHALLENGE = 'challenge', '揭榜型'
+        EITHER = 'either', '都行'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    author = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    title = models.CharField('Idea 名称', max_length=120)
+    problem = models.TextField('要解决的问题', max_length=3000)
+    audience = models.TextField('服务谁', max_length=3000)
+    solution = models.TextField('构想与可验证的方案', max_length=3000)
+    mode = models.CharField('合作方式', max_length=12, choices=Mode.choices)
+    interests = models.JSONField(default=list)
+    role_weights = models.JSONField(default=dict)
+    allow_async = models.BooleanField('接受异步协作', default=False)
+    state = models.CharField(max_length=12, default='open', choices=[('open', '开放中'), ('closed', '已关闭')])
+    version = models.PositiveIntegerField(default=1)
+
+
+class IdeaImplementation(EventRecord):
+    idea = models.ForeignKey(Idea, on_delete=models.PROTECT, related_name='implementations')
+    team = models.ForeignKey(Team, on_delete=models.PROTECT)
+    claim_state = models.CharField(max_length=12, default='confirmed')
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['idea', 'team'], name='hack_idea_team')]
+
+
+class MatchIntent(EventRecord):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    sender = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='+')
+    recipient = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='+')
+    team = models.ForeignKey(Team, null=True, blank=True, on_delete=models.PROTECT)
+    message = models.CharField(max_length=500)
+    state = models.CharField(
+        max_length=12,
+        default='pending',
+        choices=[
+            ('pending', '待回应'),
+            ('accepted', '同意交流'),
+            ('declined', '已婉拒'),
+            ('cancelled', '已撤回'),
+            ('expired', '已过期'),
+        ],
+    )
+    expires_at = models.DateTimeField()
+    version = models.PositiveIntegerField(default=1)
+
+
+class TeamProposal(EventRecord):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    creator = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='+')
+    target_team = models.ForeignKey(Team, null=True, blank=True, on_delete=models.PROTECT)
+    idea = models.ForeignKey(Idea, on_delete=models.PROTECT)
+    track = models.ForeignKey(Track, on_delete=models.PROTECT)
+    team_name = models.CharField(max_length=80)
+    agreement = models.TextField(max_length=2000)
+    snapshot = models.JSONField()
+    proposal_hash = models.CharField(max_length=64)
+    state = models.CharField(
+        max_length=20,
+        default='awaiting_consent',
+        choices=[
+            ('awaiting_consent', '等待全员确认'),
+            ('confirmed', '已正式成队'),
+            ('declined', '已拒绝'),
+            ('expired', '已过期'),
+            ('stale', '名单或资料已变化'),
+        ],
+    )
+    expires_at = models.DateTimeField()
+
+
+class ProposalConsent(EventRecord):
+    proposal = models.ForeignKey(TeamProposal, on_delete=models.CASCADE, related_name='consents')
+    participant = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    proposal_hash = models.CharField(max_length=64)
+    decision = models.CharField(max_length=12, choices=[('accept', '同意'), ('decline', '拒绝')])
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['proposal', 'participant'], name='hack_proposal_consent')]
+
+
+class TeamMembership(EventRecord):
+    participant = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    team = models.ForeignKey(Team, on_delete=models.PROTECT)
+    joined_at = models.DateTimeField(default=timezone.now)
+    left_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['hackathon', 'participant'],
+                condition=models.Q(left_at__isnull=True),
+                name='hack_one_active_membership',
+            )
+        ]
+
+
+class MatchingReceipt(EventRecord):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    operation = models.CharField(max_length=80)
+    key = models.CharField(max_length=100)
+    body_hash = models.CharField(max_length=64)
+    result = models.JSONField(default=dict)
+    status = models.PositiveSmallIntegerField(default=200)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['hackathon', 'actor', 'operation', 'key'],
+                name='hack_matching_idempotency',
+            )
+        ]
+
+
+class MatchingOutbox(EventRecord):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    kind = models.CharField(max_length=80)
+    payload = models.JSONField(default=dict)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+
+
+class MatchingProcessedEvent(EventRecord):
+    source = models.ForeignKey(MatchingOutbox, on_delete=models.PROTECT)
+    consumer = models.CharField(max_length=80)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['source', 'consumer'], name='hack_matching_consumer')]
+
+
+class RecommendationRun(EventRecord):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    viewer = models.ForeignKey(Participant, null=True, on_delete=models.PROTECT)
+    algorithm_version = models.CharField(max_length=80)
+    snapshot_hash = models.CharField(max_length=64)
+    snapshot = models.JSONField(default=dict)
+    results = models.JSONField(default=list)
+    diagnostics = models.JSONField(default=dict)
+    state = models.CharField(max_length=20, default='feasible')
+
+
+class MatchingFeedback(EventRecord):
+    participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    target_id = models.UUIDField()
+    target_type = models.CharField(max_length=12, choices=[('people', '人员'), ('teams', '队伍'), ('ideas', 'Idea')])
+    decision = models.CharField(max_length=12, choices=[('save', '收藏'), ('dismiss', '暂不考虑')])
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['participant', 'target_id', 'target_type'],
+                name='hack_matching_feedback',
+            )
+        ]
+
+
+class CommunityPost(EventRecord):
+    class Kind(models.TextChoices):
+        IDEA = 'idea', '灵感 / 脑洞'
+        EXPERIENCE = 'experience', '真实经历 / 痛点'
+        QUESTION = 'question', '开放问题'
+        SHOWCASE = 'showcase', '展示 / 开发日志'
+        HELP = 'help', '具体求助'
+        CO_CREATE = 'co_create', '微型共创'
+        RECRUIT = 'recruit', '招募伙伴'
+
+    author = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    kind = models.CharField('内容形式', max_length=16, choices=Kind.choices)
+    title = models.CharField('标题', max_length=120)
+    body = models.TextField('分享内容', max_length=3000)
+    invitation = models.CharField('希望大家怎样回应', max_length=200)
+    demo_url = models.URLField('作品、图片或录屏链接', blank=True)
+    is_public = models.BooleanField('在本活动组队广场展示', default=True)
+    is_open = models.BooleanField('接受回应', default=True)
+
+    class Meta:
+        ordering = ['-created']
+
+
+class CommunityResponse(EventRecord):
+    post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE, related_name='responses')
+    author = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    body = models.TextField('我的回应', max_length=1000)
+    private = models.BooleanField('仅向发布者私密回应', default=True)
+
+    class Meta:
+        ordering = ['created']
+
+
+class BonusRule(EventRecord):
+    title = models.CharField('加分事项', max_length=120)
+    description = models.TextField('规则、所需证明与审核标准', max_length=3000)
+    points = models.PositiveSmallIntegerField('通过审核后加分', validators=[MinValueValidator(1)])
+    active = models.BooleanField('公布并接受申请', default=False)
+    position = models.PositiveSmallIntegerField('排序', default=0)
+
+    class Meta:
+        ordering = ['position', 'pk']
+
+
+class BonusClaim(EventRecord):
+    class State(models.TextChoices):
+        PENDING = 'pending', '待审核'
+        APPROVED = 'approved', '已通过'
+        REJECTED = 'rejected', '未通过'
+
+    rule = models.ForeignKey(BonusRule, on_delete=models.PROTECT)
+    participant = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    evidence = models.TextField('完成说明与证明链接', max_length=2000)
+    state = models.CharField(max_length=12, choices=State.choices, default=State.PENDING)
+    awarded_points = models.PositiveSmallIntegerField(default=0)
+    review_note = models.CharField('审核说明', max_length=500, blank=True)
+    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['rule', 'participant'], name='hack_bonus_claim_once'),
+        ]

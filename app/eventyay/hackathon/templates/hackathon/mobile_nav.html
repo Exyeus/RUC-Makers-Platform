@@ -48,8 +48,8 @@
     <a href="{% url 'hackathon:project' hackathon.slug %}" {% if active == 'project' %}aria-current="page"{% endif %}>
       <svg aria-hidden="true"><use href="#i-folder" /></svg><span>作品</span>
     </a>
-    <a href="{% url 'hackathon:register' hackathon.slug %}" {% if active == 'register' %}aria-current="page"{% endif %}>
-      <svg aria-hidden="true"><use href="#i-badge" /></svg><span>我的</span>
+    <a href="{% url 'hackathon:bonus' hackathon.slug %}" {% if active == 'bonus' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-badge" /></svg><span>加分</span>
     </a>
   {% endif %}
   <button type="button" data-nav-toggle aria-controls="sidebar" aria-expanded="false" aria-label="展开全部导航">

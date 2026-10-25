@@ -20,12 +20,16 @@ from django_scopes import scope
 
 from eventyay.hackathon import forms, services
 from eventyay.hackathon.archive import zip_preview
+from eventyay.hackathon.calendar import absence_summary, schedule_heatmap
+from eventyay.hackathon.community import square_context
 from eventyay.hackathon.constants import KEYWORDS
 from eventyay.hackathon.downloads import asset_response, stream_file
+from eventyay.hackathon.matching import excluded_ids
 from eventyay.hackathon.models import (
     Announcement,
     Asset,
     AuditEntry,
+    BonusRule,
     DemoSlot,
     Hackathon,
     JoinRequest,
@@ -56,11 +60,10 @@ def page(request, template, **context):
     participant = request.participant
     navigation = [
         ('home', '总览', 'grid'),
-        ('register', '个人资料', 'badge'),
         ('schedule', '活动日程', 'calendar'),
-        ('announcements', '通知公告', 'bell'),
         ('resources', '学习与指南', 'book'),
         ('teams', '组队广场', 'users'),
+        ('bonus', '加分规则', 'badge'),
         ('project', '我的作品', 'folder'),
         ('gallery', '作品展厅', 'spark'),
         ('stage', '路演现场', 'play'),
@@ -72,6 +75,7 @@ def page(request, template, **context):
         staff_navigation = [
             ('manage', '活动总控', 'grid'),
             ('participants', '选手与队伍', 'users'),
+            ('matching-operations', '组队撮合', 'users'),
             ('submissions', '作品检查', 'folder'),
             ('manage-stage', '路演调度', 'play'),
             ('results', '评审与成绩', 'chart'),
@@ -97,6 +101,18 @@ def page(request, template, **context):
         'latest_notice': Announcement.objects.filter(hackathon=hackathon, audience='all').first(),
     }
     common.update(context)
+    if common['active'] in {
+        'matching',
+        'matching-profile',
+        'idea-create',
+        'idea-edit',
+        'proposal-create',
+        'post-new',
+        'post-edit',
+        'post-detail',
+        'team-edit',
+    }:
+        common['active'] = 'teams'
     return render(request, f'hackathon/{template}.html', common)
 
 
@@ -107,7 +123,9 @@ def report_validation(request, error):
 
 @require_GET
 def index(request):
-    editions = list(Hackathon.objects.filter(is_public=True).select_related('event'))
+    editions = list(
+        Hackathon.objects.filter(is_public=True, program=Hackathon.Program.MAKER_CAMP).select_related('event')
+    )
     if len(editions) == 1:
         return redirect(url(editions[0], 'home'))
     return render(request, 'hackathon/index.html', {'editions': editions})
@@ -154,7 +172,8 @@ def home(request):
     ]
     return page(
         request,
-        'home',
+        'home' if request.user.is_authenticated else 'landing',
+        login_form=forms.StudentLoginForm() if not request.user.is_authenticated else None,
         team=team,
         project=project,
         journey_url=url(h, 'project' if participant else 'register'),
@@ -167,12 +186,13 @@ def home(request):
         notices=Announcement.objects.filter(hackathon=h, audience='all')[:3],
         upcoming=ScheduleItem.objects.filter(hackathon=h, ends_at__gte=timezone.now())[:3],
         featured_resources=Resource.objects.filter(hackathon=h)[:3],
+        calendar_days=schedule_heatmap(h),
     )
 
 
 @event_view('login')
 def register(request):
-    form = forms.ParticipantForm(request.POST or None, instance=request.participant)
+    form = forms.ParticipantForm(request.POST or None, instance=request.participant, hackathon=request.hackathon)
     if request.method == 'POST' and form.is_valid():
         try:
             services.save_participant(request.hackathon, request.user, form)
@@ -208,8 +228,21 @@ def teams(request):
         teams_qs = teams_qs.filter(track_id=int(track))
     own = request.participant.team if request.participant else None
     seekers = Participant.objects.filter(hackathon=h, looking_for_team=True, team__isnull=True)
+    if h.matching_enabled:
+        teams_qs = teams_qs.filter(state='recruiting', captain__matching_profile__opt_in=True).exclude(
+            captain__matching_profile__visibility='paused'
+        )
+        seekers = Participant.objects.filter(
+            hackathon=h, team__isnull=True, matching_profile__opt_in=True, matching_profile__visibility='event'
+        )
+        if request.participant:
+            excluded = excluded_ids(h, request.participant)
+            teams_qs = teams_qs.exclude(members__pk__in=excluded)
+            seekers = seekers.exclude(pk__in=excluded)
+        else:
+            teams_qs, seekers = teams_qs.none(), seekers.none()
     keyword = request.GET.get('keyword', '')
-    if keyword in KEYWORDS:
+    if keyword:
         seekers = seekers.filter(keywords__contains=[keyword])
     if query:
         seekers = seekers.filter(
@@ -235,11 +268,16 @@ def teams(request):
         seekers=seekers.order_by('-updated')[:60],
         keywords=KEYWORDS,
         selected_keyword=keyword,
+        **square_context(h, request.participant, request.GET),
     )
 
 
 @event_view('login')
 def team_edit(request):
+    if request.hackathon.matching_enabled and not request.participant:
+        return redirect(url(request.hackathon, 'register'))
+    if request.hackathon.matching_enabled and not request.participant.team_id:
+        return redirect(url(request.hackathon, 'proposal-create'))
     participant = request.participant
     if not participant:
         return redirect(url(request.hackathon, 'register'))
@@ -272,6 +310,8 @@ def team_action(request):
     if not participant:
         return redirect(url(h, 'register'))
     action = request.POST.get('action')
+    if h.matching_enabled:
+        return redirect(url(h, 'matching'))
     try:
         with transaction.atomic():
             h = services.lock_event(h)
@@ -309,7 +349,8 @@ def team_action(request):
                 team = get_object_or_404(Team, hackathon=h, captain=participant)
                 member = get_object_or_404(Participant, hackathon=h, team=team, pk=request.POST.get('member'))
                 team.captain = member
-                team.save(update_fields=['captain', 'updated'])
+                team.roster_version += 1
+                team.save(update_fields=['captain', 'roster_version', 'updated'])
                 services.audit(h, request.user, '转交队长', team.code, member.code)
             elif action == 'rotate':
                 team = get_object_or_404(Team, hackathon=h, captain=participant)
@@ -561,7 +602,12 @@ def resource_detail(request, resource_id):
 @event_view()
 @require_GET
 def schedule(request):
-    return page(request, 'schedule', items=ScheduleItem.objects.filter(hackathon=request.hackathon))
+    return page(
+        request,
+        'schedule',
+        items=ScheduleItem.objects.filter(hackathon=request.hackathon),
+        calendar_days=schedule_heatmap(request.hackathon),
+    )
 
 
 @event_view()
@@ -592,7 +638,9 @@ def gallery(request):
         'gallery',
         projects=items,
         query=query,
-        editions=Hackathon.objects.filter(is_public=True, gallery_open=True).exclude(pk=h.pk),
+        editions=Hackathon.objects.filter(
+            is_public=True, gallery_open=True, program=Hackathon.Program.MAKER_CAMP
+        ).exclude(pk=h.pk),
     )
 
 
@@ -600,6 +648,11 @@ def gallery(request):
 @require_GET
 def manage(request):
     h = request.hackathon
+    special = list(
+        Participant.objects.filter(hackathon=h).exclude(availability='', unavailable_slots=[]).select_related('team')
+    )
+    for person in special:
+        person.attendance_summary = absence_summary(h, person.unavailable_slots, person.availability)
     return page(
         request,
         'manage',
@@ -609,7 +662,7 @@ def manage(request):
         submitted=Project.objects.filter(hackathon=h, submitted_at__isnull=False).count(),
         pending=Project.objects.filter(hackathon=h, state='submitted').count(),
         missing=Team.objects.filter(hackathon=h).filter(Q(project__isnull=True) | Q(project__state='draft')),
-        special=Participant.objects.filter(hackathon=h).exclude(availability='').select_related('team'),
+        special=special,
         tickets=SupportTicket.objects.filter(hackathon=h).exclude(state='resolved').count(),
         log=AuditEntry.objects.filter(hackathon=h).select_related('actor')[:12],
     )
@@ -639,7 +692,10 @@ def participants(request):
             | Q(user__email__icontains=query)
             | Q(user__student_account__student_id__icontains=query)
         )
-    return page(request, 'participants', participants=items, query=query)
+    people = list(items)
+    for person in people:
+        person.attendance_summary = absence_summary(h, person.unavailable_slots, person.availability)
+    return page(request, 'participants', participants=people, query=query)
 
 
 @event_view('organizer')
@@ -724,6 +780,8 @@ def settings(request):
     if request.method == 'POST' and form.is_valid():
         with transaction.atomic():
             current = services.lock_event(h)
+            if current.matching_enabled and ({'team_size', 'team_freeze_at'} & set(form.changed_data)):
+                form.add_error(None, '组队广场开放后，人数政策请在组队撮合工作台修改；本轮冻结时间不能在此覆盖。')
             if form.cleaned_data['results_published'] and not current.results_published:
                 rows = services.results(h)
                 if not rows or any(not row['complete'] for row in rows):
@@ -744,6 +802,7 @@ def settings(request):
 
 
 CONTENT = {
+    'bonus': (BonusRule, forms.BonusRuleForm, '加分规则'),
     'announcement': (Announcement, forms.AnnouncementForm, '通知'),
     'resource': (Resource, forms.ResourceForm, '教程与指南'),
     'schedule': (ScheduleItem, forms.ScheduleForm, '日程'),
@@ -988,6 +1047,8 @@ def manage_stage(request):
 
 def station_auth(request, hackathon_slug):
     hackathon = get_object_or_404(Hackathon.objects.select_related('event__organizer'), slug=hackathon_slug)
+    if hackathon.program != Hackathon.Program.MAKER_CAMP:
+        raise Http404
     header = request.headers.get('Authorization', '')
     if not header.startswith('Bearer '):
         raise PermissionDenied
@@ -1080,7 +1141,7 @@ def export(request, kind):
                     item.contact,
                     item.team.code if item.team else '',
                     item.team.name if item.team else '',
-                    item.availability,
+                    absence_summary(h, item.unavailable_slots, item.availability),
                     item.checked_in,
                     item.certificate_name,
                     item.student_id or '',

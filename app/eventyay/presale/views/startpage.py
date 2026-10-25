@@ -9,16 +9,17 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView, TemplateView
 from django_scopes import scopes_disabled
-from eventyay.common.views.mixins import PaginationMixin
 from i18nfield.strings import LazyI18nString
 
 from eventyay.base.models import Event, Organizer, OrganizerFollower
 from eventyay.base.models.page import Page
 from eventyay.base.settings import GlobalSettingsObject
 from eventyay.common.permissions import is_admin_mode_active
+from eventyay.common.views.mixins import PaginationMixin
 from eventyay.eventyay_common.navigation import get_global_navigation
 from eventyay.hackathon.models import Hackathon
 from eventyay.multidomain.urlreverse import eventreverse
+
 
 _SEARCH_PAGE_LIMIT = 200
 
@@ -64,7 +65,9 @@ class StartPageView(TemplateView):
                 return JsonResponse({'results': []})
             return JsonResponse({'results': _search_events(query)})
         featured = (
-            Hackathon.objects.filter(is_public=True, event__date_to__gte=timezone.now())
+            Hackathon.objects.filter(
+                is_public=True, program=Hackathon.Program.MAKER_CAMP, event__date_to__gte=timezone.now()
+            )
             .order_by('event__date_from')
             .first()
         )
