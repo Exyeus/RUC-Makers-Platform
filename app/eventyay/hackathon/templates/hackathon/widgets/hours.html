@@ -1,0 +1,20 @@
+<div class="attendance-picker" id="{{ widget.attrs.id }}" data-hour-picker>
+  <p class="muted">拖动圈选，或按 Tab 与空格逐格选择。着色表示无法到场。</p>
+  <div class="attendance-days">
+    {% for day, options, index in widget.optgroups %}
+      <fieldset class="attendance-day">
+        <legend>{{ day }}</legend>
+        <div class="attendance-hours">
+          {% for option in options %}
+            <label class="attendance-hour" for="{{ option.attrs.id }}">
+              {% include "django/forms/widgets/input.html" with widget=option %}
+              <span>{{ option.label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    {% endfor %}
+  </div>
+  <output data-hour-count aria-live="polite"></output>
+  <button class="text-button" type="button" data-hour-clear>清空选择</button>
+</div>

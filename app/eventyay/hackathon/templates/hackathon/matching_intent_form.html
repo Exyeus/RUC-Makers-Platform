@@ -1,0 +1,15 @@
+{% firstof team_id recipient_id as intent_target_id %}
+<details>
+  <summary class="text-link">表达合作意向</summary>
+  <form method="post" action="{% url 'hackathon:matching' hackathon.slug %}">
+    {% csrf_token %}
+    <input type="hidden" name="operation" value="intents">
+    <input type="hidden" name="idempotency_key" value="{{ request_key }}:{{ intent_target_id }}">
+    <input type="hidden" name="recipient_id" value="{{ recipient_id }}">
+    {% if team_id %}<input type="hidden" name="team_id" value="{{ team_id }}">{% endif %}
+    <label for="intent-{{ context_id }}-{{ recipient_id }}-{{ team_id }}">想一起解决什么问题，能贡献什么？</label>
+    <textarea id="intent-{{ context_id }}-{{ recipient_id }}-{{ team_id }}" name="message" required maxlength="500" rows="3"></textarea>
+    <button class="button small" type="submit">发送意向</button>
+    <p class="muted">接受仅表示同意交流；不占用正式队伍名额。</p>
+  </form>
+</details>

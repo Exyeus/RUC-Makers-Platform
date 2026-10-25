@@ -1,11 +1,3 @@
-# Cursor Rules for Eventyay
+# Cursor instructions
 
-1. Read `agents.md` first; it is the single source of truth.
-2. Apply matching scoped rules in `.github/instructions/*.md` for each edited file.
-3. Keep edits minimal and in requested scope.
-4. Preserve core safety rules:
-   - Event data queries use `scope(event=event)`.
-   - New imports use `eventyay.*`, not legacy namespaces.
-   - JavaScript uses external ES modules (no jQuery, no inline scripts).
-
-Do not duplicate or override project policy in this file.
+Read [agents.md](agents.md) first, then apply matching `.github/instructions/` rules. The canonical file links the current `.agents/` workflow, skills and templates; keep project policy there.

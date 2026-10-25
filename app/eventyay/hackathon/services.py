@@ -9,13 +9,16 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
+from eventyay.hackathon.calendar import available_half_hours
 from eventyay.hackathon.models import (
     AuditEntry,
     DemoSlot,
     Hackathon,
     JoinRequest,
+    MatchingProfile,
     Participant,
     Project,
+    RecommendationRun,
     Score,
     StaffAssignment,
     Team,
@@ -64,6 +67,15 @@ def save_participant(hackathon, user, form):
     participant = form.save(commit=False)
     participant.hackathon, participant.user = hackathon, user
     participant.save(update_fields=[*form.Meta.fields, 'updated'] if current else None)
+    if current:
+        profile = MatchingProfile.objects.filter(hackathon=hackathon, participant=participant).first()
+        if profile and profile.slots is not None:
+            slots = available_half_hours(hackathon, participant.unavailable_slots)
+            if slots != profile.slots:
+                profile.slots = slots
+                profile.version += 1
+                profile.save(update_fields=['slots', 'version', 'updated'])
+                RecommendationRun.objects.filter(hackathon=hackathon).delete()
     audit(hackathon, user, '更新报名信息', participant.code)
     return participant
 
@@ -73,16 +85,27 @@ def save_team(hackathon, participant, form):
     hackathon = lock_event(hackathon)
     require_team_open(hackathon)
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
+    if hackathon.matching_enabled and not form.instance.created:
+        raise ValidationError('请在 组队广场提交完整名单并取得全员确认。')
+    current = None
     if form.instance.created:
-        team = Team.objects.get(pk=form.instance.pk, hackathon=hackathon)
-        if team.captain_id != participant.pk:
+        current = Team.objects.select_for_update().get(pk=form.instance.pk, hackathon=hackathon)
+        if current.captain_id != participant.pk:
             raise PermissionDenied
+        if hackathon.matching_enabled and form.cleaned_data['version'] != current.roster_version:
+            raise ValidationError('队伍已更新，请刷新后再修改招募资料。')
     elif participant.team_id:
         raise ValidationError('你已经加入队伍。请先离队，或由队长管理现有队伍。')
     team = form.save(commit=False)
+    if current:
+        for field in form.Meta.fields:
+            setattr(current, field, form.cleaned_data[field])
+        team = current
     if Team.objects.filter(hackathon=hackathon, name__iexact=team.name).exclude(pk=team.pk).exists():
         raise ValidationError('本次活动已有同名队伍，请换一个名称。')
     team.hackathon, team.captain = hackathon, participant
+    if team.created:
+        team.roster_version += 1
     team.save()
     participant.team = team
     participant.looking_for_team = False
@@ -95,6 +118,8 @@ def save_team(hackathon, participant, form):
 def join_team(hackathon, participant, team, *, invite_code=None, application=None):
     hackathon = lock_event(hackathon)
     require_team_open(hackathon)
+    if hackathon.matching_enabled:
+        raise ValidationError('请在 组队广场提交完整名单并取得全员确认。')
     team = Team.objects.select_for_update().get(pk=team.pk, hackathon=hackathon)
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
     if invite_code != team.invite_code and application is None:
@@ -115,6 +140,8 @@ def join_team(hackathon, participant, team, *, invite_code=None, application=Non
 @transaction.atomic
 def leave_team(hackathon, participant):
     hackathon = lock_event(hackathon)
+    if hackathon.matching_enabled:
+        raise ValidationError('请在 组队广场按名单政策退出队伍。')
     require_team_open(hackathon)
     participant = Participant.objects.select_for_update(of=('self',)).select_related('team').get(pk=participant.pk)
     if not participant.team_id:

@@ -21,13 +21,8 @@
         从第一个想法，到第一次 Demo。每一步，都在这里。
       </p>
     </div>
-    <a class="button secondary" href="{% url 'hackathon:schedule' hackathon.slug %}">
-      <svg>
-        <use href="#i-calendar" />
-      </svg>
-      查看活动日程
-    </a>
   </section>
+  {% include 'hackathon/hour_calendar.html' %}
   <section class="hero">
     <div class="hero-copy">
       <div class="hero-kicker">
@@ -40,7 +35,7 @@
         </span>
         <span>
           {{ hackathon.event.date_from|date:'Y' }}
-          · HACKATHON
+        · MAKER CAMP
         </span>
       </div>
       <h2>

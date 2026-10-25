@@ -1,34 +1,14 @@
 ---
 name: django-run-locally
-description: Steps for initiating the Django development server without Docker
+description: Prepare and start the event-platform preview using the existing checkout while checking database, static-file and service side effects.
 ---
 
-## When to use
+# 启动与运行边界
 
-Use this skill to spin up or invoke the local development backend sequence for rapid testing processes.
+先读 `README.rst`、`start-local.sh` 和当前运行配置；确认目标主机、数据库、端口和是否已有服务，不打印密钥。复用现有源树与平台专用依赖。
 
-## Steps
-
-1. Navigate securely into the active architecture directory: `cd app`
-2. Synchronously install or update environment dependencies strictly through `uv`: `uv sync --all-extras --all-groups`
-3. Activate the standard CLI venv wrapper: `. .venv/bin/activate`
-4. Deploy local DB schema synchronization calls: `python manage.py migrate`
-5. *(Optional)* Setup initial admin: `python manage.py create_admin_user`
-6. Build Frontend Assets:
-   ```bash
-   make npminstall
-   python manage.py collectstatic --noinput
-   python manage.py compress --force
-   ```
-7. Initialize the development environment natively: `python manage.py runserver`
-
-## Validation
-
-1. Verify server startup output bindings properly format against standard generic ports (ex. `127.0.0.1:8000`).
-2. There should be **no pending/unapplied migration warnings** displayed.
-3. Verify `http://127.0.0.1:8000` loads properly without missing CSS/MIME type errors.
-
-## Gotchas
-
-- **Strict Environment Imports**: If context dynamically requires variable settings locally, ALWAYS safely fetch these utilizing `from django.conf import settings`. Never import the isolated system settings configuration natively (e.g. absolutely never execute `from eventyay.config import settings`).
-- **CSS not loading / MIME type errors**: Ensure you have successfully run `collectstatic` and `compress --force` steps to properly build the Javascript/CSS chunks.
+- 本机 Linux 命令在 WSL Ubuntu、显式工作目录执行；Windows UI 在 Windows。远端服务器运行记录实际主机与环境。
+- `./start-local.sh --help` 可查看参数。启动会同步依赖、以 `migrate --check` 检查待应用迁移、收集静态文件并按需构建资源，然后监听（脚本默认 `0.0.0.0:8000`）。它不自动应用迁移或初始化/公开活动。确认目标后按 README 显式执行必要的 `migrate`、`setup_hackathon`；新工作区默认私有，筹备内容核实后再由主办方公开。仅本机预览应明确传 `127.0.0.1:8000`。
+- `shutdown-local.sh` 会停止进程；审计、代码同步或普通测试不自动执行启动/停止脚本。
+- 测试先读 `app/pyproject.toml` 和测试 settings，核实专属测试数据库、媒体目录、缓存及外部服务。用 `app/.venv` 的 Python/pytest 或当前平台已配置环境，记录命令和结果；不把现有业务库当测试库。
+- 启动获准后，验证所选活动入口、登录角色、静态资源和控制台错误。未做浏览器或目标环境检查时明确列为未验证。

@@ -1,0 +1,79 @@
+<nav class="square-tabs panel" aria-label="组队广场栏目">
+  <a href="#community">交流与共创</a>
+  <a href="#work-pool">作品池</a>
+  <a href="#team-search">找队友</a>
+  {% if hackathon.matching_enabled %}
+    <a href="{% url 'hackathon:matching' hackathon.slug %}">匹配推荐与组队进度</a>
+  {% endif %}
+  <a href="{% url 'hackathon:post-new' hackathon.slug %}">＋ 分享交流卡片</a>
+</nav>
+<section id="community" aria-labelledby="community-heading">
+  <div class="section-heading outside">
+    <div>
+      <h2 id="community-heading">先聊一点，再一起做一点。</h2>
+      <p>分享真实经历、开发日志、一个问题或一次微型共创。发布和回应不自动加分。</p>
+    </div>
+  </div>
+  <form method="get" class="filter-bar">
+    <label for="post-kind">内容形式</label>
+    <select id="post-kind" name="kind">
+      <option value="">全部内容</option>
+      {% for value, label in post_kinds %}
+        <option value="{{ value }}" {% if value == selected_kind %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button class="button secondary" type="submit">筛选</button>
+  </form>
+  <div class="card-grid">
+    {% for post in community_posts %}
+      <article class="panel community-card">
+        <span class="tag lavender">{{ post.get_kind_display }}</span>
+        <h3><a href="{% url 'hackathon:post-detail' hackathon.slug post.pk %}">{{ post.title }}</a></h3>
+        <p>{{ post.body|truncatechars:180 }}</p>
+        <p class="community-invitation">{{ post.invitation }}</p>
+        <div class="card-bottom">
+          <span>{{ post.author.name }}</span>
+          <a href="{% url 'hackathon:post-detail' hackathon.slug post.pk %}">
+            {% if post.is_open %}回应 / 一起试试 ↗{% else %}查看交流 ↗{% endif %}
+          </a>
+        </div>
+      </article>
+    {% empty %}
+      <div class="panel">
+        <h3>从一件很小的事开始</h3>
+        <p>最近遇到了什么校园小烦恼？做了什么有趣的东西？也可以邀请一位新伙伴，一起完成 20 分钟的小挑战。</p>
+        <a href="{% url 'hackathon:post-new' hackathon.slug %}">分享第一张卡片 ↗</a>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+<section id="work-pool" aria-labelledby="pool-heading">
+  <div class="section-heading outside">
+    <div><h2 id="pool-heading">作品池</h2><p>创客营的想法、原型与作品，从一个小问题开始。</p></div>
+    <a href="{% url 'hackathon:post-new' hackathon.slug %}">分享作品 / 开发日志 ↗</a>
+  </div>
+  <div class="card-grid">
+    {% for post in pool_posts %}
+      <article class="panel">
+        <span class="tag lavender">{{ post.get_kind_display }}</span>
+        <h3>{{ post.title }}</h3>
+        <p>{{ post.body|truncatechars:160 }}</p>
+        <a href="{% url 'hackathon:post-detail' hackathon.slug post.pk %}">查看作品与交流 ↗</a>
+      </article>
+    {% endfor %}
+    {% for idea in pool_ideas %}
+      <article class="panel">
+        <span class="tag mint">{{ idea.get_mode_display }}</span>
+        <h3>{{ idea.title }}</h3>
+        <p>{{ idea.problem|truncatechars:160 }}</p>
+        <p>{{ idea.solution|truncatechars:160 }}</p>
+        {% if hackathon.matching_enabled %}
+          <a href="{% url 'hackathon:matching' hackathon.slug %}#idea-{{ idea.pk }}">了解作品与合作方式 ↗</a>
+        {% endif %}
+      </article>
+    {% endfor %}
+    {% if not pool_posts and not pool_ideas %}
+      <div class="panel"><p>欢迎分享尚未完成的原型，也可以从一篇开发日志开始。</p></div>
+    {% endif %}
+  </div>
+</section>

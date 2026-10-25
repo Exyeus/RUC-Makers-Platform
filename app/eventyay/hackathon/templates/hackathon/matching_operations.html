@@ -1,0 +1,25 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading"><div><div class="eyebrow">MAKER CAMP · OPERATIONS</div><h1>让每一份参与意愿，有人回应。</h1><p>当前政策版本 {{ hackathon.matching_policy_version }}。集中撮合只生成建议，正式入队仍需本人逐一确认。</p></div></section>
+  <form method="post" class="panel form-panel">
+    {% csrf_token %}<input type="hidden" name="operation" value="configure"><input type="hidden" name="idempotency_key" value="{{ request_key }}:configure">
+    <h2>本轮政策</h2>
+    <div class="form-field checkbox-field"><input id="enabled" type="checkbox" name="enabled" {% if hackathon.matching_enabled %}checked{% endif %}><label for="enabled">开放 组队广场（启用后旧入口同样要求全员确认）</label></div>
+    <div class="form-field checkbox-field"><input id="roster" type="checkbox" name="roster" {% if hackathon.matching_roster_enabled %}checked{% endif %}><label for="roster">已批准全员确认、冻结前退出及队长先交接政策，开放正式入队</label></div>
+    <div class="form-field checkbox-field"><input id="single" type="checkbox" name="single" {% if hackathon.matching_single_allowed %}checked{% endif %}><label for="single">允许单人正式参赛</label></div>
+    <div class="form-field"><label for="capacity">正式录取容量</label><input id="capacity" name="capacity" type="number" min="1" max="10000" value="{{ hackathon.matching_capacity }}" required></div>
+    <div class="form-field"><label for="team-size">每队人数上限</label><input id="team-size" name="team_size" type="number" min="1" max="20" value="{{ hackathon.team_size }}" required></div>
+    <div class="form-field"><label for="idea-min">原方案规定的 Idea 各要素最低字数（0 表示尚未批准发布）</label><input id="idea-min" name="idea_min_chars" type="number" min="0" max="3000" value="{{ hackathon.matching_idea_min_chars }}" required></div>
+    <p>组队型必须包含作者；揭榜型允许独立实现。积分 +5 的业务口径尚未批准，本模块不自动加分。</p>
+    <button class="button" type="submit">批准并保存政策</button>
+  </form>
+  <section class="panel"><h2>资格审核</h2><p>报名与录取独立；待录取者可讨论，不能进入正式名单。</p>
+    <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="operation" value="admission"><input type="hidden" name="idempotency_key" value="{{ request_key }}:admission"><label for="candidate">选手</label><select id="candidate" name="participant_id">{% for p in candidates %}<option value="{{ p.pk }}">{{ p.name }} · {{ p.get_admission_state_display }}</option>{% endfor %}</select><label for="admission">资格</label><select name="admission_state" id="admission"><option value="admitted">已录取</option><option value="pending">待审核</option><option value="waitlisted">候补</option><option value="withdrawn">已退出</option></select><button class="button secondary" type="submit">记录审核结果</button></form>
+  </section>
+  <section class="panel"><h2>本人请求协助的待组队者</h2>{% for profile in help_queue %}<p>{{ profile.participant.name }} · <code>{{ profile.participant_id }}</code> · 确认于 {{ profile.confirmed_at|date:'m-d H:i' }}</p>{% empty %}<p>当前没有求助请求。</p>{% endfor %}</section>
+  <section class="panel"><h2>未响应意向</h2>{% for intent in pending %}<p>{{ intent.sender.name }} → {{ intent.recipient.name }} · 已过期，未响应不等于拒绝。</p>{% empty %}<p>暂无过期未响应意向。</p>{% endfor %}</section>
+  <section class="panel"><h2>集中撮合</h2><form method="post">{% csrf_token %}<input type="hidden" name="operation" value="matching-runs"><input type="hidden" name="idempotency_key" value="{{ request_key }}:batch"><button class="button secondary" type="submit">生成本轮待确认建议</button></form>
+    {% for run in runs %}<details><summary>{{ run.created|date:'m-d H:i' }} · {{ run.state }} · {{ run.diagnostics.newcomers_covered }} 位新增参与者</summary><p>使用确定性贪心可行基线；未证明最优，范围限已生成的候选集合。</p>{% for result in run.results %}<p>Idea {{ result.idea_id }} · {{ result.member_ids|join:'、' }}</p>{% empty %}<p>没有满足当前资格、意愿、共同时间与质量阈值的候选。</p>{% endfor %}</details>{% endfor %}
+  </section>
+  <section class="panel"><h2>冻结正式名单</h2><p>冻结后不能增员、离队或改变本轮政策。系统保存名单与版本快照。</p><form method="post">{% csrf_token %}<input type="hidden" name="operation" value="freeze"><input type="hidden" name="idempotency_key" value="{{ request_key }}:freeze"><button class="button secondary" type="submit" data-confirm="确认冻结本轮正式名单？">冻结名单并保存快照</button></form></section>
+{% endblock %}

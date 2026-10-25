@@ -1,0 +1,91 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div><div class="eyebrow">PEOPLE × IDEA × TEAM</div><h1>让想法，遇见一起实现的人。</h1><p>发起项目、加入项目、先探索或单人参赛。名单冻结：{{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}。</p></div>
+    <a class="button secondary" href="{% url 'hackathon:matching-profile' hackathon.slug %}">我的匹配资料</a>
+  </section>
+  <p><a href="{% url 'hackathon:teams' hackathon.slug %}">← 返回组队广场 · 交流与作品池</a></p>
+  <nav class="actions panel" aria-label="组队广场 导航">
+    <a href="#ideas">找项目</a><a href="#people">找队友</a><a href="?saved=1#ideas">我的收藏</a><a href="#progress">我的组队进度</a>
+    <a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布 Idea</a>
+    <a href="{% url 'hackathon:proposal-create' hackathon.slug %}">提出完整名单</a>
+    {% if is_organizer %}<a href="{% url 'hackathon:matching-operations' hackathon.slug %}">运营工作台</a>{% endif %}
+  </nav>
+  {% if request.GET.saved %}<p class="panel">正在查看收藏。<a href="?">查看全部项目与伙伴</a></p>{% endif %}
+  <section aria-labelledby="recommendation-heading">
+    <div class="section-heading outside"><div><h2 id="recommendation-heading">值得聊聊</h2><p>基于双方需求、共同兴趣与时间；推荐不代表成功概率。</p></div><div class="actions"><a href="?target=people">推荐伙伴</a><a href="?target=teams">推荐队伍</a></div></div>
+    <div class="card-grid">
+      {% for result in recommendations.results %}
+        <article class="panel"><h3>{{ result.name }}</h3>
+          {% for reason in result.reasons %}<p>{{ reason.public_text }}</p>{% endfor %}
+          {% if result.unknown_fields %}<p class="muted">部分资料尚待确认，可先交流。</p>{% endif %}
+          {% if result.target_type == 'teams' %}
+            {% include 'hackathon/matching_intent_form.html' with recipient_id=result.recipient_id team_id=result.target_id context_id='recommendation' %}
+          {% else %}
+            {% include 'hackathon/matching_intent_form.html' with recipient_id=result.target_id team_id='' context_id='recommendation' %}
+          {% endif %}
+          {% include 'hackathon/matching_feedback.html' with target_id=result.target_id target_type=result.target_type %}
+        </article>
+      {% empty %}<div class="panel"><p>暂时没有可核验的推荐。补全匹配资料后再来，也可以继续浏览与联系。</p></div>{% endfor %}
+    </div>
+  </section>
+  <section id="ideas" aria-labelledby="ideas-heading">
+    <div class="section-heading outside"><h2 id="ideas-heading">作品池 · 找项目</h2><a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布我的 Idea ↗</a></div>
+    <div class="card-grid">
+      {% for idea in ideas %}
+        <article class="panel" id="idea-{{ idea.pk }}"><span class="tag lavender">{{ idea.get_mode_display }}</span><h3>{{ idea.title }}</h3><p><strong>问题：</strong>{{ idea.problem }}</p><p><strong>服务谁：</strong>{{ idea.audience }}</p><p><strong>构想：</strong>{{ idea.solution }}</p>
+          <p class="muted">版本 {{ idea.version }} · 更新于 {{ idea.updated|date:'m-d H:i' }}</p>
+          {% if idea.can_contact %}{% include 'hackathon/matching_intent_form.html' with recipient_id=idea.author_id team_id='' context_id=idea.pk %}{% endif %}
+          {% if idea.author_id == participant.pk %}<a href="{% url 'hackathon:idea-edit' hackathon.slug idea.pk %}">编辑 / 关闭 Idea</a>{% endif %}
+          {% include 'hackathon/matching_feedback.html' with target_id=idea.pk target_type='ideas' %}
+        </article>
+      {% empty %}<div class="panel"><p>还没有开放中的 Idea。你可以先贡献一个真实问题。</p></div>{% endfor %}
+    </div>
+  </section>
+  <section id="people" aria-labelledby="people-heading">
+    <div class="section-heading outside"><h2 id="people-heading">找队友</h2></div>
+    <form method="get" class="filter-bar"><label for="market-q">搜索人员</label><input id="market-q" name="q" value="{{ request.GET.q }}" placeholder="姓名、技能、介绍"><button class="button secondary" type="submit">搜索</button></form>
+    <div class="card-grid">
+      {% for person in people %}
+        {% if person.id != participant.pk|stringformat:'s' %}
+          <article class="panel"><h3>{{ person.name }}</h3><p>{{ person.tagline }}</p><p>{{ person.bio }}</p><p>{% for tag in person.interests %}<span class="tag">{{ tag }}</span> {% endfor %}</p><p class="muted">成员编号：<code>{{ person.id }}</code></p><p class="muted">资料更新：{{ person.updated_at }}</p>
+            {% include 'hackathon/matching_intent_form.html' with recipient_id=person.id team_id='' context_id='people' %}
+            {% include 'hackathon/matching_feedback.html' with target_id=person.id target_type='people' %}
+            <form method="post">{% csrf_token %}<input type="hidden" name="operation" value="block"><input type="hidden" name="enabled" value="true"><input type="hidden" name="idempotency_key" value="{{ request_key }}:{{ person.id }}:block"><input type="hidden" name="target_id" value="{{ person.id }}"><button class="text-button" type="submit">停止与此人匹配</button></form>
+          </article>
+        {% endif %}
+      {% empty %}<div class="panel"><p>暂无公开的人员资料。</p></div>{% endfor %}
+    </div>
+    <div class="section-heading outside"><h2>招募队伍</h2></div>
+    <div class="card-grid">
+      {% for team in market_teams %}<article class="panel"><h3>{{ team.name }}</h3><p>{{ team.intro }}</p><p>需要：{{ team.needs }}</p><p>已有 {{ team.member_count }} 人 · 剩余 {{ team.remaining }} 个名额</p>{% include 'hackathon/matching_intent_form.html' with recipient_id=team.recipient_id team_id=team.id context_id='teams' %}</article>{% empty %}<div class="panel"><p>暂无公开招募的队伍。</p></div>{% endfor %}
+    </div>
+  </section>
+  <section id="progress" aria-labelledby="progress-heading">
+    <div class="section-heading outside"><h2 id="progress-heading">我的组队进度</h2></div>
+    <div class="panel"><p>我的成员编号：<code>{{ participant.pk }}</code> · 资格：{{ participant.get_admission_state_display }} · 正式队伍：{{ participant.team.name|default:'尚未加入' }}</p>
+      {% if participant.team.captain_id == participant.pk %}
+        <a href="{% url 'hackathon:team-edit' hackathon.slug %}">编辑队伍招募资料</a>
+        {% if own_members|length > 1 %}
+          <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="operation" value="transfer"><input type="hidden" name="idempotency_key" value="{{ request_key }}:transfer"><label for="successor">交接给当前队友</label><select id="successor" name="participant_id">{% for member in own_members %}{% if member.pk != participant.pk %}<option value="{{ member.pk }}">{{ member.name }}</option>{% endif %}{% endfor %}</select><button type="submit" class="button secondary small">确认队长交接</button></form>
+        {% endif %}
+      {% endif %}
+      {% if participant.team_id %}<form method="post">{% csrf_token %}<input type="hidden" name="operation" value="leave"><input type="hidden" name="idempotency_key" value="{{ request_key }}:leave"><button type="submit" class="text-button danger">按规则退出队伍</button></form>{% endif %}
+    </div>
+    {% for intent in progress.intents %}
+      <article class="panel"><h3>合作意向 · {{ intent.state_label }}</h3><p>{{ intent.message }}</p><p class="muted">意向编号 {{ intent.id }}</p>
+        {% for person_id, contact in intent.contacts.items %}<p>成员 {{ person_id }} 授权的联系方式：{{ contact }}</p>{% endfor %}
+        {% if intent.state == 'pending' %}<form method="post" class="actions">{% csrf_token %}<input type="hidden" name="operation" value="intent-decision"><input type="hidden" name="idempotency_key" value="{{ request_key }}:{{ intent.id }}"><input type="hidden" name="intent_id" value="{{ intent.id }}"><input type="hidden" name="version" value="{{ intent.version }}">
+          {% if intent.recipient_id == participant.pk|stringformat:'s' %}<button name="decision" value="accept" class="button small">同意交流</button><button name="decision" value="decline" class="button secondary small">婉拒</button>{% else %}<button name="decision" value="cancel" class="text-button">撤回</button>{% endif %}
+        </form>{% endif %}
+      </article>
+    {% endfor %}
+    {% for proposal in proposals %}
+      <article class="panel"><h3>{{ proposal.snapshot.team_name }} · {{ proposal.state_label }}</h3><p><strong>完整名单：</strong>{{ proposal.names|join:'、' }}</p><p>{{ proposal.snapshot.agreement|linebreaksbr }}</p><p>有效期至 {{ proposal.expires_at|date:'m-d H:i' }}</p><details><summary>核对具体名单与版本</summary><p>Idea：{{ proposal.snapshot.idea_id }} · 政策 {{ proposal.snapshot.policy_version }}</p>{% for person_id, version in proposal.snapshot.members.items %}<p><code>{{ person_id }}</code> · 资料版本 {{ version.profile_version }}</p>{% endfor %}<p><code>{{ proposal.proposal_hash }}</code></p></details>
+        {% if proposal.can_decide %}<form method="post" class="actions">{% csrf_token %}<input type="hidden" name="operation" value="consents"><input type="hidden" name="idempotency_key" value="{{ request_key }}:{{ proposal.id }}"><input type="hidden" name="proposal_id" value="{{ proposal.id }}"><input type="hidden" name="proposal_hash" value="{{ proposal.proposal_hash }}"><button name="decision" value="accept" class="button">我同意这份具体名单与约定</button><button name="decision" value="decline" class="button secondary">拒绝本提案</button></form>{% endif %}
+      </article>
+    {% endfor %}
+    <form method="post" class="panel">{% csrf_token %}<input type="hidden" name="operation" value="delete-profile"><input type="hidden" name="idempotency_key" value="{{ request_key }}:delete"><p>删除匹配资料将撤销联系方式授权、联系意向和待确认提案，并清除推荐快照。正式名单与同意审计按活动规则保留。</p><button type="submit" class="text-button danger" data-confirm="确认删除匹配资料并退出匹配池？">删除我的匹配资料</button></form>
+    <details class="panel"><summary>操作回执</summary>{% for receipt in receipts %}<p><a href="{% url 'hackathon:matching-receipt' hackathon.slug receipt.pk %}">{{ receipt.created|date:'m-d H:i' }} · {{ receipt.operation }} · {{ receipt.status }}</a></p>{% empty %}<p>尚无操作记录。</p>{% endfor %}</details>
+  </section>
+{% endblock %}

@@ -12,8 +12,8 @@
       </div>
     {% endif %}
   {% else %}
-    <div class="form-field{% if field.field.widget.input_type == 'checkbox' and field.name != 'keywords' %} checkbox-field{% endif %}">
-      {% if field.name == 'keywords' %}
+    <div class="form-field{% if field.field.widget.input_type == 'checkbox' and field.name != 'keywords' and not field.field.widget.allow_multiple_selected %} checkbox-field{% endif %}">
+      {% if field.field.widget.allow_multiple_selected %}
         <fieldset class="keyword-fieldset">
           <legend>{{ field.label }}</legend>
           {{ field }}

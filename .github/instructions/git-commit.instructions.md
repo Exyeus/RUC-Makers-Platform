@@ -14,12 +14,12 @@ applyTo: "**"
 ## Branching
 
 - For this school repository, create focused `feat/`, `fix/` or `docs/` branches from `origin/main`; open PRs against `Exyeus/RUC-Makers-Platform:main`.
-- Follow `.agent/BRANCHES.md`: `upstream/dev` is read-only reference, `rucmaker` is historical, and the dirty server `work/server-development` must remain untouched.
+- Follow `.agents/BRANCHES.md`: `upstream/dev` is read-only reference; inspect and preserve existing work before integrating historical server branches under the current task authorization.
 - Keep commits focused and atomic.
 
 ## PR Expectations
 
-- Run targeted self-checks and obtain one person's review before merging; record actual results and unverified items. Use `.agent/skills/adversarial-audit/SKILL.md` for substantive activity-platform changes.
+- Run targeted self-checks and obtain one person's review before merging; record actual results and unverified items. Use `.agents/skills/adversarial-audit/SKILL.md` for substantive activity-platform changes.
 - CI is not being implemented now, and GitHub Actions are disabled in this school repository. CI is not a review or merge gate.
 - Keep diffs small and focused on a single concern.
 - Update or add tests when needed to verify changed behavior; select checks for the actual risk rather than requiring the full suite for every edit.

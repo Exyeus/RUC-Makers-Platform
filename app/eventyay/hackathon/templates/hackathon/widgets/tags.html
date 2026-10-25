@@ -1,0 +1,12 @@
+<div class="categorized-tags" id="{{ widget.attrs.id }}">
+  {% for group, options, index in widget.optgroups %}
+    <fieldset class="tag-category">
+      <legend>{{ group }}</legend>
+      <div class="keyword-choices">
+        {% for option in options %}
+          <label for="{{ option.attrs.id }}">{% include "django/forms/widgets/input.html" with widget=option %} {{ option.label }}</label>
+        {% endfor %}
+      </div>
+    </fieldset>
+  {% endfor %}
+</div>

@@ -1,6 +1,6 @@
 from django.urls import include, path
 
-from eventyay.hackathon import accounts, judging_views, upload_views, views
+from eventyay.hackathon import accounts, community_views, judging_views, matching_views, upload_views, views
 
 
 app_name = 'hackathon'
@@ -12,7 +12,19 @@ event_patterns = [
     path('account/logout/', accounts.logout, name='logout'),
     path('account/signup/', accounts.student_auth, {'signup': True}, name='student-signup'),
     path('register/', views.register, name='register'),
+    path('market/', matching_views.market, name='matching'),
+    path('market/profile/', matching_views.profile, name='matching-profile'),
+    path('market/ideas/new/', matching_views.idea_edit, name='idea-create'),
+    path('market/ideas/<uuid:idea_id>/', matching_views.idea_edit, name='idea-edit'),
+    path('market/proposals/new/', matching_views.proposal_create, name='proposal-create'),
+    path('market/api/<str:operation>/', matching_views.api, name='matching-api'),
+    path('market/operations/<uuid:receipt_id>/', matching_views.receipt, name='matching-receipt'),
+    path('manage/matching/', matching_views.operations, name='matching-operations'),
     path('teams/', views.teams, name='teams'),
+    path('teams/posts/new/', community_views.post_edit, name='post-new'),
+    path('teams/posts/<int:post_id>/', community_views.post_detail, name='post-detail'),
+    path('teams/posts/<int:post_id>/edit/', community_views.post_edit, name='post-edit'),
+    path('bonus/', community_views.bonus, name='bonus'),
     path('teams/edit/', views.team_edit, name='team-edit'),
     path('teams/action/', views.team_action, name='team-action'),
     path('project/', views.project, name='project'),

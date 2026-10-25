@@ -187,10 +187,10 @@ def test_profile_keywords_and_public_search(client, hackathon, participant, user
     assert participant.name not in client.get(endpoint(hackathon, 'teams'), {'keyword': 'Python'}).content.decode()
 
 
-def test_profile_rejects_unknown_or_excess_keywords():
+def test_profile_rejects_unknown_keywords_and_allows_many_known_keywords():
     base = {'name': '同学', 'school': '学校', 'contact': 'contact', 'consent': True}
     assert not forms.ParticipantForm({**base, 'keywords': ['invented']}).is_valid()
-    assert not forms.ParticipantForm({**base, 'keywords': list(forms.KEYWORDS[:7])}).is_valid()
+    assert forms.ParticipantForm({**base, 'keywords': list(forms.KEYWORDS[:7])}).is_valid()
 
 
 @pytest.mark.usefixtures('transactional_cache')

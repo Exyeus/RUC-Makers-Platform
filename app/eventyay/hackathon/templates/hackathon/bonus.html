@@ -1,0 +1,73 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">MAKER CAMP</div>
+      <h1>加分规则</h1>
+      <p>以本期创客营公布的规则为准。每个事项限申请一次，由主办方审核；交流卡片的发布与回应不自动加分。</p>
+    </div>
+    {% if is_organizer %}
+      <a class="button secondary" href="{% url 'hackathon:content-new' hackathon.slug 'bonus' %}">配置加分规则</a>
+    {% endif %}
+  </section>
+  <div class="card-grid">
+    {% for rule in rules %}
+      <article class="panel">
+        <span class="tag mint">＋{{ rule.points }} 分</span>
+        <h2>{{ rule.title }}</h2>
+        <p>{{ rule.description|linebreaksbr }}</p>
+      </article>
+    {% empty %}
+      <div class="panel">
+        <h2>加分规则待公布</h2>
+        <p>主办方确认事项、分值与证明要求后，将在这里统一公布。</p>
+      </div>
+    {% endfor %}
+  </div>
+  {% if participant %}
+    <section class="panel">
+      <h2>我的创客营加分：{{ bonus_total }}</h2>
+      <p>这是创客营参与加分，独立记录，不计入作品评审分数。</p>
+      {% for claim in claims %}
+        <p>{{ claim.rule.title }} · {{ claim.get_state_display }} · {{ claim.awarded_points }} 分</p>
+        {% if claim.review_note %}<p>{{ claim.review_note }}</p>{% endif %}
+      {% empty %}
+        <p>尚无申请记录。</p>
+      {% endfor %}
+    </section>
+    {% if rules %}
+      <form method="post" class="panel form-panel">
+        {% csrf_token %}
+        <h2>提交加分申请</h2>
+        {% include 'hackathon/form_fields.html' %}
+        <button type="submit" class="button">提交审核</button>
+      </form>
+    {% endif %}
+  {% else %}
+    <p><a href="{% url 'hackathon:register' hackathon.slug %}">登录并完善资料后申请加分 ↗</a></p>
+  {% endif %}
+  {% if is_organizer %}
+    <section>
+      <div class="section-heading outside"><h2>待审核申请</h2></div>
+      {% for claim in pending_claims %}
+        <article class="panel">
+          <h3>{{ claim.participant.name }} · {{ claim.rule.title }}</h3>
+          <p>{{ claim.evidence|linebreaksbr }}</p>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="operation" value="review">
+            <input type="hidden" name="claim_id" value="{{ claim.pk }}">
+            <label for="review-note-{{ claim.pk }}">审核说明</label>
+            <input id="review-note-{{ claim.pk }}" name="note" maxlength="500" required>
+            <div class="actions">
+              <button name="decision" value="approved" class="button">通过，记录 {{ claim.rule.points }} 分</button>
+              <button name="decision" value="rejected" class="button secondary">不通过</button>
+            </div>
+          </form>
+        </article>
+      {% empty %}
+        <p>暂无待审核申请。</p>
+      {% endfor %}
+    </section>
+  {% endif %}
+{% endblock %}

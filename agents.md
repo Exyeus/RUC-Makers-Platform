@@ -1,98 +1,42 @@
-# Eventyay AI Agent Instructions (Single Source of Truth)
+# 活动平台 Agent 规范
 
-This is the canonical instruction file for all coding agents in this repository.
+这是所有 coding agents 的项目规范主源。编辑前应用匹配的 `.github/instructions/*.md`；适配文件仅指向本页。协作入口为 [.agents/README.md](.agents/README.md)。
 
-Supported agents include GitHub Copilot, Claude, Codex, Cursor, ChatGPT, and similar tools.
+## 当前开发范围
 
-## Precedence
+- Python 3.12、Django 5.2+；PostgreSQL、Redis、Celery 为已有后端基础。
+- 活动功能：`app/eventyay/hackathon/`；测试：`app/tests/hackathon/`。
+- 页面：Django 模板和 `app/eventyay/static/hackathon/` 的原生 JavaScript/CSS。上游 `webapp/` 中的 Vue 构建规则只用于实际修改对应子应用时，不作为活动页面的默认选型。
+- 文档：`doc/`、`README.rst`；上游公共模块只在确有依赖时修改，PR 说明受影响入口。
+- [architecture.md](.agents/context/architecture.md) 提供业务模块和运行入口；先核实实际源码，不把历史设计或分支名当成已验证结果。
 
-1. `agents.md` is the default policy for all agents (single source of truth).
-2. `.github/instructions/*.md` rules are mandatory when their `applyTo` pattern matches the edited file.
-3. `.agents/skills/` contains reusable operational knowledge about the repository structure and deployment.
-4. Agent adapter files (`CLAUDE.md`, `CODEX.md`, `.cursorrules`, `.github/copilot-instructions.md`) should stay minimal and must not duplicate or override project rules.
+## 实现与安全
 
-## School Activity Collaboration
+1. 事件数据查询沿用 `django_scopes.scope(event=event)`；活动子对象同时绑定当前 hackathon，服务端校验用户角色、队伍归属与对象所属活动，不能只靠隐藏按钮。
+2. 用 Django forms/模型和服务层验证输入；表单校验错误保留可理解的反馈。模板不承载复杂业务规则。
+3. 新代码使用 `eventyay.*` 命名空间，导入放文件顶部；仅为解决循环依赖使用局部导入。保留具体异常类型。
+4. JavaScript 放外部 ES modules，不引入 jQuery 或内联脚本；保持键盘操作、移动端和错误状态可用。第三方 vendored 文件保留许可证。
+5. 涉及权限、截止、评分、重试、事务和迁移时验证相关失败/边界场景。查询按需要用 `select_related` / `prefetch_related`。
+6. 密钥、联系方式、数据库/备份和未获授权的选手原件不进公开仓库；示例与测试用合成或脱敏数据。作品展示与材料访问权限分开确认。
 
-Use [.agent/README.md](.agent/README.md) for task cards, handoff and review, and [.agent/BRANCHES.md](.agent/BRANCHES.md) for school `main` and upstream/server isolation.
-Use [.agent/skills/adversarial-audit/SKILL.md](.agent/skills/adversarial-audit/SKILL.md) for substantive activity-platform changes before PR review/merge and around critical operations; tiny copy/style edits may use quick human review. These entries supplement this canonical file.
+## 协作与验证
 
-## Verified Project Facts
+从 [WORKFLOW.md](.agents/WORKFLOW.md) 的主任务卡确定范围和正确例子；学校 PR 面向 `main`，上游只读，分支步骤见 [BRANCHES.md](.agents/BRANCHES.md)。先确认工作树状态和已有改动归属，按授权范围提交，保留他人改动。
 
-- Runtime baseline is Python 3.12 (`app/pyproject.toml`).
-- Core stack: Django 5.2+, PostgreSQL, Redis, Celery, Channels, Vue 3.
-- Primary development paths:
-  - `app/eventyay/` for product code
-  - `app/tests/` for tests
-  - `doc/` for documentation
-- Legacy product names (`pretix`, `pretalx`, `venueless`) are historical references only.
-- If top-level legacy directories such as `talk/`, `video/`, or `src/` appear in a branch, treat them as reference-only unless explicitly requested.
+实质活动功能改动用 [adversarial-audit](.agents/skills/adversarial-audit/SKILL.md) 独立复看，通常一名 reviewer；小文案/微小样式可人工快速复看。记录实际环境、命令、结果和未验证项。CI 暂不实施，GitHub Actions 已禁用；自测和复看仍须完成。
 
-## Non-Negotiable Architecture Rules
+本机 Linux 开发/测试通过 WSL2 Ubuntu、显式工作目录运行；Windows 应用/UI 检查在 Windows。共享一棵源树，分开平台依赖与产物。远端检查标明服务器环境。
 
-1. Multi-tenancy: event-owned ORM queries must be wrapped with `django_scopes.scope(event=event)`.
-2. Imports: keep imports at file top; only use local imports for circular-import resolution.
-3. Errors: preserve specific exception types; do not replace with generic `Exception`.
-4. JavaScript: no jQuery and no inline scripts; use external ES modules.
-5. Namespaces: use `eventyay.*` imports for new code; do not introduce new `pretix.*`, `pretalx.*`, or `venueless.*` imports.
-6. ORM efficiency: prefer `select_related` and `prefetch_related` to avoid N+1 queries.
+启动、数据库迁移、`setup_hackathon --publish` 和生产发布均有副作用；普通审计/代码同步不自动执行这些操作。隔离测试先核实测试数据库、媒体目录和外部服务，不连接真实业务数据。
 
-## File-Scoped Standards
+## 按需技能
 
-Always apply the matching scoped rule file before editing:
+| 要做什么 | 入口 |
+| --- | --- |
+| 找业务代码和测试 | [.agents/skills/repo-navigation/SKILL.md](.agents/skills/repo-navigation/SKILL.md) |
+| 本地启动及副作用边界 | [.agents/skills/django-run-locally/SKILL.md](.agents/skills/django-run-locally/SKILL.md) |
+| 生成/验证数据库迁移 | [.agents/skills/django-run-migrations/SKILL.md](.agents/skills/django-run-migrations/SKILL.md) |
+| 同步文档与命令 | [.agents/skills/documentation/SKILL.md](.agents/skills/documentation/SKILL.md) |
+| 独立审计与 ledger | [.agents/skills/adversarial-audit/SKILL.md](.agents/skills/adversarial-audit/SKILL.md) |
 
-- Python: `.github/instructions/python.instructions.md`
-- JavaScript: `.github/instructions/js.instructions.md`
-- Django templates: `.github/instructions/django-template.instructions.md`
-- TOML: `.github/instructions/toml.instructions.md`
-- Git commits: `.github/instructions/git-commit.instructions.md`
-
-## Verified Commands
-
-Run from `app/` unless noted:
-
-- Install deps: `uv sync --all-extras --all-groups`
-- Activate venv: `. .venv/bin/activate`
-- Migrate DB: `python manage.py migrate`
-- Run dev server: `python manage.py runserver`
-- Run Celery worker: `celery -A eventyay worker -l info`
-- Build assets (dev): `make staticfiles`
-- Build assets (prod): `make production`
-- Test suite: `pytest tests/`
-
-## Agent Checklist
-
-Before submitting changes:
-
-1. Confirm edited files are in the intended path (`app/eventyay/`, `app/tests/`, or explicitly requested paths).
-2. Confirm imports and namespaces follow `eventyay.*` conventions.
-3. Confirm event data queries are scoped with `scope(event=event)` where required.
-4. Confirm error handling keeps specific exception types.
-
-## Context Index (`.agents/context/`)
-
-| Context file | Purpose |
-|---|---|
-| `.agents/context/architecture.md` | Context: Architecture and project structure |
-
-## Skills Index (`.agents/skills/`)
-
-| Skill directory/file | Purpose |
-|---|---|
-| `.agents/skills/repo-navigation/SKILL.md` | Repository layout and where to find code |
-| `.agents/skills/django-create-model/SKILL.md` | Steps for creating or modifying a Django model |
-| `.agents/skills/django-create-api-endpoint/SKILL.md` | Steps for adding a new Django REST Framework API endpoint |
-| `.agents/skills/django-add-form/SKILL.md` | Steps for creating or modifying Django forms and adding validation |
-| `.agents/skills/django-run-migrations/SKILL.md` | Steps for generating and applying Django migrations |
-| `.agents/skills/django-run-locally/SKILL.md` | Steps for initiating the Django development server without Docker |
-| `.agents/skills/docker-deployment/SKILL.md` | Docker Compose, container services, deployment |
-| `.agents/skills/documentation/SKILL.md` | How to update project documentation |
-| `.agents/skills/frontend-ui/SKILL.md` | Frontend UI implementation, accessibility, and responsive checks |
-| `.agents/skills/pull-request-workflow/SKILL.md` | Branching, commits, PR preparation, and review follow-up |
-
-## Important Notes
-
-- Skills **summarize and reference** existing instruction files; they do not duplicate coding rules.
-- When in doubt, defer to the coding standards in `.github/instructions/`.
-- All product code lives under `app/eventyay/`; use `eventyay.*` imports.
-- New skills should follow this layout: `SKILL.md`, `references/`, `assets/`, and optional `tests/`.
-- Do not add partial script scaffolding under skills unless command usage and working-directory assumptions are fully documented and validated.
+只保留解决当前项目具体问题的技能；`SKILL.md` 必需，references/assets/scripts 按需添加，不为目录结构制造空模板。
