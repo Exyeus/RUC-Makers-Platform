@@ -8,6 +8,7 @@
 | 确认学校分支和上游隔离 | [BRANCHES.md](BRANCHES.md) |
 | 开主任务卡 | [templates/task.md](templates/task.md) |
 | 提交 PR | [templates/pull-request.md](templates/pull-request.md) |
+| 查看自动检查与复现失败 | [development-ci.md](../doc/development-ci.md) |
 | 找业务代码、环境与技能 | [context/architecture.md](context/architecture.md)、[skills/README.md](skills/README.md) |
 | 独立复看实质改动 | [skills/adversarial-audit/SKILL.md](skills/adversarial-audit/SKILL.md) |
 | 往届材料匿名统计 | [previous-submissions-summary.md](../doc/research/previous-submissions-summary.md) |

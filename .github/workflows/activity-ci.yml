@@ -1,0 +1,63 @@
+name: Activity CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: activity-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  activity:
+    name: Activity checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: eventyay
+          POSTGRES_PASSWORD: eventyay
+          POSTGRES_DB: eventyay_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U eventyay -d eventyay_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      EVY_RUNNING_ENVIRONMENT: testing
+      EVY_DOCS_BUILD: "1"
+      CI_POSTGRES_HOST: 127.0.0.1
+      CI_POSTGRES_PORT: "5432"
+      CI_POSTGRES_USER: eventyay
+      CI_POSTGRES_PASSWORD: eventyay
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.12.21"
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y gettext libmagic1t64
+      - name: Install locked test dependencies
+        run: uv sync --directory app --locked --no-default-groups --group test --group lint --no-install-project
+      - name: Check activity platform
+        run: bash tools/check-activity.sh
