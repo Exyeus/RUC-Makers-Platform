@@ -1,7 +1,7 @@
-黑客松一体化平台 · 基于 Eventyay
+创客营一体化平台 · 基于 Eventyay
 ========================================
 
-本仓库是在 `Eventyay <https://github.com/fossasia/eventyay>`_ 基础上开发的黑客松定制版本，
+本仓库是在 `Eventyay <https://github.com/fossasia/eventyay>`_ 基础上开发的创客活动定制版本，
 把参赛报名、学习资料、组队、作品提交、现场路演、评委打分和主办方管理放在同一个网站中。
 支持电脑、平板和手机访问，各端保留相同的业务功能。
 
@@ -23,13 +23,23 @@
   也可回看其他团队。支持草稿与正式评分，以及自定义维度权重和去极值规则。
   默认按创新性、完成度与实机演示、实际价值、表达的 30% / 40% / 20% / 10% 加权，再取评委平均分。
 * **现场协作：** 志愿者任务、签到与工时记录、求助处理、路演展示和作品展示。
+* **创客营交流：** 组队广场整合七类交流卡片、私密回应和作品池；个人标签按类别选择，数量不限，支持自定义。
+* **日程与加分：** 小时日历标出重要截止；两天小时表登记缺席时段；加分事项由主办方配置、审核并独立记录。
 * **多端界面：** 手机底部角色导航与单列布局，平板抽屉导航与适配布局，桌面完整工作台。
 
 如何启动
 --------
 
 请使用**当前定制仓库的代码**。单独克隆上游 Eventyay 仓库不会包含这里的黑客松模块。
-下面以活动标识 ``next`` 为例；更换 ``--slug`` 后，访问地址中的 ``next`` 也要相应替换。
+当前开放创客营板块，下面以活动标识 ``camp`` 为例；更换 ``--slug`` 后，访问地址也要相应替换。
+
+已有数据库升级
+~~~~~~~~~~~~~~
+
+应用 ``0012_isolate_existing_hackathons`` 前先备份并核对已有工作区：它会将执行迁移时已有的全部工作区标为 ``program=hackathon``，
+与新创客营隔离，旧工作区不再由只接受 ``maker_camp`` 的参赛者入口呈现（返回 404）。
+该数据迁移的反向操作为空，回滚迁移不会恢复旧 program。升级后按计划使用新标识创建创客营，或由负责人明确处理既有工作区。
+代码合入不会自动迁移、初始化或发布活动。
 
 首次准备
 ~~~~~~~~
@@ -45,13 +55,14 @@
    . .venv/bin/activate
    python manage.py migrate
    python manage.py create_admin_user
-   python manage.py setup_hackathon --organizer hackathon --event next-hackathon \
-     --slug next --name '下一届黑客松' --publish
+   python manage.py setup_hackathon --organizer hackathon --event maker-camp \
+     --slug camp --name '人大创客营' --program maker_camp
 
 ``create_admin_user`` 会提示创建管理员，请保存自己设置的登录信息；已有管理员时可跳过此命令。仓库不提供通用默认密码。
 ``setup_hackathon`` 创建活动、教程和赛程等初始内容，不创建虚构选手或作品。
 未指定 ``--start-date YYYY-MM-DD`` 时，活动开始日期默认为执行日的 30 天后；正式开放前请检查日期与截止时间。
-``--publish`` 使活动对参赛者可见。重复执行初始化不会覆盖已有活动配置。
+新建工作区默认私有，主办方核实日期、地点、赛道和规则后在活动设置中公开。
+只有明确希望新建时立即公开才传 ``--publish``；重复执行初始化不会修改已有活动配置，也不会把已有私有工作区变成公开。
 
 启动与访问
 ~~~~~~~~~~
@@ -60,11 +71,16 @@
 
 .. code-block:: bash
 
-   cd app
-   . .venv/bin/activate
-   python manage.py run_hackathon_preview 0.0.0.0:8000 --insecure
+   ./start-local.sh
 
-保持终端运行，浏览器访问 http://localhost:8000/hackathon/next/ 。按 ``Ctrl+C`` 停止预览。
+保持终端运行，浏览器访问 http://localhost:8000/hackathon/camp/ 。按 ``Ctrl+C`` 停止预览。
+也可以在仓库根目录运行 ``./shutdown-local.sh`` 关闭本项目的本地预览；
+如果启动时指定了其他监听地址，请向关闭脚本传入相同地址，例如 ``./shutdown-local.sh 127.0.0.1:8001``。
+脚本会同步 Python 依赖、检查是否有待应用迁移并收集静态文件；首次缺少前端构建产物时会自动构建。
+脚本不自动应用迁移或初始化/公开活动。存在待应用迁移时先核实目标库和备份，再在 ``app/`` 显式执行 ``python manage.py migrate``；
+需要新活动时执行上方初始化命令，默认保持私有。
+修改前端源码或静态资源后，执行 ``./start-local.sh --rebuild-assets`` 重新构建。
+需要更换监听地址或端口时，可在命令末尾传入，例如 ``./start-local.sh 127.0.0.1:8001``。
 这个预览命令使用 WSGI，以流式方式提供大文件下载；``--insecure`` 用于本地预览时提供静态文件。
 生产部署请参考 `Deployment`_ 和 `黑客松工作区文档 <doc/hackathon-workspace.md>`_ 的存储与大文件部署说明。
 
@@ -78,7 +94,7 @@
    export EVY_TALK_HOSTNAME=http://192.168.1.100:8000
    python manage.py run_hackathon_preview 0.0.0.0:8000 --insecure
 
-随后在移动设备打开 ``http://192.168.1.100:8000/hackathon/next/``。
+随后在移动设备打开 ``http://192.168.1.100:8000/hackathon/camp/``。
 移动设备上的 ``localhost`` 指向设备自身，不是运行网站的电脑。
 
 登录入口与常用页面
@@ -86,25 +102,29 @@
 
 以下路径均相对于网站地址，例如 ``http://localhost:8000``：
 
-* 活动首页：``/hackathon/next/``
-* 参赛者注册：``/hackathon/next/account/signup/``
-* 参赛者登录：``/hackathon/next/account/login/``
-* 主办方登录：``/hackathon/next/account/organizer/``
-* 主办方工作台：``/hackathon/next/manage/``
-* 评委登录：``/hackathon/next/account/judge/``
-* 评委现场评分：``/hackathon/next/judging/live/``
-* 路演展示：``/hackathon/next/stage/``
+* 活动首页：``/hackathon/camp/``
+* 参赛者注册：``/hackathon/camp/account/signup/``
+* 参赛者登录：``/hackathon/camp/account/login/``
+* 主办方登录：``/hackathon/camp/account/organizer/``
+* 主办方工作台：``/hackathon/camp/manage/``
+* 评委登录：``/hackathon/camp/account/judge/``
+* 评委现场评分：``/hackathon/camp/judging/live/``
+* 路演展示：``/hackathon/camp/stage/``
 
 首次主办方登录使用上面创建的管理员账号。主办方可在工作台创建评委账号或为已有用户分配活动角色；
 普通参赛者注册不会自动获得主办方或评委权限。登录后可通过账户菜单退出。
-黑客松管理请使用 ``/hackathon/next/manage/``，``/control/`` 和 ``/orga/`` 是原 Eventyay 管理界面。
+主办方登录后，右上角保留“主办方后台”入口，手机端显示为设置图标按钮。
+创客营管理请使用 ``/hackathon/camp/manage/``，``/control/`` 和 ``/orga/`` 是原 Eventyay 管理界面。
+若原主办方仅有旧活动的管理权限，可执行
+``python manage.py setup_hackathon --slug camp --copy-organizers-from next``，
+将同一主办方下 ``next`` 工作区管理团队的活动访问权限扩展至创客营；已有内容不会被覆盖。
 
 数据保存与常见问题
 ~~~~~~~~~~~~~~~~~~
 
 * **数据库连接失败：** 检查 PostgreSQL 是否启动，以及 ``app/eventyay.local.toml`` 或 ``EVY_POSTGRES_*``
   环境变量中的地址、端口、用户和数据库名。非默认端口必须显式配置。
-* **活动不存在或不可见：** 确认执行过 ``migrate`` 和带 ``--publish`` 的 ``setup_hackathon``，并使用正确的活动标识。
+* **活动不存在或不可见：** 确认目标库完成所需迁移、已初始化正确活动标识；私有工作区先用主办方账号访问，核实内容后在活动设置中公开。
 * **页面无样式：** 本地预览使用上述带 ``--insecure`` 的命令；完整静态资源构建方法见下方开发说明。
 * **HTTP 500：** 查看运行终端或 ``docker compose logs -f web`` 中的异常，先核对迁移和服务连接，
   不要用删除数据库的方式处理普通启动问题。
@@ -157,9 +177,9 @@ Project status and branch model
 
 This school repository adds a hackathon workspace to Eventyay. ``main`` is the school's default integration branch. Create focused ``feat/``, ``fix/`` or ``docs/`` branches from ``origin/main`` and open PRs against ``Exyeus/RUC-Makers-Platform:main``.
 
-``upstream/dev`` is read-only upstream reference, and ``rucmaker`` preserves history. Keep the server's unpublished ``work/server-development`` work separate; do not switch, merge or reset its dirty worktree. A branch setting does not establish that deployment or a new environment has been verified.
+``upstream/dev`` is read-only reference. Historical server branches are integrated after reviewing meaningful changes and preserving unrelated work. Integration into ``main`` does not establish that deployment or a new environment has been verified.
 
-See the `School collaboration entry <.agent/README.md>`_ and `Branch isolation guide <.agent/BRANCHES.md>`_ for task handoff, review and clean personal checkout steps.
+See the `School collaboration entry <.agents/README.md>`_ and `Branch isolation guide <.agents/BRANCHES.md>`_ for task handoff, review and clean personal checkout steps.
 
 Main features
 -------------
@@ -246,13 +266,15 @@ Create an admin user and initialize the hackathon workspace (after the web servi
 
    docker compose exec web python manage.py create_admin_user
    docker compose exec web python manage.py setup_hackathon --organizer hackathon \
-     --event next-hackathon --slug next --name '下一届黑客松' --publish
+     --event maker-camp --slug camp --name '人大创客营' --program maker_camp
+
+New workspaces are private by default. Sign in with the organizer account and confirm the event settings before making it public.
 
 Open the local site:
 
 .. code-block:: text
 
-   http://localhost:8000/hackathon/next/
+   http://localhost:8000/hackathon/camp/
 
 View logs:
 
@@ -364,8 +386,8 @@ Create an admin user:
 .. code-block:: bash
 
    python manage.py create_admin_user
-   python manage.py setup_hackathon --organizer hackathon --event next-hackathon \
-     --slug next --name '下一届黑客松' --publish
+   python manage.py setup_hackathon --organizer hackathon --event maker-camp \
+     --slug camp --name '人大创客营' --program maker_camp
 
 Build frontend and static assets:
 
@@ -385,7 +407,7 @@ Open:
 
 .. code-block:: text
 
-   http://localhost:8000/hackathon/next/
+   http://localhost:8000/hackathon/camp/
 
 Run Celery locally when working on background tasks:
 
@@ -726,7 +748,7 @@ Important local endpoints include:
 .. code-block:: text
 
    /hackathon/               Hackathon workspace entry
-   /hackathon/next/manage/    Hackathon organiser workspace
+   /hackathon/camp/manage/    Hackathon organiser workspace
    /                         Public start page
    /orga/                    Organiser area for talks and speakers configuration and setup
    /control/                 Ticketing control and organiser management area
@@ -914,7 +936,7 @@ Continuous integration
 
 CI is not being implemented for the school workflow now. Existing GitHub Actions are disabled in the school repository settings; inherited workflow files remain upstream reference, not an automatic review or merge gate.
 
-Before opening a pull request, run targeted self-checks for the files and risks you changed, record actual results and unverified items, and obtain one person's review. Substantive activity-platform changes use the `Adversarial audit skill <.agent/skills/adversarial-audit/SKILL.md>`_; tiny copy/style edits may use quick human review.
+Before opening a pull request, run targeted self-checks for the files and risks you changed, record actual results and unverified items, and obtain one person's review. Substantive activity-platform changes use the `Adversarial audit skill <.agents/skills/adversarial-audit/SKILL.md>`_; tiny copy/style edits may use quick human review.
 
 
 Contributing
@@ -952,8 +974,7 @@ AI tools should consult:
 
 - ``agents.md``
 - ``.github/instructions/``
-- ``.agents/skills/``
-- ``.agent/README.md`` for the school task, branch and review workflow
+- ``.agents/README.md`` for the activity workflow, branch guidance, templates and skills
 
 These files define repository specific coding, architecture, documentation, and pull request expectations.
 

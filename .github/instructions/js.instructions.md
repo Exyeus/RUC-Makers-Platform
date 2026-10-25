@@ -70,4 +70,4 @@ Sub-applications inside `webapp/` each have their own `node_modules/` and build 
 
 ## Vue 3
 
-The project uses Vue 3 for interactive front-end components. Follow Vue 3 Composition API conventions when adding new components.
+The activity platform uses Django templates and native JavaScript in `static/hackathon/`. Vue 3 Composition API conventions apply only when editing an existing Vue application under `webapp/`; do not introduce a Vue build for activity pages by default.

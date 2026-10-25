@@ -2,7 +2,7 @@
 
 We welcome contributions to Eventyay.
 
-This school repository uses `main` as its default integration branch. Start with [.agent/README.md](.agent/README.md) for the task, PR and review workflow, and [.agent/BRANCHES.md](.agent/BRANCHES.md) for upstream/server isolation. `upstream/dev` is read-only reference; `rucmaker` preserves history. The server's unpublished `work/server-development` work is not part of a documentation delivery.
+This school repository uses `main` as its default integration branch. Start with [.agents/README.md](.agents/README.md) for the task, PR and review workflow, and [.agents/BRANCHES.md](.agents/BRANCHES.md) for upstream/server isolation. `upstream/dev` is read-only reference; `rucmaker` preserves history. Historical server branches are integrated only after reviewing their meaningful changes; preserve unrelated work and backups.
 
 ## Getting Started
 
@@ -108,7 +108,7 @@ Agent-oriented detail lives in [`.github/instructions/git-commit.instructions.md
 
 - Follow existing project conventions.
 - Add or update tests when needed to verify changed behavior.
-- Run targeted self-checks for the touched area and record actual results and unverified items before review; obtain one person's review. Use [.agent/skills/adversarial-audit/SKILL.md](.agent/skills/adversarial-audit/SKILL.md) for substantive activity-platform changes.
+- Run targeted self-checks for the touched area and record actual results and unverified items before review; obtain one person's review. Use [.agents/skills/adversarial-audit/SKILL.md](.agents/skills/adversarial-audit/SKILL.md) for substantive activity-platform changes.
 - Select checks from the commands in [`README.rst`](README.rst) and [`agents.md`](agents.md). For example, hackathon changes may use the relevant tests under `app/tests/hackathon/`; the full `pytest tests/` suite is available when the scope warrants it.
 
 ### Bug Reports
@@ -137,7 +137,7 @@ If you use AI tools to help with changes, follow the instructions in [`.github/i
 7. In the **PR description**, briefly summarize the change and reference the linked issue (with closing keywords in the description only).
 8. **Large or long-running work:** Open a **draft** pull request early so direction is visible and others are less likely to duplicate effort.
 
-**Workflow:** Push your focused branch to the school `origin`, open a Pull Request against `Exyeus/RUC-Makers-Platform:main`, and respond to review feedback. Use [.agent/templates/pull-request.md](.agent/templates/pull-request.md) for a concise handoff. This workflow does not authorize importing the dirty server worktree or releasing to production.
+**Workflow:** Push your focused branch to the school `origin`, open a Pull Request against `Exyeus/RUC-Makers-Platform:main`, and respond to review feedback. Use [.agents/templates/pull-request.md](.agents/templates/pull-request.md) for a concise handoff. Shared-server integration must follow the current task authorization and preserve unrelated changes. Code integration does not by itself release to production.
 
 ## Further reading
 

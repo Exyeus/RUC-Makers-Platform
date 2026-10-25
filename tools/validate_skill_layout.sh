@@ -1,54 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+python3 - <<'PY'
+from pathlib import Path
+import re
+import sys
 
-repo_root="$(git rev-parse --show-toplevel)"
-cd "$repo_root"
-
-skills_root=".agents/skills"
-required_dirs=(references assets)
-optional_dirs=(tests)
-
-if [[ ! -d "$skills_root" ]]; then
-  echo "ERROR: missing $skills_root" >&2
-  exit 1
-fi
-
-status=0
-
-for skill_dir in "$skills_root"/*; do
-  [[ -d "$skill_dir" ]] || continue
-  skill_name="$(basename "$skill_dir")"
-
-  if [[ ! -f "$skill_dir/SKILL.md" ]]; then
-    echo "ERROR: $skill_name missing SKILL.md"
-    status=1
-  fi
-
-  for d in "${required_dirs[@]}"; do
-    path="$skill_dir/$d"
-    if [[ ! -d "$path" ]]; then
-      echo "ERROR: $skill_name missing $d/"
-      status=1
-      continue
-    fi
-
-    if ! find "$path" -mindepth 1 -type f | read -r _; then
-      echo "ERROR: $skill_name has empty $d/"
-      status=1
-    fi
-  done
-
-  for d in "${optional_dirs[@]}"; do
-    path="$skill_dir/$d"
-    if [[ -d "$path" ]] && ! find "$path" -mindepth 1 -type f | read -r _; then
-      echo "ERROR: $skill_name has empty optional $d/"
-      status=1
-    fi
-  done
-done
-
-if [[ "$status" -eq 0 ]]; then
-  echo "OK: all skills have required files/directories and valid optional directories."
-fi
-
-exit "$status"
+root = Path('.agents/skills')
+errors = []
+if not root.is_dir():
+    errors.append('missing .agents/skills')
+skills = sorted(p for p in root.iterdir() if p.is_dir()) if root.is_dir() else []
+for directory in skills:
+    entry = directory / 'SKILL.md'
+    if not entry.is_file():
+        errors.append(f'{directory}: missing SKILL.md')
+        continue
+    text = entry.read_text(encoding='utf-8')
+    frontmatter = re.match(r'\A---\n(.*?)\n---(?:\n|$)', text, re.S)
+    if not frontmatter:
+        errors.append(f'{entry}: missing YAML frontmatter')
+        continue
+    fields = frontmatter.group(1)
+    name = re.search(r'^name: *([a-z0-9-]+) *$', fields, re.M)
+    if not name or name.group(1) != directory.name:
+        errors.append(f'{entry}: name must match the skill directory')
+    if not re.search(r'^description: *\S', fields, re.M):
+        errors.append(f'{entry}: missing description')
+    for child in directory.iterdir():
+        if child.is_dir() and not any(p.is_file() for p in child.rglob('*')):
+            errors.append(f'{child}: empty optional resource directory')
+for error in errors:
+    print(f'ERROR: {error}', file=sys.stderr)
+if errors:
+    sys.exit(1)
+print(f'OK: {len(skills)} skills have SKILL.md; supporting resources are optional.')
+PY

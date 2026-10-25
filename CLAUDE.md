@@ -1,13 +1,3 @@
-# Claude Instructions for Eventyay
+# Claude instructions
 
-Canonical project policy is in [`agents.md`](agents.md). Read that first.
-
-Apply matching scoped rules in `.github/instructions/*.md` for each edited file.
-
-## Claude-Specific Defaults
-
-- State assumptions briefly before large or risky changes.
-- For multi-step work, give a short plan, then execute.
-- Keep explanations concise and tied to the modified files.
-
-Do not duplicate or override project rules in this file. Use `agents.md` as the single source of truth.
+Read [agents.md](agents.md) first, then apply matching `.github/instructions/` rules. The canonical file links the current `.agents/` workflow, skills and templates; keep project policy there.
