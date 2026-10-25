@@ -23,7 +23,7 @@
 
 从 [WORKFLOW.md](.agents/WORKFLOW.md) 的主任务卡确定范围和正确例子；学校 PR 面向 `main`，上游只读，分支步骤见 [BRANCHES.md](.agents/BRANCHES.md)。先确认工作树状态和已有改动归属，按授权范围提交，保留他人改动。
 
-实质活动功能改动用 [adversarial-audit](.agents/skills/adversarial-audit/SKILL.md) 独立复看，通常一名 reviewer；小文案/微小样式可人工快速复看。记录实际环境、命令、结果和未验证项。CI 暂不实施，GitHub Actions 已禁用；自测和复看仍须完成。
+实质活动功能改动用 [adversarial-audit](.agents/skills/adversarial-audit/SKILL.md) 独立复看，通常一名 reviewer；小文案/微小样式可人工快速复看。记录实际环境、命令、结果和未验证项。学校 [Activity CI](doc/development-ci.md) 在 main 的 PR、push 和手动运行中执行基础检查；合并前查看结果并处理失败。CI 不替代任务例子、自测和独立复看。
 
 本机 Linux 开发/测试通过 WSL2 Ubuntu、显式工作目录运行；Windows 应用/UI 检查在 Windows。共享一棵源树，分开平台依赖与产物。远端检查标明服务器环境。
 

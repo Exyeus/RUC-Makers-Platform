@@ -934,7 +934,9 @@ The documentation website should be used for the full user guide, platform admin
 Continuous integration
 ----------------------
 
-CI is not being implemented for the school workflow now. Existing GitHub Actions are disabled in the school repository settings; inherited workflow files remain upstream reference, not an automatic review or merge gate.
+The school ``Activity CI`` workflow runs for pull requests and pushes to ``main``, and can be started manually. It checks agent structure, Bash and JavaScript syntax, Ruff, upload hashing, Django configuration, migration consistency and the hackathon tests on an isolated PostgreSQL 16 service. It uses Python 3.12 and a read-only repository token; no deployment secrets or application startup are needed.
+
+See the `CI guide <doc/development-ci.md>`_ for failure diagnosis and local reproduction with ``bash tools/check-activity.sh`` against a dedicated test database. Review the CI result before merging; passing checks do not establish browser appearance, production capacity or safe upgrading of existing data. The inherited upstream build/deployment workflows are removed from the active workflow directory; their history remains in Git.
 
 Before opening a pull request, run targeted self-checks for the files and risks you changed, record actual results and unverified items, and obtain one person's review. Substantive activity-platform changes use the `Adversarial audit skill <.agents/skills/adversarial-audit/SKILL.md>`_; tiny copy/style edits may use quick human review.
 

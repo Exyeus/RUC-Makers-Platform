@@ -48,9 +48,11 @@ git fetch origin
 git switch -c fix/presale-checkout-login origin/main
 ```
 
-### Automatic PR labels
+### Automated checks
 
-The inherited [PR labeler workflow](.github/workflows/labeler.yml) and [label rules](.github/scripts/pr-labeler-lib.mjs) remain as upstream reference. GitHub Actions are disabled in this school repository, so automatic labels or reviews are not expected. CI is not being implemented now and is not a prerequisite for starting, reviewing or merging a school task.
+[Activity CI](doc/development-ci.md) runs for PRs and pushes to school `main`, with manual runs available. Review its result before merging and resolve failures. It covers the activity-domain tests and basic code/agent checks on an isolated PostgreSQL service. Run `bash tools/check-activity.sh` locally only after preparing a dedicated test database and the documented dependencies.
+
+The inherited upstream build, deployment and labeler workflows are removed from the active workflow directory. Labels can be applied manually when useful; automated checks do not replace task examples, targeted self-checks or one person's review.
 
 ## Commit messages
 

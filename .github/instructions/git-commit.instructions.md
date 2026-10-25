@@ -20,7 +20,7 @@ applyTo: "**"
 ## PR Expectations
 
 - Run targeted self-checks and obtain one person's review before merging; record actual results and unverified items. Use `.agents/skills/adversarial-audit/SKILL.md` for substantive activity-platform changes.
-- CI is not being implemented now, and GitHub Actions are disabled in this school repository. CI is not a review or merge gate.
+- Check Activity CI before merging and resolve failures; see `doc/development-ci.md`. Its automated checks supplement targeted self-checks and independent review, and do not deploy or authorize production migrations.
 - Keep diffs small and focused on a single concern.
 - Update or add tests when needed to verify changed behavior; select checks for the actual risk rather than requiring the full suite for every edit.
 - Only work inside this repository.

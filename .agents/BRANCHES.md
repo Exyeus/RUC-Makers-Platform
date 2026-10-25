@@ -29,4 +29,4 @@ git remote get-url --push --all upstream
 
 预期 push URL 仅为 `disabled://upstream`。日常推送面向学校 origin；不要向 upstream 推送，不 force push 共享历史。没有 upstream 无需为普通任务新增。
 
-CI 暂不实施，GitHub Actions 当前禁用。main 仍需定向自测、一人复看；发布、迁移、备份恢复单独核实影响与授权。
+[Activity CI](../doc/development-ci.md) 在 main 的 PR、push 和手动运行中检查活动代码与 agent 规范；合并前查看结果并处理失败。定向自测和一人复看仍保留，发布、迁移、备份恢复单独核实影响与授权。
