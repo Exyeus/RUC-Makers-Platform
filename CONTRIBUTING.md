@@ -2,16 +2,18 @@
 
 We welcome contributions to Eventyay.
 
+This school repository uses `main` as its default integration branch. Start with [.agent/README.md](.agent/README.md) for the task, PR and review workflow, and [.agent/BRANCHES.md](.agent/BRANCHES.md) for upstream/server isolation. `upstream/dev` is read-only reference; `rucmaker` preserves history. The server's unpublished `work/server-development` work is not part of a documentation delivery.
+
 ## Getting Started
 
-1. Fork the repository
-2. Clone your fork
-3. Create a branch from `dev` (see [Branch creation](#branch-creation))
+1. Use the school repository `Exyeus/RUC-Makers-Platform` as `origin`
+2. Reuse a clean personal checkout, or clone the school repository if you do not have one
+3. Create a branch from `origin/main` (see [Branch creation](#branch-creation))
 4. Refer to [`README.rst`](README.rst) for development setup instructions
 
 ## Branch creation
 
-Create a **new branch from `dev`** for every change. Do not commit directly to `dev` or `main`.
+Create a **new branch from `origin/main`** for every change. Use `feat/`, `fix/` or `docs/` for ordinary school tasks; open a PR against the school `main` and do not push directly to it. Only run branch-switching commands in a clean personal checkout, never in the current dirty server worktree.
 
 ### Branch naming
 
@@ -37,25 +39,18 @@ Use a **prefix that describes the kind of change**, then a short slug. Use the s
 - Use lowercase and hyphens in the slug (`fix/order-form-scroll`, not `fix/OrderFormScroll`).
 - Tie work to an issue when one exists: `fix/3128-pagination` or `issue-3128` — both are fine.
 - One concern per branch. Split unrelated fixes into separate PRs.
-- **Branch name drives the intent label** (`fix`, `chore`, `refactor`, …). A PR titled `chore: …` on branch `email-change` will not get the `chore` label — rename the branch to `chore/…` if you want that label.
+- The additional prefixes above are available when useful; school tasks do not depend on automated labels.
 
 ```bash
-git checkout dev
-git pull upstream dev   # or origin dev, depending on your remote setup
-git checkout -b fix/presale-checkout-login
+git status --short
+git remote -v
+git fetch origin
+git switch -c fix/presale-checkout-login origin/main
 ```
 
 ### Automatic PR labels
 
-Once merged, the [PR labeler workflow](.github/workflows/labeler.yml) applies up to **5 labels** per pull request, in this order:
-
-1. **Area** — where in Eventyay (e.g. `video`, `schedule`, `orga`, `base`, `common`)
-2. **Stack** — file types changed (`frontend`, `backend`)
-3. **Test** — if test files changed
-4. **Intent** — from branch prefix (`fix`, `chore`, `refactor`, `perf`, `style`, `revert`)
-5. **Other** — if slots remain (e.g. `database`, `ci`, `documentation`, `dependencies`)
-
-Area labels come from **changed files**, not the branch name. See [`.github/scripts/pr-labeler-lib.mjs`](.github/scripts/pr-labeler-lib.mjs) for the full path rules.
+The inherited [PR labeler workflow](.github/workflows/labeler.yml) and [label rules](.github/scripts/pr-labeler-lib.mjs) remain as upstream reference. GitHub Actions are disabled in this school repository, so automatic labels or reviews are not expected. CI is not being implemented now and is not a prerequisite for starting, reviewing or merging a school task.
 
 ## Commit messages
 
@@ -112,9 +107,9 @@ Agent-oriented detail lives in [`.github/instructions/git-commit.instructions.md
 ### Code
 
 - Follow existing project conventions.
-- Add or update tests when behavior changes.
-- Run tests and linters locally before pushing; **ensure CI is green** before you request review.
-- Typical checks (from `app/`): `pytest tests/` after syncing dependencies and migrating as described in [`README.rst`](README.rst) and [`agents.md`](agents.md).
+- Add or update tests when needed to verify changed behavior.
+- Run targeted self-checks for the touched area and record actual results and unverified items before review; obtain one person's review. Use [.agent/skills/adversarial-audit/SKILL.md](.agent/skills/adversarial-audit/SKILL.md) for substantive activity-platform changes.
+- Select checks from the commands in [`README.rst`](README.rst) and [`agents.md`](agents.md). For example, hackathon changes may use the relevant tests under `app/tests/hackathon/`; the full `pytest tests/` suite is available when the scope warrants it.
 
 ### Bug Reports
 
@@ -133,16 +128,16 @@ If you use AI tools to help with changes, follow the instructions in [`.github/i
 
 ## Pull request guidelines
 
-1. **Link every PR to a GitHub issue.** Use GitHub’s closing keywords in the **PR description** (not the title), for example: `Fixes #123`.
+1. **Link every PR to its main task card or requirement.** If there is a GitHub issue, use closing keywords in the **PR description** (not the title), for example: `Fixes #123`.
 2. **Keep PRs reviewable in less than a day.** Break large work into smaller issues and smaller PRs.
 3. **Design changes:** Add screenshots or a short video so reviewers can see the UI or visual impact.
-4. **Copilot:** Enable GitHub Copilot on your account when possible; this repo can auto-trigger Copilot reviews, which speeds up feedback.
-5. **Reviewers:** Do not tag reviewers repeatedly; the PR will be reviewed in turn.
+4. **Copilot:** Optional if already available; no subscription or automatic Copilot review is required.
+5. **Reviewers:** Obtain one person's review with relevant test evidence; do not tag reviewers repeatedly. Tiny copy/style edits may use a quick human review.
 6. **Issues:** Avoid picking up issues that are already assigned to someone else unless you coordinate with them.
 7. In the **PR description**, briefly summarize the change and reference the linked issue (with closing keywords in the description only).
 8. **Large or long-running work:** Open a **draft** pull request early so direction is visible and others are less likely to duplicate effort.
 
-**Workflow:** Push your branch to your fork, open a Pull Request against `dev`, and respond to review feedback.
+**Workflow:** Push your focused branch to the school `origin`, open a Pull Request against `Exyeus/RUC-Makers-Platform:main`, and respond to review feedback. Use [.agent/templates/pull-request.md](.agent/templates/pull-request.md) for a concise handoff. This workflow does not authorize importing the dirty server worktree or releasing to production.
 
 ## Further reading
 

@@ -11,6 +11,11 @@ Supported agents include GitHub Copilot, Claude, Codex, Cursor, ChatGPT, and sim
 3. `.agents/skills/` contains reusable operational knowledge about the repository structure and deployment.
 4. Agent adapter files (`CLAUDE.md`, `CODEX.md`, `.cursorrules`, `.github/copilot-instructions.md`) should stay minimal and must not duplicate or override project rules.
 
+## School Activity Collaboration
+
+Use [.agent/README.md](.agent/README.md) for task cards, handoff and review, and [.agent/BRANCHES.md](.agent/BRANCHES.md) for school `main` and upstream/server isolation.
+Use [.agent/skills/adversarial-audit/SKILL.md](.agent/skills/adversarial-audit/SKILL.md) for substantive activity-platform changes before PR review/merge and around critical operations; tiny copy/style edits may use quick human review. These entries supplement this canonical file.
+
 ## Verified Project Facts
 
 - Runtime baseline is Python 3.12 (`app/pyproject.toml`).

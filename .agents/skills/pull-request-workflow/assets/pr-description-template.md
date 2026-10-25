@@ -1,21 +1,5 @@
-# Summary
+# School PR Description
 
-Describe the user-visible and technical change.
+Use the maintained [school PR template](../../../../.agent/templates/pull-request.md) for PRs against `Exyeus/RUC-Makers-Platform:main`.
 
-# Motivation
-
-Describe why this change is needed.
-
-# Testing
-
-- [ ] Unit or integration tests added/updated
-- [ ] Relevant local checks run
-- [ ] Manual verification completed (if applicable)
-
-# Risk and Rollback
-
-Describe potential risks and rollback strategy.
-
-# Reviewer Notes
-
-Highlight areas where focused review is requested.
+Record targeted self-checks and one person's review; CI is not a gate. The template is maintained in one place to keep task, audit and handoff fields consistent.

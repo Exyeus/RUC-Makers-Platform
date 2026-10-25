@@ -2,7 +2,7 @@
 
 ## Before Opening a PR
 
-- Rebase or merge latest `dev` if needed.
+- Confirm the school PR targets `main` and its focused branch is based on `origin/main`; see `.agent/BRANCHES.md`. Do not rebase or merge the dirty server worktree.
 - Run relevant tests for touched areas.
 - Confirm no debug logs or temporary files are included.
 - Check docs when behavior or workflow changed.
@@ -22,6 +22,6 @@
 
 ## Merge Readiness
 
-- CI checks pass
-- Required approvals are present
+- Targeted self-check results and unverified items are recorded; CI is not a gate (GitHub Actions are disabled)
+- One person's review is present; substantive activity-platform changes include the adversarial audit result
 - No unresolved blocking comments

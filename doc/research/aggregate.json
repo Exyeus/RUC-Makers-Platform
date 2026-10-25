@@ -1,0 +1,337 @@
+{
+  "audit_date_utc": "2026-10-25",
+  "method_version": "metadata-only-v1",
+  "scope": {
+    "top_directories": 37,
+    "nonempty_collection_units": 34,
+    "empty_top_directories": 3,
+    "physical_file_count": 2865,
+    "physical_bytes": 2879369734,
+    "root_nonarchive_helper_files": 2
+  },
+  "limits": {
+    "original_submission_count": "not_identifiable",
+    "participant_team_count": "not_identifiable",
+    "content_uses_authorized": false,
+    "public_contains_participant_names_or_paths": false
+  },
+  "archives": {
+    "physical_count": 32,
+    "formats": {
+      "zip": 24,
+      "gz": 5,
+      "rar": 3
+    },
+    "physical_bytes": 1005895682,
+    "sha256_duplicate_groups": 0,
+    "sha256_duplicate_extra_copies": 0,
+    "read_errors": 0,
+    "shallow_count": 26,
+    "deep_count": 6,
+    "contained_shallow_archives": 1,
+    "boundary_candidate_count": 25,
+    "boundary_formats": {
+      "zip": 22,
+      "rar": 3
+    },
+    "boundary_size_bins": [
+      {
+        "lower_inclusive": 0,
+        "upper_exclusive": 1048576,
+        "count": 3
+      },
+      {
+        "lower_inclusive": 1048576,
+        "upper_exclusive": 10485760,
+        "count": 7
+      },
+      {
+        "lower_inclusive": 10485760,
+        "upper_exclusive": 52428800,
+        "count": 9
+      },
+      {
+        "lower_inclusive": 52428800,
+        "upper_exclusive": 104857600,
+        "count": 4
+      },
+      {
+        "lower_inclusive": 104857600,
+        "upper_exclusive": 262144000,
+        "count": 2
+      },
+      {
+        "lower_inclusive": 262144000,
+        "upper_exclusive": null,
+        "count": 0
+      }
+    ],
+    "boundary_distributions": {
+      "file_count": {
+        "n": 25,
+        "min": 1,
+        "p25": 1.0,
+        "median": 2,
+        "p75": 21.0,
+        "p90": 214.60000000000005,
+        "p95": 229.8,
+        "max": 1489,
+        "sum": 2355
+      },
+      "expanded_bytes": {
+        "n": 25,
+        "min": 330300,
+        "p25": 3372144.0,
+        "median": 20725114,
+        "p75": 51626085.0,
+        "p90": 121237427.60000004,
+        "p95": 224190802.39999968,
+        "max": 390731985,
+        "sum": 1337194753
+      },
+      "archive_bytes": {
+        "n": 25,
+        "min": 192900,
+        "p25": 2937068.0,
+        "median": 18156842,
+        "p75": 50095707.0,
+        "p90": 97313098.00000003,
+        "p95": 144216701.99999985,
+        "max": 239253639,
+        "sum": 988485980
+      },
+      "expansion_ratio": {
+        "n": 25,
+        "min": 1.00247389564305,
+        "p25": 1.0184984452126524,
+        "median": 1.0684512496502585,
+        "p75": 1.1414492674441954,
+        "p90": 1.773189617781577,
+        "p95": 1.9317927631035816,
+        "max": 2.5337380424260227,
+        "sum": 30.29152658123827
+      }
+    },
+    "nested_archive_edges_observed": 5,
+    "boundary_member_size_crc_equivalence_groups": 0,
+    "boundary_candidate_units": 23
+  },
+  "extraction_copies": {
+    "zip_rar_archives_with_complete_crc_size_match": 27,
+    "partial_matching_archives": 0,
+    "unique_physical_files_matching_archive_members": 2548,
+    "matching_file_bytes": 1439042746,
+    "note": "This is matched bytes, not removable storage: scope overlaps and some matching files may predate archive creation."
+  },
+  "collection_units": {
+    "with_shallow_archives": 23,
+    "without_shallow_archives": 11,
+    "material_occurrence": {
+      "presentation": {
+        "count": 24,
+        "denominator": 34,
+        "percent": 70.6
+      },
+      "document": {
+        "count": 2,
+        "denominator": 34,
+        "percent": 5.9
+      },
+      "text_or_readme": {
+        "count": 8,
+        "denominator": 34,
+        "percent": 23.5
+      },
+      "image": {
+        "count": 33,
+        "denominator": 34,
+        "percent": 97.1
+      },
+      "video": {
+        "count": 11,
+        "denominator": 34,
+        "percent": 32.4
+      },
+      "audio": {
+        "count": 0,
+        "denominator": 34,
+        "percent": 0.0
+      },
+      "source": {
+        "count": 9,
+        "denominator": 34,
+        "percent": 26.5
+      },
+      "application_binary": {
+        "count": 2,
+        "denominator": 34,
+        "percent": 5.9
+      },
+      "link_file": {
+        "count": 2,
+        "denominator": 34,
+        "percent": 5.9
+      },
+      "dependency_manifest": {
+        "count": 7,
+        "denominator": 34,
+        "percent": 20.6
+      }
+    },
+    "physical_file_count_distribution": {
+      "n": 34,
+      "min": 2,
+      "p25": 3.0,
+      "median": 4.0,
+      "p75": 5.0,
+      "p90": 234.8,
+      "p95": 252.74999999999991,
+      "max": 1505,
+      "sum": 2862
+    },
+    "physical_bytes_distribution": {
+      "n": 34,
+      "min": 834184,
+      "p25": 5881884.0,
+      "median": 30491152.5,
+      "p75": 83247786.25,
+      "p90": 200615637.2,
+      "p95": 382053940.0499995,
+      "max": 654408021,
+      "sum": 2877572666
+    },
+    "direct_loose_file_count": 67
+  },
+  "boundary_candidates": {
+    "material_occurrence": {
+      "presentation": {
+        "count": 12,
+        "denominator": 25,
+        "percent": 48.0
+      },
+      "document": {
+        "count": 2,
+        "denominator": 25,
+        "percent": 8.0
+      },
+      "text_or_readme": {
+        "count": 7,
+        "denominator": 25,
+        "percent": 28.0
+      },
+      "image": {
+        "count": 8,
+        "denominator": 25,
+        "percent": 32.0
+      },
+      "video": {
+        "count": 6,
+        "denominator": 25,
+        "percent": 24.0
+      },
+      "audio": {
+        "count": 0,
+        "denominator": 25,
+        "percent": 0.0
+      },
+      "source": {
+        "count": 8,
+        "denominator": 25,
+        "percent": 32.0
+      },
+      "application_binary": {
+        "count": 2,
+        "denominator": 25,
+        "percent": 8.0
+      },
+      "link_file": {
+        "count": 0,
+        "denominator": 25,
+        "percent": 0.0
+      },
+      "dependency_manifest": {
+        "count": 6,
+        "denominator": 25,
+        "percent": 24.0
+      }
+    },
+    "single_member_count": 12,
+    "more_than_100_files": 4,
+    "more_than_1000_files": 1,
+    "any_dependency_path_count": 1,
+    "any_build_path_count": 2,
+    "dependency_member_count": 2,
+    "dependency_member_bytes": 836,
+    "build_member_count": 97,
+    "build_member_bytes": 24564630,
+    "all_member_count": 2355,
+    "all_member_bytes": 1337194753,
+    "noise_member_count": 2,
+    "noise_member_bytes": 2046,
+    "unsafe_paths_archive_count": 0,
+    "duplicate_exact_member_names": 0,
+    "case_collision_archive_count": 0,
+    "non_ascii_path_archive_count": 18,
+    "space_path_archive_count": 5,
+    "max_member_path_depth": 13,
+    "max_member_path_characters": 149,
+    "member_files_at_least_100_mib": 1,
+    "candidates_with_member_at_least_100_mib": 1,
+    "technical_tree_flags": {
+      "dependency": {
+        "candidate_count": 1,
+        "member_count": 2,
+        "member_bytes": 836
+      },
+      "build": {
+        "candidate_count": 2,
+        "member_count": 97,
+        "member_bytes": 24564630
+      },
+      "tooling": {
+        "candidate_count": 0,
+        "member_count": 0,
+        "member_bytes": 0
+      },
+      "editor": {
+        "candidate_count": 0,
+        "member_count": 0,
+        "member_bytes": 0
+      },
+      "version_control": {
+        "candidate_count": 1,
+        "member_count": 79,
+        "member_bytes": 10666525
+      },
+      "noise": {
+        "candidate_count": 2,
+        "member_count": 2,
+        "member_bytes": 2046
+      }
+    },
+    "largest_file_count_share_percent": 63.2
+  },
+  "physical_inventory": {
+    "max_path_depth": 17,
+    "max_relative_path_characters": 172,
+    "file_size_distribution": {
+      "n": 2865,
+      "min": 0,
+      "p25": 1342.0,
+      "median": 3431,
+      "p75": 16384.0,
+      "p90": 720889.9999999998,
+      "p95": 1918939.799999992,
+      "max": 246201856,
+      "sum": 2879369734
+    },
+    "files_at_least_100_mib": 4,
+    "files_at_least_250_mib": 0
+  },
+  "verification": {
+    "source_file_metadata_unchanged": true,
+    "source_directory_metadata_unchanged": true,
+    "symlink_inventory_unchanged": true,
+    "archive_rehash_all_equal": true
+  }
+}

@@ -155,14 +155,11 @@ Contents
 Project status and branch model
 -------------------------------
 
-This repository adds a hackathon workspace to Eventyay. The following branch conventions describe the upstream project; use the branch containing the hackathon changes when running this customized version.
+This school repository adds a hackathon workspace to Eventyay. ``main`` is the school's default integration branch. Create focused ``feat/``, ``fix/`` or ``docs/`` branches from ``origin/main`` and open PRs against ``Exyeus/RUC-Makers-Platform:main``.
 
-Upstream uses the following branch model:
+``upstream/dev`` is read-only upstream reference, and ``rucmaker`` preserves history. Keep the server's unpublished ``work/server-development`` work separate; do not switch, merge or reset its dirty worktree. A branch setting does not establish that deployment or a new environment has been verified.
 
-* ``main`` is the production ready branch.
-* ``dev`` is the testing and active development branch.
-
-Pull requests should normally target ``dev``. Changes are tested and stabilised there before they are moved to ``main`` for production ready releases.
+See the `School collaboration entry <.agent/README.md>`_ and `Branch isolation guide <.agent/BRANCHES.md>`_ for task handoff, review and clean personal checkout steps.
 
 Main features
 -------------
@@ -915,9 +912,9 @@ The documentation website should be used for the full user guide, platform admin
 Continuous integration
 ----------------------
 
-Pull requests are checked through GitHub Actions. The workflow set includes tests, style checks, documentation builds, Docker image builds, PR deployment workflows, and selected component-specific checks.
+CI is not being implemented for the school workflow now. Existing GitHub Actions are disabled in the school repository settings; inherited workflow files remain upstream reference, not an automatic review or merge gate.
 
-Before opening a pull request, run the relevant local checks for the files you changed. At minimum, run the test or build command related to the affected area.
+Before opening a pull request, run targeted self-checks for the files and risks you changed, record actual results and unverified items, and obtain one person's review. Substantive activity-platform changes use the `Adversarial audit skill <.agent/skills/adversarial-audit/SKILL.md>`_; tiny copy/style edits may use quick human review.
 
 
 Contributing
@@ -927,17 +924,17 @@ We welcome contributions.
 
 Basic workflow:
 
-1. Fork the repository.
-2. Create a feature branch.
+1. Use the school repository as ``origin`` in a clean personal checkout.
+2. Create a focused ``feat/``, ``fix/`` or ``docs/`` branch from ``origin/main``.
 3. Make focused changes.
-4. Add or update tests when behaviour changes.
-5. Run tests and relevant build commands locally.
-6. Open a pull request against the ``dev`` branch.
+4. Add or update tests when needed to verify changed behaviour.
+5. Run targeted local checks and record results and unverified items.
+6. Open a pull request against the school ``main`` branch and obtain one person's review.
 
 Pull request expectations:
 
-- Link the PR to a GitHub issue.
-- Use closing keywords such as ``Fixes #123`` in the PR description.
+- Link the PR to its main task card or requirement.
+- If there is a GitHub issue, use closing keywords such as ``Fixes #123`` in the PR description.
 - Keep PRs small enough to review in less than a day where possible.
 - Add screenshots or short videos for UI changes.
 - Open draft PRs early for large or long running work.
@@ -956,6 +953,7 @@ AI tools should consult:
 - ``agents.md``
 - ``.github/instructions/``
 - ``.agents/skills/``
+- ``.agent/README.md`` for the school task, branch and review workflow
 
 These files define repository specific coding, architecture, documentation, and pull request expectations.
 
