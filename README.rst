@@ -938,7 +938,7 @@ The school ``Activity CI`` workflow runs for pull requests and pushes to ``main`
 
 See the `CI guide <doc/development-ci.md>`_ for failure diagnosis and local reproduction with ``bash tools/check-activity.sh`` against a dedicated test database. Review the CI result before merging; passing checks do not establish browser appearance, production capacity or safe upgrading of existing data. The inherited upstream build/deployment workflows are removed from the active workflow directory; their history remains in Git.
 
-The ``Feishu notifications`` workflow sends new Issues, new PRs and reviewer requests to a configured Feishu group using a Python script. See the `Feishu notification guide <doc/feishu-notifications.md>`_ for application permissions, the three Actions secrets, notification examples and the manual delivery test. Activity CI runs its offline tests and lint checks.
+The ``Feishu notifications`` workflow sends Issue/PR titles, body text and links to a configured Feishu group. Reviewer requests and new @mentions in descriptions or conversation comments also trigger notifications; an optional ``FEISHU_USER_MAP`` secret enables real Feishu @mentions. See the `Feishu notification guide <doc/feishu-notifications.md>`_ for permissions, configuration and manual delivery tests. Activity CI runs its offline tests and lint checks.
 
 Before opening a pull request, run targeted self-checks for the files and risks you changed, record actual results and unverified items, and obtain one person's review. Substantive activity-platform changes use the `Adversarial audit skill <.agents/skills/adversarial-audit/SKILL.md>`_; tiny copy/style edits may use quick human review.
 

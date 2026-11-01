@@ -2,11 +2,18 @@ name: Feishu notifications
 
 on:
   issues:
-    types: [opened]
+    types: [opened, edited]
   # Secrets are available for fork PRs; execute only the trusted default-branch code.
   pull_request_target:
-    types: [opened, review_requested]
+    types: [opened, edited, review_requested]
+  issue_comment:
+    types: [created, edited]
   workflow_dispatch:
+    inputs:
+      mention_user:
+        description: "可选：测试 @ 提醒的 GitHub 用户名（不含 @，需配置 FEISHU_USER_MAP）"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -29,4 +36,5 @@ jobs:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
+          FEISHU_USER_MAP: ${{ secrets.FEISHU_USER_MAP }}
         run: python .github/scripts/feishu_notify.py
