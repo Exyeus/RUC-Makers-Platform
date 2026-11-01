@@ -1,7 +1,6 @@
 """Offline notification contract and failure tests; never send to a real group."""
 
 import contextlib
-import copy
 import io
 import json
 import os
@@ -32,64 +31,151 @@ def response(data: object) -> io.BytesIO:
 
 
 class MessageTests(unittest.TestCase):
-    def test_issue_contains_body_author_assignee_and_link(self):
-        post = notify.build_post('issues', {'action': 'opened', 'issue': ITEM}, REPO, SERVER)['zh_cn']
-        serialized = json.dumps(post, ensure_ascii=False)
-        for value in ('新建 Issue #17', ITEM['body'], '@author', '@owner', f'{SERVER}/{REPO}/issues/17'):
-            self.assertIn(value, serialized)
-        self.assertNotIn('请求审阅', serialized)
+    def post(self, name='issues', action='opened', body='请 @alice review', **extra):
+        item = {**ITEM, 'body': body}
+        key = 'pull_request' if name == 'pull_request_target' else 'issue'
+        event = {'action': action, key: item, **extra}
+        return notify.build_post(name, event, REPO, SERVER, {'alice': 'ou_alice', 'bob': 'ou_bob'})
 
-    def test_pr_open_includes_people_teams_and_draft(self):
-        pr = {**ITEM, 'draft': True}
-        post = notify.build_post('pull_request_target', {'action': 'opened', 'pull_request': pr}, REPO, SERVER)
-        serialized = json.dumps(post, ensure_ascii=False)
-        for value in ('@alice', 'example/backend', '状态：草稿', f'{SERVER}/{REPO}/pull/17'):
-            self.assertIn(value, serialized)
+    def at_ids(self, post):
+        return [node['user_id'] for row in post['zh_cn']['content'] for node in row if node['tag'] == 'at']
 
-    def test_new_review_target_is_preserved_even_if_snapshot_lags(self):
-        for target in ({'requested_reviewer': {'login': 'bob'}}, {'requested_team': {'slug': 'frontend'}}):
-            with self.subTest(target=target):
-                post = notify.build_post(
-                    'pull_request_target',
-                    {
-                        'action': 'review_requested',
-                        'pull_request': ITEM,
-                        'sender': {'login': 'maintainer'},
-                        **target,
-                    },
-                    REPO,
-                    SERVER,
+    def test_template_contains_only_original_title_body_and_url(self):
+        post = self.post(body='正文，没有 reviewer')['zh_cn']
+        self.assertEqual(
+            post,
+            {
+                'title': ITEM['title'],
+                'content': [
+                    [{'tag': 'text', 'text': '正文，没有 reviewer'}],
+                    [{'tag': 'a', 'text': f'{SERVER}/{REPO}/issues/17', 'href': f'{SERVER}/{REPO}/issues/17'}],
+                ],
+            },
+        )
+
+    def test_opened_pr_maps_requested_reviewer_and_preserves_team_text(self):
+        post = self.post('pull_request_target', body='测试正文')
+        self.assertEqual(self.at_ids(post), ['ou_alice'])
+        self.assertIn('@example/backend', json.dumps(post, ensure_ascii=False))
+        self.assertEqual(post['zh_cn']['content'][-1][0]['href'], f'{SERVER}/{REPO}/pull/17')
+
+    def test_mentions_are_case_insensitive_and_repeated_user_pings_once(self):
+        self.assertEqual(
+            self.at_ids(self.post(body='请 @Alice 和 @alice review，@bob 也请看。')), ['ou_alice', 'ou_bob']
+        )
+
+    def test_unknown_user_is_plain_text(self):
+        post = self.post(body='请 @unknown review')
+        self.assertEqual(self.at_ids(post), [])
+        self.assertIn('@unknown', json.dumps(post))
+
+    def test_chinese_text_can_touch_the_mention(self):
+        self.assertEqual(self.at_ids(self.post(body='请@alice帮忙review，谢谢')), ['ou_alice'])
+
+    def test_comments_only_trigger_when_they_mention_someone(self):
+        for is_pr in (False, True):
+            with self.subTest(is_pr=is_pr):
+                item = {**ITEM, **({'pull_request': {}} if is_pr else {})}
+                event = {'action': 'created', 'issue': item, 'comment': {'id': 123, 'body': '请 @alice review'}}
+                post = notify.build_post('issue_comment', event, REPO, SERVER, {'alice': 'ou_alice'})
+                self.assertEqual(self.at_ids(post), ['ou_alice'])
+                self.assertTrue(post['zh_cn']['content'][-1][0]['href'].endswith('#issuecomment-123'))
+                event['comment']['body'] = '普通讨论'
+                self.assertIsNone(notify.build_post('issue_comment', event, REPO, SERVER))
+
+    def test_edited_description_only_pings_new_mentions(self):
+        for name in ('issues', 'pull_request_target'):
+            with self.subTest(name=name):
+                post = self.post(
+                    name, 'edited', body='请 @alice 和 @bob review', changes={'body': {'from': '请 @alice review'}}
                 )
-                content = json.dumps(post, ensure_ascii=False)
-                self.assertIn('PR 请求审阅', content)
-                self.assertIn('本次请求', content)
-                self.assertIn(next(iter(target.values())).get('login', 'frontend'), content)
-                self.assertIn('@maintainer', content)
+                self.assertEqual(self.at_ids(post), ['ou_bob'])
+                self.assertIsNone(
+                    self.post(
+                        name, 'edited', body='请 @ALICE review，改文字', changes={'body': {'from': '请 @alice review'}}
+                    )
+                )
+                self.assertIsNone(self.post(name, 'edited'))
 
-    def test_no_reviewers_and_empty_body_are_explicit(self):
-        pr = {**ITEM, 'body': None, 'requested_reviewers': [], 'requested_teams': []}
-        post = notify.build_post('pull_request_target', {'action': 'opened', 'pull_request': pr}, REPO, SERVER)
-        serialized = json.dumps(post, ensure_ascii=False)
-        self.assertIn('暂未指定', serialized)
-        self.assertIn('（无正文）', serialized)
+    def test_edited_comment_does_not_reping_existing_users(self):
+        event = {
+            'action': 'edited',
+            'issue': ITEM,
+            'comment': {'id': 2, 'body': '@alice @bob'},
+            'changes': {'body': {'from': '@alice'}},
+        }
+        post = notify.build_post('issue_comment', event, REPO, SERVER, {'alice': 'ou_alice', 'bob': 'ou_bob'})
+        self.assertEqual(self.at_ids(post), ['ou_bob'])
 
-    def test_untrusted_content_is_literal_and_large_body_is_bounded(self):
-        malicious = '<at user_id="all">所有人</at> ${{ secrets.FEISHU_APP_SECRET }} $(touch /tmp/pwned)'
-        pr = {**ITEM, 'title': malicious, 'body': malicious + '中' * 65000}
-        original = copy.deepcopy(pr)
-        post = notify.build_post('pull_request_target', {'action': 'opened', 'pull_request': pr}, REPO, SERVER)
-        nodes = [node for row in post['zh_cn']['content'] for node in row]
-        self.assertTrue(all(node['tag'] in ('text', 'a') for node in nodes))
-        self.assertTrue(any(malicious in node.get('text', '') for node in nodes))
-        self.assertLess(len(json.dumps(post, ensure_ascii=False).encode('utf-8')), 20000)
-        self.assertEqual(pr, original)
+    def test_review_request_only_pings_the_new_reviewer(self):
+        post = self.post(
+            'pull_request_target', 'review_requested', body='原文 @alice', requested_reviewer={'login': 'bob'}
+        )
+        self.assertEqual(self.at_ids(post), ['ou_bob'])
+        self.assertIn('review', json.dumps(post))
+        team = self.post('pull_request_target', 'review_requested', requested_team={'slug': 'backend'})
+        self.assertEqual(self.at_ids(team), [])
 
-    def test_unsubscribed_events_do_not_generate_messages(self):
+    def test_code_email_urls_and_team_mentions_do_not_ping(self):
+        body = (
+            '`@alice`\n```python\n@bob\n```\n<!-- @alice -->\n~~~\n@bob\n~~~\n'
+            'mail@alice.com https://github.com/@bob @example/backend \\@alice'
+        )
+        self.assertEqual(notify.mentions(body), set())
+        self.assertEqual(self.at_ids(self.post(body=body)), [])
+
+    def test_code_delimiters_and_unclosed_fences_do_not_ping(self):
+        for body in (
+            '``@alice``',
+            '`code with `` @alice`',
+            '```python\n@alice\n````',
+            '~~~python\n@alice\n~~~~',
+            '```python\n@alice',
+            '<!-- @alice',
+        ):
+            with self.subTest(body=body):
+                self.assertEqual(notify.mentions(body), set())
+        self.assertEqual(notify.mentions('``@alice`` 之后请 @bob review'), {'bob'})
+
+    def test_untrusted_html_cannot_create_a_feishu_mention(self):
+        text = '<at user_id="all">所有人</at> ${{ secrets.FEISHU_APP_SECRET }} $(touch /tmp/pwned)'
+        post = self.post(body=text)
+        self.assertEqual(post['zh_cn']['content'][0], [{'tag': 'text', 'text': text}])
+
+    def test_long_body_still_mentions_mapped_user_after_excerpt(self):
+        post = self.post(body='中' * 65000 + ' @alice')
+        self.assertEqual(self.at_ids(post), ['ou_alice'])
+        self.assertLess(len(json.dumps(post, ensure_ascii=False).encode()), 20000)
+        self.assertIn('已截断', json.dumps(post, ensure_ascii=False))
+
+    def test_empty_body_and_unsubscribed_events(self):
+        self.assertEqual(self.post(body=None)['zh_cn']['content'][0][0]['text'], '（无正文）')
         self.assertIsNone(notify.build_post('issues', {'action': 'closed'}, REPO, SERVER))
         self.assertIsNone(notify.build_post('pull_request_target', {'action': 'synchronize'}, REPO, SERVER))
         self.assertIsNone(
             notify.build_post('issues', {'action': 'opened', 'issue': {'pull_request': {}}}, REPO, SERVER)
         )
+
+    def test_user_map_validation_rejects_invalid_data_and_all(self):
+        self.assertEqual(notify.user_map('{"Alice": "ou_alice"}'), {'alice': 'ou_alice'})
+        for raw in (
+            'invalid',
+            '[]',
+            '{"alice":"all"}',
+            '{"@alice":"ou_a"}',
+            '{"alice":12}',
+            '{"alice":"ou_a", "Alice":"ou_b"}',
+            '{"alice":"ou_a", "alice":"ou_b"}',
+        ):
+            with self.subTest(raw=raw), self.assertRaises(notify.NotificationError):
+                notify.user_map(raw)
+        self.assertEqual(notify.user_map(''), {})
+
+    def test_manual_mention_preview_uses_same_mapping(self):
+        post = notify.build_post(
+            'workflow_dispatch', {'inputs': {'mention_user': 'Alice'}}, REPO, SERVER, {'alice': 'ou_alice'}
+        )
+        self.assertEqual(self.at_ids(post), ['ou_alice'])
 
 
 class ApiTests(unittest.TestCase):
@@ -198,6 +284,28 @@ class EndToEndTests(unittest.TestCase):
         ):
             self.assertEqual(notify.main(), 1)
         self.assertIn('Missing FEISHU_APP_SECRET', stderr.getvalue())
+        urlopen.assert_not_called()
+
+    @patch.object(notify, 'urlopen')
+    def test_configured_mapping_reaches_serialized_post(self, urlopen):
+        with (
+            patch.dict(os.environ, {**self.env, 'FEISHU_USER_MAP': '{"Alice":"ou_alice"}'}, clear=True),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            urlopen.side_effect = [response({'code': 0, 'tenant_access_token': 'fake-token'}), response({'code': 0})]
+            self.assertEqual(notify.main(), 0)
+        post = json.loads(json.loads(urlopen.call_args.args[0].data)['content'])
+        self.assertIn({'tag': 'at', 'user_id': 'ou_alice'}, post['zh_cn']['content'][0])
+
+    @patch.object(notify, 'urlopen')
+    def test_invalid_mapping_fails_without_logging_its_value(self, urlopen):
+        with (
+            patch.dict(os.environ, {**self.env, 'FEISHU_USER_MAP': 'sensitive-invalid-value'}, clear=True),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            self.assertEqual(notify.main(), 1)
+        self.assertIn('FEISHU_USER_MAP', stderr.getvalue())
+        self.assertNotIn('sensitive-invalid-value', stderr.getvalue())
         urlopen.assert_not_called()
 
     @patch.object(notify, 'urlopen')
