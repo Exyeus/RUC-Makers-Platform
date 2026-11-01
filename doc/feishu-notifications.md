@@ -2,6 +2,8 @@
 
 [工作流](../.github/workflows/feishu-notify.yml) 调用 [Python 脚本](../.github/scripts/feishu_notify.py)，仅使用 Python 3.12 标准库，无需部署常驻服务、安装 SDK 或配置飞书事件回调。
 
+本应用只做 GitHub → 飞书的单向消息转发和明确规则下的用户名映射，不调用 AI/大模型，不读取群内对话用于整理内容。lark-cli 仅作为本机配置、查询成员 ID 和排查权限的辅助工具；不参与 GitHub Actions 的运行，不需要安装 AI Agent 插件或启动消息监听服务。
+
 ## 通知规则与模板
 
 消息只展示三部分：
@@ -48,6 +50,18 @@ PR diff 行内评论和 review 评语暂不订阅；请在 PR 的 **Conversation
 3. 调用 `GET /open-apis/im/v1/chats/{chat_id}/members?member_id_type=open_id&page_size=100`，`chat_id` 使用已配置的目标群。机器人需已在群内；如返回 `has_more=true`，继续用 `page_token` 查询后续页。
 4. 按返回成员姓名确认每位协作者，将对应 `member_id`（`ou_...`）填入映射。重名时先确认本人，不能只凭姓名猜测。确保被 @ 的人确实在目标群里。
 5. `open_id` 只对该应用有效；不要复制其他机器人的 ID。若人员的 ID 已通过当前应用的可信渠道取得，可直接配置映射，无需为运行时额外查询通讯录。
+
+也可用[官方 lark-cli](https://github.com/larksuite/cli)执行相同的群成员查询。本机安装并验证 CLI 后，配置时选择**已有应用**，使用发送 GitHub 通知的同一套 App ID / App Secret，品牌选 `feishu`；不要用 `--new` 创建另一个应用。App Secret 在自己的终端录入，不粘贴到聊天、命令参数或仓库文件中。
+
+```bash
+lark-cli config init --name eventyay-notify
+lark-cli --profile eventyay-notify config default-as bot
+lark-cli --profile eventyay-notify im chat.members get \
+  --chat-id oc_替换为目标群ID \
+  --member-id-type open_id --as bot --page-all
+```
+
+这个查询路径直接使用机器人应用身份，不需要 `auth login` 授权个人账号。需要发布 `im:chat.members:read` 权限，机器人已经在群里，并确认该应用与目标组织匹配。返回的成员 `member_id` 就是所选类型的 `open_id`；同名用户应先确认本人。安装 CLI 不会改变现有通知的转发行为。
 
 ### 在 GitHub 里使用
 
