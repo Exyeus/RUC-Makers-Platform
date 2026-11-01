@@ -140,7 +140,12 @@ def build_post(
     body = (source.get('body') or '').strip()
     targets = mentions(body)
     if action == 'edited':
-        previous = event.get('changes', {}).get('body', {}).get('from')
+        change = event.get('changes', {}).get('body')
+        if not isinstance(change, dict) or 'from' not in change:
+            return None
+        previous = change['from']
+        if previous is None:
+            previous = ''
         if not isinstance(previous, str):
             return None
         targets -= mentions(previous)

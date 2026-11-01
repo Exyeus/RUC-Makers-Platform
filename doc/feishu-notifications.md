@@ -19,7 +19,7 @@ PR/Issue 标题
 | GitHub 事件 | 发送条件与正文 |
 | --- | --- |
 | `issues.opened` / `pull_request_target.opened` | 每次创建发送；正文为原描述，PR 附当前个人和团队 reviewer |
-| `issues.edited` / `pull_request_target.edited` | 仅正文新增个人 @用户名时发送；仅提醒本次新增的用户名 |
+| `issues.edited` / `pull_request_target.edited` | 仅正文新增个人 @用户名时发送；支持原正文为空（空字符串或 null）后首次添加 @；仅提醒本次新增的用户名 |
 | `issue_comment.created` / `issue_comment.edited` | Issue 或 PR 的 Conversation 评论中包含/新增个人 @用户名时发送；正文为评论，链接定位到该评论 |
 | `pull_request_target.review_requested` | 发送审阅请求；只 @ 本次被请求的个人 reviewer，不重复提醒描述中其他人 |
 | `workflow_dispatch` | 发送一条测试消息；可填 `mention_user` 测试指定 GitHub 用户的飞书 @ 映射 |

@@ -107,6 +107,49 @@ class MessageTests(unittest.TestCase):
         post = notify.build_post('issue_comment', event, REPO, SERVER, {'alice': 'ou_alice', 'bob': 'ou_bob'})
         self.assertEqual(self.at_ids(post), ['ou_bob'])
 
+    def test_mention_added_to_empty_description_notifies_without_a_user_map(self):
+        for name, item_key in (('issues', 'issue'), ('pull_request_target', 'pull_request')):
+            for previous in ('', None):
+                with self.subTest(name=name, previous=previous):
+                    post = notify.build_post(
+                        name,
+                        {
+                            'action': 'edited',
+                            item_key: {**ITEM, 'body': '@Exyeus Check further'},
+                            'changes': {'body': {'from': previous}},
+                        },
+                        REPO,
+                        SERVER,
+                    )
+                    self.assertEqual(
+                        post['zh_cn']['content'][0],
+                        [
+                            {'tag': 'text', 'text': '@Exyeus Check further'},
+                        ],
+                    )
+
+    def test_null_previous_comment_body_notifies_and_title_edits_stay_silent(self):
+        event = {
+            'action': 'edited',
+            'issue': ITEM,
+            'comment': {'id': 123, 'body': '@Exyeus Can you receive this message?'},
+            'changes': {'body': {'from': None}},
+        }
+        post = notify.build_post('issue_comment', event, REPO, SERVER)
+        self.assertTrue(post['zh_cn']['content'][-1][0]['href'].endswith('#issuecomment-123'))
+        self.assertIsNone(
+            notify.build_post(
+                'issues',
+                {
+                    'action': 'edited',
+                    'issue': {**ITEM, 'body': '@Exyeus'},
+                    'changes': {'title': {'from': 'Old title'}},
+                },
+                REPO,
+                SERVER,
+            )
+        )
+
     def test_review_request_only_pings_the_new_reviewer(self):
         post = self.post(
             'pull_request_target', 'review_requested', body='原文 @alice', requested_reviewer={'login': 'bob'}
