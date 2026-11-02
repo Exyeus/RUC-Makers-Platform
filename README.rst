@@ -940,6 +940,8 @@ See the `CI guide <doc/development-ci.md>`_ for failure diagnosis and local repr
 
 The ``Feishu notifications`` workflow sends Issue/PR titles, body text and links to a configured Feishu group. Reviewer requests and new @mentions in descriptions or conversation comments also trigger notifications; an optional ``FEISHU_USER_MAP`` secret enables real Feishu @mentions. See the `Feishu notification guide <doc/feishu-notifications.md>`_ for permissions, configuration and manual delivery tests. Activity CI runs its offline tests and lint checks.
 
+Automatic events from Dependabot and Renovate are filtered. Human @mentions and reviewer requests on their PRs still send notifications.
+
 Before opening a pull request, run targeted self-checks for the files and risks you changed, record actual results and unverified items, and obtain one person's review. Substantive activity-platform changes use the `Adversarial audit skill <.agents/skills/adversarial-audit/SKILL.md>`_; tiny copy/style edits may use quick human review.
 
 

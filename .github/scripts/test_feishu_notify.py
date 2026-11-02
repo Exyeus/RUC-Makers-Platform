@@ -59,6 +59,77 @@ class MessageTests(unittest.TestCase):
         self.assertIn('@example/backend', json.dumps(post, ensure_ascii=False))
         self.assertEqual(post['zh_cn']['content'][-1][0]['href'], f'{SERVER}/{REPO}/pull/17')
 
+    def test_dependency_bot_events_are_silent(self):
+        for login in ('dependabot[bot]', 'renovate[bot]', 'Dependabot[bot]'):
+            for name, actions in (
+                ('issues', ('opened', 'edited')),
+                ('pull_request_target', ('opened', 'edited', 'review_requested')),
+                ('issue_comment', ('created', 'edited')),
+            ):
+                for action in actions:
+                    with self.subTest(login=login, name=name, action=action):
+                        self.assertIsNone(
+                            self.post(
+                                name,
+                                action,
+                                sender={'login': login},
+                                comment={'id': 123, 'body': '请 @alice review'},
+                                changes={'body': {'from': ''}},
+                                requested_reviewer={'login': 'alice'},
+                            )
+                        )
+
+    def test_people_can_request_review_and_mention_on_bot_prs(self):
+        item = {**ITEM, 'user': {'login': 'dependabot[bot]'}, 'body': '请 @alice review'}
+        events = (
+            (
+                'pull_request_target',
+                {'action': 'edited', 'pull_request': item, 'changes': {'body': {'from': ''}}},
+                ['ou_alice'],
+            ),
+            (
+                'pull_request_target',
+                {'action': 'review_requested', 'pull_request': item, 'requested_reviewer': {'login': 'bob'}},
+                ['ou_bob'],
+            ),
+            (
+                'issue_comment',
+                {'action': 'created', 'issue': {**item, 'pull_request': {}}, 'comment': {'id': 123, 'body': '@bob'}},
+                ['ou_bob'],
+            ),
+            (
+                'issue_comment',
+                {
+                    'action': 'edited',
+                    'issue': {**item, 'pull_request': {}},
+                    'comment': {'id': 123, 'body': '@bob', 'user': {'login': 'dependabot[bot]'}},
+                    'changes': {'body': {'from': ''}},
+                },
+                ['ou_bob'],
+            ),
+        )
+        for name, event, expected_ids in events:
+            with self.subTest(name=name, action=event['action']):
+                post = notify.build_post(
+                    name, {**event, 'sender': {'login': 'alice'}}, REPO, SERVER, {'alice': 'ou_alice', 'bob': 'ou_bob'}
+                )
+                self.assertEqual(self.at_ids(post), expected_ids)
+
+    def test_dependency_titles_labels_and_other_bots_are_not_filtered(self):
+        for login in ('alice', 'dependabot-helper', 'github-actions[bot]'):
+            with self.subTest(login=login):
+                post = self.post(
+                    'pull_request_target',
+                    sender={'login': login},
+                    pull_request={
+                        **ITEM,
+                        'title': 'chore(deps): bump a dependency',
+                        'labels': [{'name': 'dependencies'}],
+                    },
+                )
+                self.assertIsNotNone(post)
+                self.assertEqual(self.at_ids(post), ['ou_alice'])
+
     def test_mentions_are_case_insensitive_and_repeated_user_pings_once(self):
         self.assertEqual(
             self.at_ids(self.post(body='请 @Alice 和 @alice review，@bob 也请看。')), ['ou_alice', 'ou_bob']
@@ -295,6 +366,18 @@ class EndToEndTests(unittest.TestCase):
             'FEISHU_APP_SECRET': 'fake-secret',
             'FEISHU_CHAT_ID': 'oc_fake',
         }
+
+    @patch.object(notify, 'urlopen')
+    def test_dependency_bot_event_skips_without_secrets_or_network(self, urlopen):
+        Path(self.env['GITHUB_EVENT_PATH']).write_text(
+            json.dumps({'action': 'opened', 'pull_request': ITEM, 'sender': {'login': 'dependabot[bot]'}}),
+            encoding='utf-8',
+        )
+        env = {key: value for key, value in self.env.items() if not key.startswith('FEISHU_')}
+        with patch.dict(os.environ, env, clear=True), contextlib.redirect_stdout(io.StringIO()) as stdout:
+            self.assertEqual(notify.main(), 0)
+        self.assertIn('skipped', stdout.getvalue())
+        urlopen.assert_not_called()
 
     def test_auth_then_one_post_and_rerun_has_same_uuid(self):
         payloads = []
