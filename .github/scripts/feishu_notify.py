@@ -14,6 +14,7 @@ from urllib.request import Request, urlopen
 API_ROOT = 'https://open.feishu.cn/open-apis'
 RETRYABLE_CODES = {99991400}  # Frequency limit; 99991403 is a monthly quota exhaustion.
 MAX_ATTEMPTS = 3
+DEPENDENCY_BOTS = frozenset({'dependabot[bot]', 'renovate[bot]'})
 LOGIN = r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?'
 MENTION = re.compile(rf'(?<![A-Za-z0-9_./@\\])@({LOGIN})(?![A-Za-z0-9_/@-])')
 INLINE_CODE = re.compile(r'(?<!`)(?P<ticks>`+)(?!`).*?(?<!`)(?P=ticks)(?!`)', re.DOTALL)
@@ -121,6 +122,9 @@ def build_post(
                 ],
             }
         }
+    # Filter the event sender, so people can still request reviews on bot-created PRs.
+    if event.get('sender', {}).get('login', '').lower() in DEPENDENCY_BOTS:
+        return None
     if event_name == 'issues' and action in ('opened', 'edited'):
         item = event['issue']
         if 'pull_request' in item:
@@ -243,7 +247,7 @@ def main() -> int:
             user_map(os.environ.get('FEISHU_USER_MAP', '')),
         )
         if post is None:
-            print('Event is outside the notification subscriptions; skipped.')
+            print('Event skipped by notification rules.')
             return 0
         app_id = required_env('FEISHU_APP_ID')
         app_secret = required_env('FEISHU_APP_SECRET')
