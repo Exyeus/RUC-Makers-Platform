@@ -227,11 +227,6 @@ def student_password_reset_request(request):
         return redirect(workspace_destination(request, request.user))
 
     form = StudentPasswordResetRequestForm(request.POST if request.method == 'POST' else None)
-    context = {
-        'title': '忘记密码',
-        'form': form,
-        'login_url': url(request.hackathon, 'student-login'),
-    }
 
     if request.method == 'POST':
         if login_limited(request):
@@ -265,7 +260,7 @@ def student_password_reset_request(request):
                         messages.success(request, '密码重置链接已发送到你的注册邮箱，请查收。')
                     except Exception:
                         messages.error(request, '发送邮件失败，请稍后重试或联系组织者。')
-                        return render(request, 'hackathon/student_password_reset_request.html', context)
+                        return page(request, 'student_password_reset_request', form=form, title='忘记密码')
 
                     user.log_action('eventyay.hackathon.student.password.reset.request')
                 else:
@@ -285,7 +280,7 @@ def student_password_reset_request(request):
                 )
             return redirect(url(request.hackathon, 'student-login'))
 
-    return render(request, 'hackathon/student_password_reset_request.html', context)
+    return page(request, 'student_password_reset_request', form=form, title='忘记密码')
 
 
 @sensitive_post_parameters('password')
@@ -294,11 +289,6 @@ def student_password_reset_request(request):
 def student_password_reset_confirm(request):
     """Handle password reset confirmation - student enters new password."""
     token = request.GET.get('token') or request.POST.get('token')
-
-    context = {
-        'title': '重置密码',
-        'login_url': url(request.hackathon, 'student-login'),
-    }
 
     if not token:
         messages.error(request, '重置链接无效，请重新申请。')
@@ -315,8 +305,6 @@ def student_password_reset_confirm(request):
         return redirect(url(request.hackathon, 'student-password-reset-request'))
 
     form = StudentPasswordResetForm(request.POST if request.method == 'POST' else None)
-    context['form'] = form
-    context['token'] = token
 
     if request.method == 'POST':
         if form.is_valid():
@@ -331,4 +319,4 @@ def student_password_reset_confirm(request):
             user.log_action('eventyay.hackathon.student.password.reset.complete')
             return redirect(url(request.hackathon, 'student-login'))
 
-    return render(request, 'hackathon/student_password_reset_confirm.html', context)
+    return page(request, 'student_password_reset_confirm', form=form, title='重置密码', token=token)
