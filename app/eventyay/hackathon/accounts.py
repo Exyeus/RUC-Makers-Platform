@@ -1,3 +1,4 @@
+import datetime as dt
 import hashlib
 from urllib.parse import urlencode
 
@@ -6,8 +7,10 @@ from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.hashers import make_password
 from django.core.cache import cache
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
+from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
@@ -15,7 +18,13 @@ from django.views.decorators.http import require_http_methods, require_POST
 from eventyay.base.auth import get_auth_backends
 from eventyay.base.models import User
 from eventyay.eventyay_common.views.auth import process_login
-from eventyay.hackathon.forms import OrganizerLoginForm, StudentLoginForm, StudentSignupForm
+from eventyay.hackathon.forms import (
+    OrganizerLoginForm,
+    StudentLoginForm,
+    StudentPasswordResetForm,
+    StudentPasswordResetRequestForm,
+    StudentSignupForm,
+)
 from eventyay.hackathon.models import Participant, StaffAssignment, StudentAccount
 from eventyay.hackathon.permissions import event_view, is_organizer
 from eventyay.hackathon.views import page, url
@@ -202,6 +211,119 @@ def student_auth(request, signup=False):
         other_url=url(request.hackathon, 'student-login' if signup else 'student-signup'),
         email_login=url(request.hackathon, 'organizer-login')
         + ('?' + urlencode({'next': request.GET['next']}) if request.GET.get('next') else ''),
+        password_reset_url=url(request.hackathon, 'student-password-reset-request'),
     )
     response.status_code = status
     return response
+
+
+@sensitive_post_parameters('password')
+@event_view()
+@require_http_methods(['GET', 'POST'])
+def student_password_reset_request(request):
+    """Handle password reset request - student enters their student_id."""
+    if request.user.is_authenticated:
+        return redirect(workspace_destination(request, request.user))
+
+    form = StudentPasswordResetRequestForm(request.POST if request.method == 'POST' else None)
+
+    if request.method == 'POST':
+        if login_limited(request):
+            form.add_error(None, '尝试过于频繁，请 5 分钟后重试。')
+        elif form.is_valid():
+            user = form.get_user()
+            if user and user.email:
+                # User has email on file, send reset link
+                one_day_ago = dt.datetime.now(dt.UTC) - dt.timedelta(hours=24)
+                if not (user.pw_reset_time and one_day_ago < user.pw_reset_time < dt.datetime.now(dt.UTC)):
+                    # Generate reset token
+                    user.pw_reset_token = get_random_string(32)
+                    user.pw_reset_time = dt.datetime.now(dt.UTC)
+                    user.save(update_fields=['pw_reset_token', 'pw_reset_time'])
+
+                    # Build reset URL
+                    reset_url = request.build_absolute_uri(
+                        url(request.hackathon, 'student-password-reset-confirm')
+                        + f'?token={user.pw_reset_token}'
+                    )
+
+                    # Send email
+                    try:
+                        send_mail(
+                            subject='创客营密码重置',
+                            message=(
+                                '你好，\n\n'
+                                '请点击以下链接重置你的密码：\n\n'
+                                f'{reset_url}\n\n'
+                                '链接有效期为 24 小时。\n\n'
+                                '如果你没有请求重置密码，请忽略此邮件。'
+                            ),
+                            from_email=settings.MAIL_FROM or settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[user.email],
+                            fail_silently=False,
+                        )
+                        messages.success(request, '密码重置链接已发送到你的注册邮箱，请查收。')
+                    except Exception:
+                        messages.error(request, '发送邮件失败，请稍后重试或联系组织者。')
+                        return page(request, 'student_password_reset_request', form=form, title='忘记密码')
+
+                    user.log_action('eventyay.hackathon.student.password.reset.request')
+                else:
+                    messages.info(request, '24 小时内已请求过重置，请检查邮箱或稍后再试。')
+                return redirect(url(request.hackathon, 'student-login'))
+            elif user:
+                # User exists but has no email
+                contact_info = request.hackathon.contact or '请在现场咨询工作人员'
+                messages.warning(
+                    request,
+                    f'该学号未绑定邮箱，无法自动重置。请联系组织者协助，'
+                    f'或先在个人设置中添加邮箱。组委会联系方式：{contact_info}'
+                )
+            else:
+                # User not found - don't reveal this for security
+                messages.warning(
+                    request,
+                    '如果该学号已注册且绑定了邮箱，你将收到密码重置链接。如未收到，请联系组织者。'
+                )
+            return redirect(url(request.hackathon, 'student-login'))
+
+    return page(request, 'student_password_reset_request', form=form, title='忘记密码')
+
+
+@sensitive_post_parameters('password')
+@event_view()
+@require_http_methods(['GET', 'POST'])
+def student_password_reset_confirm(request):
+    """Handle password reset confirmation - student enters new password."""
+    token = request.GET.get('token') or request.POST.get('token')
+
+    if not token:
+        messages.error(request, '重置链接无效，请重新申请。')
+        return redirect(url(request.hackathon, 'student-password-reset-request'))
+
+    # Find user with this token
+    try:
+        user = User.objects.get(
+            pw_reset_token=token,
+            pw_reset_time__gte=dt.datetime.now(dt.UTC) - dt.timedelta(days=1),
+        )
+    except User.DoesNotExist:
+        messages.error(request, '重置链接已过期或无效，请重新申请。')
+        return redirect(url(request.hackathon, 'student-password-reset-request'))
+
+    form = StudentPasswordResetForm(request.POST if request.method == 'POST' else None)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            with transaction.atomic():
+                user.set_password(form.cleaned_data['password'])
+                user.pw_reset_token = None
+                user.pw_reset_time = None
+                user.update_session_token()
+                user.save(update_fields=['password', 'pw_reset_token', 'pw_reset_time'])
+
+            messages.success(request, '密码已重置成功，请使用新密码登录。')
+            user.log_action('eventyay.hackathon.student.password.reset.complete')
+            return redirect(url(request.hackathon, 'student-login'))
+
+    return page(request, 'student_password_reset_confirm', form=form, title='重置密码', token=token)

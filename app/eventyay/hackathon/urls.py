@@ -11,6 +11,12 @@ event_patterns = [
     path('account/judge/', accounts.organizer_login, {'judge': True}, name='judge-login'),
     path('account/logout/', accounts.logout, name='logout'),
     path('account/signup/', accounts.student_auth, {'signup': True}, name='student-signup'),
+    path('account/password-reset/', accounts.student_password_reset_request, name='student-password-reset-request'),
+    path(
+        'account/password-reset/confirm/',
+        accounts.student_password_reset_confirm,
+        name='student-password-reset-confirm',
+    ),
     path('register/', views.register, name='register'),
     path('market/', matching_views.market, name='matching'),
     path('market/profile/', matching_views.profile, name='matching-profile'),

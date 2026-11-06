@@ -15,6 +15,7 @@
       <button type="submit" class="button">{% if signup %}注册并完善资料{% else %}登录{% endif %} ↗</button>
       <a class="button secondary" href="{{ other_url }}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">{% if signup %}已有学号账户，去登录{% else %}首次参加，用学号注册{% endif %}</a>
     </div>
+    {% if not signup %}<p><a href="{{ password_reset_url }}">忘记密码？点击重置 ↗</a></p>{% endif %}
     <p><a href="{{ email_login }}">已有邮箱账户 / 主办方登录 ↗</a></p>
   </form>
 {% endblock %}
