@@ -1,7 +1,6 @@
+import datetime as dt
 import hashlib
 from urllib.parse import urlencode
-
-import datetime as dt
 
 from django.conf import settings
 from django.contrib import messages
@@ -235,11 +234,11 @@ def student_password_reset_request(request):
             user = form.get_user()
             if user and user.email:
                 # User has email on file, send reset link
-                one_day_ago = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
-                if not (user.pw_reset_time and one_day_ago < user.pw_reset_time < dt.datetime.now(dt.timezone.utc)):
+                one_day_ago = dt.datetime.now(dt.UTC) - dt.timedelta(hours=24)
+                if not (user.pw_reset_time and one_day_ago < user.pw_reset_time < dt.datetime.now(dt.UTC)):
                     # Generate reset token
                     user.pw_reset_token = get_random_string(32)
-                    user.pw_reset_time = dt.datetime.now(dt.timezone.utc)
+                    user.pw_reset_time = dt.datetime.now(dt.UTC)
                     user.save(update_fields=['pw_reset_token', 'pw_reset_time'])
 
                     # Build reset URL
@@ -252,7 +251,13 @@ def student_password_reset_request(request):
                     try:
                         send_mail(
                             subject='创客营密码重置',
-                            message=f'你好，\n\n请点击以下链接重置你的密码：\n\n{reset_url}\n\n链接有效期为 24 小时。\n\n如果你没有请求重置密码，请忽略此邮件。',
+                            message=(
+                                '你好，\n\n'
+                                '请点击以下链接重置你的密码：\n\n'
+                                f'{reset_url}\n\n'
+                                '链接有效期为 24 小时。\n\n'
+                                '如果你没有请求重置密码，请忽略此邮件。'
+                            ),
                             from_email=settings.MAIL_FROM or settings.DEFAULT_FROM_EMAIL,
                             recipient_list=[user.email],
                             fail_silently=False,
@@ -268,9 +273,11 @@ def student_password_reset_request(request):
                 return redirect(url(request.hackathon, 'student-login'))
             elif user:
                 # User exists but has no email
+                contact_info = request.hackathon.contact or '请在现场咨询工作人员'
                 messages.warning(
                     request,
-                    f'该学号未绑定邮箱，无法自动重置。请联系组织者协助，或先在个人设置中添加邮箱。组委会联系方式：{request.hackathon.contact or "请在现场咨询工作人员"}'
+                    f'该学号未绑定邮箱，无法自动重置。请联系组织者协助，'
+                    f'或先在个人设置中添加邮箱。组委会联系方式：{contact_info}'
                 )
             else:
                 # User not found - don't reveal this for security
@@ -298,7 +305,7 @@ def student_password_reset_confirm(request):
     try:
         user = User.objects.get(
             pw_reset_token=token,
-            pw_reset_time__gte=dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1),
+            pw_reset_time__gte=dt.datetime.now(dt.UTC) - dt.timedelta(days=1),
         )
     except User.DoesNotExist:
         messages.error(request, '重置链接已过期或无效，请重新申请。')
