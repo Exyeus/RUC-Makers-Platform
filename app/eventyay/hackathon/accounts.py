@@ -9,7 +9,7 @@ from django.contrib.auth.hashers import make_password
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.debug import sensitive_post_parameters
