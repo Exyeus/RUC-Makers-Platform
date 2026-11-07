@@ -2,7 +2,7 @@ name: Feishu notifications
 
 on:
   issues:
-    types: [opened, edited]
+    types: [opened, edited, assigned]
   # Secrets are available for fork PRs; execute only the trusted default-branch code.
   pull_request_target:
     types: [opened, edited, review_requested]
