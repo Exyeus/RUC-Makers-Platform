@@ -1,0 +1,78 @@
+name: Cloud deployment checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'deployment/**'
+      - 'app/eventyay/hackathon/**'
+      - 'app/tests/hackathon/**'
+      - 'app/eventyay/config/**'
+      - 'app/pyproject.toml'
+      - 'app/uv.lock'
+      - '.dockerignore'
+      - '.github/workflows/cloud-deployment.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - run: |
+          cp deployment/.env.example deployment/.env
+          docker compose -f deployment/docker-compose.yml --env-file deployment/.env config --quiet
+          bash -n deployment/backup.sh deployment/restore.sh
+          docker build --build-arg REVISION="$GITHUB_SHA" -f deployment/Dockerfile -t ruc-makers:ci .
+  storage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16.8-bookworm
+        env: {POSTGRES_USER: eventyay, POSTGRES_PASSWORD: eventyay, POSTGRES_DB: eventyay_ci}
+        ports: ['5432:5432']
+        options: --health-cmd="pg_isready -U eventyay -d eventyay_ci" --health-interval=5s --health-retries=20
+    env:
+      EVY_RUNNING_ENVIRONMENT: testing
+      EVY_DOCS_BUILD: '1'
+      CI_POSTGRES_HOST: 127.0.0.1
+      CI_POSTGRES_PORT: '5432'
+      CI_POSTGRES_USER: eventyay
+      CI_POSTGRES_PASSWORD: eventyay
+      HACKATHON_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with: {python-version: '3.12'}
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with: {version: '0.12.21'}
+      - run: |
+          sudo apt-get update && sudo apt-get install -y gettext libmagic1t64
+          uv sync --directory app --locked --no-default-groups --group test --no-install-project
+          uv pip install --python app/.venv/bin/python -r deployment/requirements-s3.txt
+          docker run -d --name minio -p 127.0.0.1:9000:9000 -e MINIO_ROOT_USER=test-access -e MINIO_ROOT_PASSWORD=test-secret-key minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+      - name: Wait for isolated bucket
+        run: |
+          app/.venv/bin/python - <<'PY'
+          import time
+          import boto3
+          from botocore.exceptions import BotoCoreError, ClientError
+          client = boto3.client('s3', endpoint_url='http://127.0.0.1:9000', aws_access_key_id='test-access', aws_secret_access_key='test-secret-key', region_name='us-east-1')
+          for attempt in range(30):
+              try:
+                  client.create_bucket(Bucket='ruc-storage-test')
+                  break
+              except (BotoCoreError, ClientError):
+                  if attempt == 29:
+                      raise
+                  time.sleep(1)
+          PY
+      - name: Storage checks
+        run: |
+          PYTHONPATH=app app/.venv/bin/python -m unittest discover -s deployment -p test_storage.py -v
+          cd app
+          .venv/bin/python -m pytest --ds=tests.hackathon.ci_settings tests/hackathon/test_cloud_storage.py tests/hackathon/test_accounts_uploads.py -q -p no:sugar

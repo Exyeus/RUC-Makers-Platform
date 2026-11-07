@@ -99,6 +99,15 @@ class BaseSettings(_BaseSettings):
     )
     # Here, starting our settings fields.
     # The names follow what is in Django and converted to lowercase.
+    data_dir: Path | None = None
+    hackathon_storage_backend: str = 'local'
+    hackathon_s3_endpoint: str = ''
+    hackathon_s3_region: str = 'us-east-1'
+    hackathon_s3_bucket: str = ''
+    hackathon_s3_prefix: str = 'hackathon-private'
+    hackathon_s3_access_key: str = ''
+    hackathon_s3_secret_key: str = ''
+    hackathon_s3_addressing_style: str = 'virtual'
     debug: bool = False
     secret_key: str = 'please-give-one-in-secret-file'
     postgres_db: str = _DEFAULT_DB_NAME
@@ -264,12 +273,12 @@ FETCH_ECB_RATES = conf.fetch_ecb_rates
 CACHE_TICKETS_MAX_AGE = timedelta(hours=conf.cache_tickets_hours)
 BILLING_REMINDER_SCHEDULE = conf.billing_reminder_schedule
 
-DATA_DIR = BASE_DIR / 'data'
+DATA_DIR = conf.data_dir or BASE_DIR / 'data'
 LOG_DIR = DATA_DIR / 'logs'
 MEDIA_ROOT = DATA_DIR / 'media'
 PROFILE_DIR = DATA_DIR / 'profiles'
 # The compiled frontend files (from Vue3 apps) will be put here.
-COMPILED_FRONTEND_DIR = DATA_DIR / 'compiled-frontend'
+COMPILED_FRONTEND_DIR = BASE_DIR / 'data' / 'compiled-frontend'
 
 DATA_DIR.mkdir(exist_ok=True)
 LOG_DIR.mkdir(exist_ok=True)
@@ -1634,3 +1643,17 @@ if IS_DEVELOPMENT:
         ALLOWED_HOSTS = list(dict.fromkeys([*ALLOWED_HOSTS, '10.0.2.2', '10.0.3.2']))
     # Trust standard local and emulator origins for CSRF
     CSRF_TRUSTED_ORIGINS += ['http://localhost:8000', 'http://127.0.0.1:8000', 'http://10.0.2.2:8000', 'http://10.0.3.2:8000']
+
+HACKATHON_STORAGE_BACKEND = conf.hackathon_storage_backend
+HACKATHON_S3 = {
+    'endpoint': conf.hackathon_s3_endpoint, 'region': conf.hackathon_s3_region,
+    'bucket': conf.hackathon_s3_bucket, 'prefix': conf.hackathon_s3_prefix,
+    'access_key': conf.hackathon_s3_access_key, 'secret_key': conf.hackathon_s3_secret_key,
+    'addressing_style': conf.hackathon_s3_addressing_style,
+}
+
+if IS_PRODUCTION:
+    CSRF_TRUSTED_ORIGINS = [SITE_URL.rstrip('/')]
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

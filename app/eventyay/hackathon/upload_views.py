@@ -14,6 +14,7 @@ from eventyay.hackathon.constants import CHUNK_SIZE
 from eventyay.hackathon.forms import UploadStartForm
 from eventyay.hackathon.models import Project, UploadSession
 from eventyay.hackathon.permissions import event_view
+from eventyay.hackathon.storage import STORAGE_ERRORS
 
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ def upload_errors(view):
         except ValidationError as error:
             record_error(request, kwargs.get('upload_id'), ' '.join(error.messages))
             return JsonResponse({'error': ' '.join(error.messages)}, status=400)
-        except OSError:
+        except STORAGE_ERRORS:
             logger.exception('Hackathon upload storage operation failed')
             record_error(request, kwargs.get('upload_id'), '存储暂时不可用，请稍后重试或联系技术人员。')
             return JsonResponse({'error': '存储暂时不可用，请稍后重试或联系主办方。已保存的材料不受影响。'}, status=503)

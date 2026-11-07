@@ -1,124 +1,105 @@
-name: eventyay-next
+name: ruc-makers
+x-app: &app
+  image: ${APP_IMAGE:?Set APP_IMAGE to a tested commit tag or digest}
+  build:
+    context: ..
+    dockerfile: deployment/Dockerfile
+    args:
+      REVISION: ${REVISION:?Set REVISION to the full source commit SHA}
+  env_file: .env
+  environment:
+    EVY_RUNNING_ENVIRONMENT: production
+    EVY_DATA_DIR: /data
+    EVY_POSTGRES_HOST: db
+    EVY_POSTGRES_PORT: 5432
+    EVY_REDIS_URL: redis://redis:6379/0
+  volumes:
+    - data:/data
+  restart: unless-stopped
+  init: true
+  logging:
+    driver: json-file
+    options: {max-size: '10m', max-file: '3'}
+  depends_on:
+    db: {condition: service_healthy}
+    redis: {condition: service_healthy}
 
 services:
+  init:
+    <<: *app
+    user: root
+    profiles: [ops]
+    restart: 'no'
+    volumes: [data:/data, static:/static]
+    command: ['sh', '-ec', 'cp -a eventyay/static.dist/. /static/; chown -R 1000:1000 /data /static']
+  migrate:
+    <<: *app
+    profiles: [ops]
+    restart: 'no'
+    command: [python, manage.py, migrate, --noinput]
   web:
-    image: eventyay/eventyay-next:${TAG}
-    container_name: eventyay-next-web
-    command: gunicorn eventyay.config.wsgi:application --bind 0.0.0.0:8000 --worker-class gthread --workers 2 --threads 4 --timeout 60 --graceful-timeout 30 --max-requests 1000 --max-requests-jitter 100 --no-control-socket
-    volumes:
-      - ${DATA_DIR:-./data}/static:/home/app/web/eventyay/static.dist
-      - ${DATA_DIR:-./data}/data:/home/app/web/eventyay/data
-    ports:
-      - 8000:8000
-    expose:
-      - 8000
-    env_file:
-      - ./.env
-    environment:
-      - MAX_CONCURRENT_REQUESTS=4
-    depends_on:
-      - db
-      - redis
-
-  websocket:
-    image: eventyay/eventyay-next:${TAG}
-    container_name: eventyay-next-websocket
-    entrypoint: daphne -b 0.0.0.0 -p 8001 --proxy-headers --verbosity 0 eventyay.config.asgi:application
-    ulimits:
-      nofile:
-        soft: 65535
-        hard: 65535
-    volumes:
-      - ${DATA_DIR:-./data}/static:/home/app/web/eventyay/static.dist
-      - ${DATA_DIR:-./data}/data:/home/app/web/eventyay/data
-    ports:
-      - 8001:8001
-    expose:
-      - 8001
-    env_file:
-      - ./.env
-    environment:
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - MALLOC_ARENA_MAX=2
-    depends_on:
-      - db
-      - redis
-
-  worker:
-    image: eventyay/eventyay-next:${TAG}
-    container_name: eventyay-next-worker
-    entrypoint: celery -A eventyay worker -l info -Q default,notifications
-    volumes:
-      - ${DATA_DIR:-./data}/static:/home/app/web/eventyay/static.dist
-      - ${DATA_DIR:-./data}/data:/home/app/web/eventyay/data
-    env_file:
-      - ./.env
-    environment:
-      - MPLCONFIGDIR=/tmp/matplotlib
-    depends_on:
-      - db
-      - redis
-
-  worker-heavy:
-    # Required in production: processes longrunning/background queues (badges, exports, imports).
-    image: eventyay/eventyay-next:${TAG}
-    container_name: eventyay-next-worker-heavy
-    entrypoint: celery -A eventyay worker -l info -Q longrunning,background -c 1 --prefetch-multiplier=1 --max-tasks-per-child=200
-    volumes:
-      - ${DATA_DIR:-./data}/static:/home/app/web/eventyay/static.dist
-      - ${DATA_DIR:-./data}/data:/home/app/web/eventyay/data
-    env_file:
-      - ./.env
-    environment:
-      - MPLCONFIGDIR=/tmp/matplotlib
-    depends_on:
-      - db
-      - redis
-
-  beat:
-    image: eventyay/eventyay-next:${TAG}
-    container_name: eventyay-next-beat
-    entrypoint: celery -A eventyay beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    volumes:
-      - ${DATA_DIR:-./data}/static:/home/app/web/eventyay/static.dist
-      - ${DATA_DIR:-./data}/data:/home/app/web/eventyay/data
-    env_file:
-      - ./.env
-    environment:
-      - MPLCONFIGDIR=/tmp/matplotlib
-    depends_on:
-      - db
-      - redis
-
-  db:
-    image: postgres:15
-    container_name: eventyay-next-db
-    volumes:
-      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql/data/
-    env_file:
-      - ./.env
-
-  redis:
-    image: redis:latest
-    container_name: eventyay-next-redis
-    restart: unless-stopped
-    volumes:
-      - rd:/data
+    <<: *app
     healthcheck:
-      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
-
-  watchtower:
-    image: nickfedor/watchtower
-    container_name: eventyay-next-watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: always
+      test: [CMD, python, -c, "import socket; socket.create_connection(('127.0.0.1',8000),3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+  websocket:
+    <<: *app
+    command: [daphne, -b, 0.0.0.0, -p, '8001', --proxy-headers, eventyay.config.asgi:application]
+    healthcheck:
+      test: [CMD, python, -c, "import socket; socket.create_connection(('127.0.0.1',8001),3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+  worker:
+    <<: *app
+    command: [celery, -A, eventyay, worker, -l, info, -Q, 'default,notifications,longrunning,background', --concurrency=2]
+  beat:
+    <<: *app
+    command: [celery, -A, eventyay, beat, -l, info, --scheduler, django_celery_beat.schedulers:DatabaseScheduler]
+  proxy:
+    image: caddy:2.9.1-alpine
+    restart: unless-stopped
     environment:
-      WATCHTOWER_NOTIFICATIONS: 'shoutrrr'
-      WATCHTOWER_NOTIFICATIONS_HOSTNAME: ${WATCHTOWER_NOTIFICATIONS_HOSTNAME}
-      WATCHTOWER_POLL_INTERVAL: 600
-      WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL}
-    command: watchtower eventyay-next-watchtower eventyay-next-web eventyay-next-websocket eventyay-next-worker eventyay-next-worker-heavy eventyay-next-beat --cleanup
-
+      DOMAIN: ${DOMAIN:?Set DOMAIN}
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - static:/srv/static:ro
+      - data:/srv/data:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web: {condition: service_healthy}
+      websocket: {condition: service_healthy}
+  db:
+    image: postgres:16.8-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${EVY_POSTGRES_DB:?Set EVY_POSTGRES_DB}
+      POSTGRES_USER: ${EVY_POSTGRES_USER:?Set EVY_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${EVY_POSTGRES_PASSWORD:?Set EVY_POSTGRES_PASSWORD}
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7.4.2-alpine
+    command: [redis-server, --appendonly, 'yes']
+    restart: unless-stopped
+    volumes: [redis:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 volumes:
-  rd:
+  data:
+  static:
+  postgres:
+  redis:
+  caddy-data:
+  caddy-config:

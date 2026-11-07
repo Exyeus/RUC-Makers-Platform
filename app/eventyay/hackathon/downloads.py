@@ -8,6 +8,8 @@ from django.core.handlers.asgi import ASGIRequest
 from django.http import Http404, HttpResponse, StreamingHttpResponse
 from django.utils.http import content_disposition_header
 
+from eventyay.hackathon.storage import STORAGE_ERRORS
+
 
 BLOCK_SIZE = 256 * 1024
 
@@ -96,4 +98,6 @@ def asset_response(request, asset, attachment=True):
         source = asset.file.open('rb')
     except FileNotFoundError as error:
         raise Http404('材料文件不可用，请联系主办方。') from error
+    except STORAGE_ERRORS:
+        return HttpResponse('存储暂时不可用，请稍后重试。', status=503, headers={'Retry-After': '5'})
     return stream_file(request, source, asset.size, asset.filename, attachment=attachment, checksum=asset.checksum)
