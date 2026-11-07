@@ -55,7 +55,8 @@ def test_camp_navigation_and_calendar(client, hackathon, participant, user):
     assert 'register' not in navigation
     assert 'announcements' in navigation
     assert 'matching' not in navigation
-    assert {'teams', 'bonus'} <= set(navigation)
+    assert 'teams' in navigation
+    assert 'bonus' not in navigation
     body = response.content.decode()
     assert 'aria-label="个人资料"' in body
     assert 'aria-label="通知公告"' in body

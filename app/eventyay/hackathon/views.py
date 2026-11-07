@@ -65,13 +65,16 @@ def page(request, template, **context):
             ('teams', '我的队伍与组队', 'users'),
             ('project', '我的作品', 'folder'),
         ]),
-        ('活动信息', [
+        ('活动安排', [
             ('schedule', '活动日程', 'calendar'),
             ('announcements', '通知公告', 'bell'),
-            ('resources', '学习与指南', 'book'),
-            ('bonus', '加分规则', 'badge'),
-            ('gallery', '作品展厅', 'spark'),
             ('stage', '路演现场', 'play'),
+        ]),
+        ('学习与展示', [
+            ('resources', '学习与指南', 'book'),
+            ('gallery', '作品展厅', 'spark'),
+        ]),
+        ('帮助与入口', [
             ('support', '帮助与支持', 'help'),
             ('judge-login', '评委入口', 'chart'),
         ]),

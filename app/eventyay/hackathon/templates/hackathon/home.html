@@ -4,7 +4,6 @@
     <div>
       <p class="ruc-eyebrow">{{ hackathon.name }} · 选手工作台</p>
       <h1>参赛总览</h1>
-      <p class="ruc-secondary">{{ hackathon.tagline }}</p>
     </div>
     <div class="ruc-header-meta ruc-meta">
       <svg aria-hidden="true"><use href="#i-calendar" /></svg>
@@ -65,7 +64,6 @@
         {% for resource in featured_resources %}
           <a class="ruc-resource-row" href="{% url 'hackathon:resource' hackathon.slug resource.pk %}"><span><strong>{{ resource.title }}</strong><small>{{ resource.get_category_display }} · {{ resource.minutes }} 分钟{% if resource.required %} · 必读{% endif %}</small></span><svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
         {% empty %}<p class="ruc-secondary">指南待公布，遇到问题可联系支持团队。</p>{% endfor %}
-        <a class="ruc-text-link" href="{% url 'hackathon:bonus' hackathon.slug %}">查看加分规则<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
       </section>
       <div class="ruc-activity-strip" aria-label="本活动统计"><span>本活动累计</span><span><strong>{{ participant_count }}</strong> 位报名选手</span><span><strong>{{ team_count }}</strong> 支队伍</span><span><strong>{{ project_count }}</strong> 个有正式提交记录的作品</span></div>
       <details class="ruc-panel ruc-tracks">

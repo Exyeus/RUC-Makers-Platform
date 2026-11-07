@@ -251,7 +251,7 @@ def test_populated_public_information_retains_content_and_escaping(client, hacka
 
 
 @pytest.mark.parametrize('route', [
-    'schedule', 'announcements', 'resources', 'teams', 'bonus', 'project', 'gallery', 'stage', 'support',
+    'schedule', 'announcements', 'resources', 'teams', 'project', 'gallery', 'stage', 'support',
 ])
 def test_workspace_theme_and_navigation_survive_page_changes(client, hackathon, team, user, route):
     client.force_login(user)
@@ -266,7 +266,7 @@ def test_workspace_theme_and_navigation_survive_page_changes(client, hackathon, 
     current = soup.select('#sidebar a[aria-current="page"]')
     assert len(current) == 1
     assert current[0]['href'] == endpoint(hackathon, route)
-    for target in ['home', 'schedule', 'announcements', 'resources', 'teams', 'bonus', 'project']:
+    for target in ['home', 'schedule', 'announcements', 'resources', 'teams', 'project']:
         assert any(a['href'] == endpoint(hackathon, target) for a in soup.select('#sidebar a'))
     assert not soup.select('#sidebar a[aria-current="page"][href="' + endpoint(hackathon, 'home') + '"]')
 
