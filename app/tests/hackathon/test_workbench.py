@@ -223,13 +223,109 @@ def test_role_workspaces_remain_available(client, hackathon, user, role, route):
     assert any(a['href'] == endpoint(hackathon, route) for a in soup.select('#sidebar a'))
 
 
-def test_workbench_styles_do_not_spread_to_other_pages(client, hackathon, user):
+@pytest.mark.parametrize('route', ['schedule', 'announcements'])
+def test_populated_public_information_retains_content_and_escaping(client, hackathon, user, route):
+    title = '活动安排与材料说明' * 8
+    content = '请阅读安排\n<script>alert("notice")</script>'
+    Announcement.objects.create(hackathon=hackathon, title=title, body=content, pinned=True)
+    ScheduleItem.objects.create(
+        hackathon=hackathon,
+        title=title,
+        description=content,
+        starts_at=timezone.now() - timedelta(minutes=5),
+        ends_at=timezone.now() + timedelta(hours=1),
+        location='教学楼共享空间',
+    )
     client.force_login(user)
+    response = client.get(endpoint(hackathon, route))
+    soup = BeautifulSoup(response.content, 'html.parser')
+    assert response.status_code == 200
+    assert title in soup.select_one('main').text
+    assert '<script>alert("notice")</script>' in soup.select_one('main').text
+    assert not soup.select('main script')
+    if route == 'schedule':
+        assert soup.select_one('.schedule-row.happening')
+        assert '教学楼共享空间' in soup.select_one('.schedule-row').text
+    else:
+        assert '置顶通知' in soup.select_one('.announcement').text
+
+
+@pytest.mark.parametrize('route', [
+    'schedule', 'announcements', 'resources', 'teams', 'bonus', 'project', 'gallery', 'stage', 'support',
+])
+def test_workspace_theme_and_navigation_survive_page_changes(client, hackathon, team, user, route):
+    client.force_login(user)
+    response = client.get(endpoint(hackathon, route))
+    assert response.status_code == 200
+    soup = BeautifulSoup(response.content, 'html.parser')
+    assert 'ruc-app' in soup.body['class']
+    styles = [link['href'] for link in soup.select('link[rel="stylesheet"]')]
+    assert any('workbench.css' in href for href in styles)
+    assert any('workbench-pages.css' in href for href in styles)
+    assert not any('/brand.css' in href for href in styles)
+    current = soup.select('#sidebar a[aria-current="page"]')
+    assert len(current) == 1
+    assert current[0]['href'] == endpoint(hackathon, route)
+    for target in ['home', 'schedule', 'announcements', 'resources', 'teams', 'bonus', 'project']:
+        assert any(a['href'] == endpoint(hackathon, target) for a in soup.select('#sidebar a'))
+    assert not soup.select('#sidebar a[aria-current="page"][href="' + endpoint(hackathon, 'home') + '"]')
+
+
+def test_resource_detail_keeps_guide_navigation(client, hackathon, user):
+    resource = required_resource(hackathon)
+    client.force_login(user)
+    response = client.get(endpoint(hackathon, 'resource', resource_id=resource.pk))
+    soup = BeautifulSoup(response.content, 'html.parser')
+    assert response.status_code == 200
+    assert soup.select_one('#sidebar a[aria-current="page"]')['href'] == endpoint(hackathon, 'resources')
+    assert '提交说明' in soup.select_one('.article-body').text
+
+
+@pytest.mark.parametrize('route', ['register', 'team-edit'])
+def test_profile_and_team_forms_use_shared_workspace(client, hackathon, team, user, route):
+    client.force_login(user)
+    response = client.get(endpoint(hackathon, route))
+    soup = BeautifulSoup(response.content, 'html.parser')
+    assert response.status_code == 200
+    assert 'ruc-app' in soup.body['class']
+    assert soup.select_one('form input[name="csrfmiddlewaretoken"]')
+    assert soup.select_one('.form-field input')
+    target = 'home' if route == 'register' else 'teams'
+    assert soup.select_one('#sidebar a[aria-current="page"]')['href'] == endpoint(hackathon, target)
+
+
+@pytest.mark.parametrize('route', ['manage', 'participants', 'submissions', 'manage-stage', 'content', 'settings'])
+def test_organizer_pages_share_theme_and_keep_role_navigation(client, hackathon, organizer_user, route):
+    client.force_login(organizer_user)
+    response = client.get(endpoint(hackathon, route))
+    soup = BeautifulSoup(response.content, 'html.parser')
+    assert response.status_code == 200
+    assert 'ruc-app' in soup.body['class']
+    assert soup.select_one('#sidebar a[aria-current="page"]')['href'] == endpoint(hackathon, route)
+
+
+def test_public_workspace_uses_theme_but_entrance_keeps_its_layout(client, hackathon):
     response = client.get(endpoint(hackathon, 'schedule'))
-    assert 'workbench.css' not in response.content.decode()
-    client.logout()
-    response = client.get(endpoint(hackathon, 'home'))
-    assert 'workbench.css' not in response.content.decode()
+    assert response.status_code == 200
+    assert 'workbench-pages.css' in response.content.decode()
+    for route in ['home', 'student-login', 'organizer-login', 'judge-login']:
+        response = client.get(endpoint(hackathon, route))
+        assert response.status_code == 200
+        soup = BeautifulSoup(response.content, 'html.parser')
+        assert 'entry-page' in soup.body['class']
+        assert 'workbench.css' not in response.content.decode()
+
+
+def test_fullscreen_stage_keeps_display_mode(client, hackathon, team):
+    project = Project.objects.create(hackathon=hackathon, team=team, title='候场作品')
+    DemoSlot.objects.create(hackathon=hackathon, project=project, position=1, state='waiting')
+    response = client.get(endpoint(hackathon, 'stage'), {'display': '1'})
+    assert response.status_code == 200
+    soup = BeautifulSoup(response.content, 'html.parser')
+    assert {'ruc-app', 'display-mode'} <= set(soup.body['class'])
+    assert soup.select_one('.stage-board')
+    assert response.context['data']['upcoming'][0]['project'] == project.title
+    assert response.context['data']['upcoming'][0]['team'] == team.name
 
 
 @pytest.mark.parametrize('lock', ['live', 'done', 'score'])

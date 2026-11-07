@@ -59,17 +59,26 @@ def url(hackathon, name, **kwargs):
 def page(request, template, **context):
     hackathon = request.hackathon
     participant = request.participant
-    navigation = [
-        ('home', '总览', 'grid'),
-        ('schedule', '活动日程', 'calendar'),
-        ('resources', '学习与指南', 'book'),
-        ('teams', '组队广场', 'users'),
-        ('bonus', '加分规则', 'badge'),
-        ('project', '我的作品', 'folder'),
-        ('gallery', '作品展厅', 'spark'),
-        ('stage', '路演现场', 'play'),
-        ('support', '帮助与支持', 'help'),
-        ('judge-login', '评委入口', 'chart'),
+    navigation_groups = [
+        ('参赛工作台', [
+            ('home', '参赛总览', 'grid'),
+            ('teams', '我的队伍与组队', 'users'),
+            ('project', '我的作品', 'folder'),
+        ]),
+        ('活动信息', [
+            ('schedule', '活动日程', 'calendar'),
+            ('announcements', '通知公告', 'bell'),
+            ('resources', '学习与指南', 'book'),
+            ('bonus', '加分规则', 'badge'),
+            ('gallery', '作品展厅', 'spark'),
+            ('stage', '路演现场', 'play'),
+            ('support', '帮助与支持', 'help'),
+            ('judge-login', '评委入口', 'chart'),
+        ]),
+    ]
+    navigation_groups = [
+        (label, [(name, title, icon, url(hackathon, name)) for name, title, icon in items])
+        for label, items in navigation_groups
     ]
     staff_navigation = []
     if request.hackathon_organizer:
@@ -96,7 +105,8 @@ def page(request, template, **context):
         'is_staff_member': request.hackathon_organizer or bool(request.hackathon_roles),
         'is_judge': 'judge' in request.hackathon_roles,
         'now': timezone.now(),
-        'navigation': [(name, label, icon, url(hackathon, name)) for name, label, icon in navigation],
+        'navigation': [item for label, items in navigation_groups for item in items],
+        'navigation_groups': navigation_groups,
         'staff_navigation': [(name, label, icon, url(hackathon, name)) for name, label, icon in staff_navigation],
         'active': request.resolver_match.url_name,
         'latest_notice': Announcement.objects.filter(hackathon=hackathon, audience='all').first(),
@@ -108,12 +118,28 @@ def page(request, template, **context):
         'idea-create',
         'idea-edit',
         'proposal-create',
+        'matching-receipt',
         'post-new',
         'post-edit',
         'post-detail',
         'team-edit',
     }:
         common['active'] = 'teams'
+    navigation_aliases = {
+        'register': 'home',
+        'resource': 'resources',
+        'project-detail': 'gallery',
+        'support-reply': 'support',
+        'review': 'submissions',
+        'intake': 'submissions',
+        'content-new': 'content',
+        'content-edit': 'content',
+        'judge-new': 'staff',
+        'task-new': 'tasks',
+        'task-edit': 'tasks',
+        'score': 'judge-live' if common.get('follow_live') else 'judging',
+    }
+    common['navigation_active'] = navigation_aliases.get(common['active'], common['active'])
     return render(request, f'hackathon/{template}.html', common)
 
 
@@ -185,7 +211,6 @@ def home(request):
         team=team,
         project=project,
         journey_url=url(h, 'project' if participant else 'register'),
-        workbench=request.user.is_authenticated,
         current_task=current_task,
         completed_steps=[item for item in checklist if item['done']],
         pending_steps=[item for item in checklist if not item['done']],

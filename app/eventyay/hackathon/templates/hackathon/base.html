@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="{% if workbench %}#0b0d14{% else %}#070919{% endif %}">
+    <meta name="theme-color" content="#0b0d14">
     <title>
       {% block title %}
         {{ hackathon.name }}
@@ -15,11 +15,8 @@
     <link rel="stylesheet" href="{% static 'hackathon/responsive.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/camp.css' %}">
     <link rel="icon" href="{% static 'hackathon/brand/favicon.svg' %}" type="image/svg+xml">
-    {% if workbench %}
-      <link rel="stylesheet" href="{% static 'hackathon/workbench.css' %}">
-    {% else %}
-      <link rel="stylesheet" href="{% static 'hackathon/brand.css' %}">
-    {% endif %}
+    <link rel="stylesheet" href="{% static 'hackathon/workbench.css' %}">
+    <link rel="stylesheet" href="{% static 'hackathon/workbench-pages.css' %}">
     <script type="module" src="{% static 'hackathon/hub.js' %}">
     </script>
     <script type="module" src="{% static 'hackathon/upload.js' %}"></script>
@@ -27,7 +24,7 @@
     <script type="module" src="{% static 'hackathon/responsive.js' %}"></script>
     <script type="module" src="{% static 'hackathon/camp.js' %}"></script>
   </head>
-  <body class="workspace-page {% if workbench %}ruc-app {% endif %}{% if display %}display-mode{% endif %}">
+  <body class="workspace-page ruc-app {% if display %}display-mode{% endif %}">
     {% include 'hackathon/icons.html' %}
     <a class="skip-link" href="#main">
       跳转至主要内容
@@ -52,34 +49,14 @@
           ⌄
         </span>
       </a>
-      {% if workbench %}
-        {% include 'hackathon/workbench_navigation.html' %}
-      {% else %}
-      <div class="nav-label">
-        探索与创造
-      </div>
-      <nav>
-        {% for name, label, icon, href in navigation %}
-          <a href="{{ href }}" class="nav-item{% if active == name %} active{% endif %}" {% if active == name %}aria-current="page"{% endif %}>
-            <svg>
-              <use href="#i-{{ icon }}" />
-            </svg>
-            {{ label }}
-            {% if name == "project" %}
-              <span class="nav-dot">
-              </span>
-            {% endif %}
-          </a>
-        {% endfor %}
-      </nav>
-      {% endif %}
+      {% include 'hackathon/workbench_navigation.html' %}
       {% if staff_navigation %}
         <div class="nav-label">
           我的工作台
         </div>
         <nav>
           {% for name, label, icon, href in staff_navigation %}
-            <a href="{{ href }}" class="nav-item{% if active == name %} active{% endif %}" {% if active == name %}aria-current="page"{% endif %}>
+            <a href="{{ href }}" class="nav-item{% if navigation_active == name %} active{% endif %}" {% if navigation_active == name %}aria-current="page"{% endif %}>
               <svg>
                 <use href="#i-{{ icon }}" />
               </svg>

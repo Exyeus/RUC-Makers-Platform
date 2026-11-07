@@ -1,0 +1,178 @@
+/* Shared business pages use the same tokens and controls as the participant overview. */
+.ruc-app {
+  --surface: var(--ruc-surface);
+  --surface-raised: var(--ruc-surface-hover);
+  --text: var(--ruc-text);
+  --green: var(--ruc-success);
+  --orange: var(--ruc-warning);
+  --shadow: none;
+  --radius: var(--ruc-radius);
+}
+.ruc-app :is(.panel, .metric, .learning-card, .judge-team-picker) {
+  background: var(--ruc-surface);
+  color: var(--ruc-text);
+  border: 1px solid var(--ruc-border);
+  border-radius: var(--ruc-radius);
+  box-shadow: none;
+}
+.ruc-app .panel { padding: 1.5rem; }
+.ruc-app :is(.hero, .help-card, .track-card, .resource-art, .learning-cover, .poster) {
+  background: var(--ruc-surface-hover);
+  color: var(--ruc-accent);
+  border-color: var(--ruc-border);
+}
+.ruc-app :is(.invite-box, .team-needs, .task-owners, .ticket-reply, .score-total, .token-block, blockquote, .community-invitation, .team-card .team-avatar) {
+  background: var(--ruc-surface-hover);
+  color: var(--ruc-secondary);
+  border-color: var(--ruc-border);
+}
+.ruc-app :is(h1, h2, h3, td strong, .team-needs strong, .task-owners strong, .metric strong, .deadline-strip strong) { color: var(--ruc-text); }
+.ruc-app .page-heading { align-items: flex-end; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.ruc-app .page-heading > div { min-width: 0; }
+.ruc-app .page-heading h1 { font-size: var(--ruc-title-size); line-height: 1.35; letter-spacing: normal; }
+.ruc-app .page-heading p { font-size: var(--ruc-body-size); max-width: 48em; margin-top: 0.75rem; }
+.ruc-app :is(.panel h2, .section-heading h2, .day-heading) { font-size: var(--ruc-card-title-size); }
+.ruc-app :is(.panel h3, .track-card h3) { font-size: 1.125rem; }
+.ruc-app :is(.panel p, .article-body, .list-row, .details, .check-list, .submission-check ul, .ticket-reply, .invite-box, .score-total) { font-size: var(--ruc-body-size); }
+.ruc-app :is(.panel p, .article-body, .check-list, .submission-check ul, .empty, .list-row, td) { color: var(--ruc-secondary); }
+.ruc-app :is(.muted, .eyebrow, .tag, .meta, .section-heading > a, .section-heading p, .section-heading .muted, .deadline-strip span, .schedule-time small, .field-help, .field-error, .team-needs, .team-needs span, .card-bottom, .task-owners, .audit-entry, .audit-entry p, .audit-entry small, .asset-list a, .asset-list strong, .asset-list small, .list-row small, .mobile-cell-label, .attendance-picker output, .tag-category legend, .resource-art small) {
+  font-size: var(--ruc-small-size);
+  color: var(--ruc-muted);
+}
+.ruc-app:not(.display-mode) small { font-size: var(--ruc-small-size); color: var(--ruc-muted); }
+.ruc-app :is(.article-body, .preserve-lines, .list-row, .asset-list, .team-card, .form-field) { overflow-wrap: anywhere; }
+.ruc-app :is(.text-link, .back-link, .details summary, .link-list a, .file-row, .submission-check > a, .article-body a, .asset-list a, .tabs > a.selected) { color: var(--ruc-accent); font-size: inherit; }
+.ruc-app :is(.text-link, .back-link, .article-body a, .file-row):hover { text-decoration: underline; }
+.ruc-app :is(.article-body p, .article-body ul, .article-body ol) { margin-block: 1rem; }
+.ruc-app :is(.journey-item, .notice, .timeline-item, .tabs, .list-row, .file-row, .audit-entry, .judge-rule-note, td, th) { border-color: var(--ruc-border); }
+.ruc-app .tag { background: var(--ruc-surface-hover); color: var(--ruc-secondary); }
+.ruc-app :is(.lavender, .state-submitted, .state-live) { background: #2c2540 !important; color: var(--ruc-accent) !important; }
+.ruc-app .blue { background: #1d304b !important; color: #b2d2ff !important; }
+.ruc-app :is(.mint, .state-approved, .state-ready, .state-done) { background: #19372f !important; color: var(--ruc-success) !important; }
+.ruc-app :is(.peach, .orange, .state-changes, .state-deferred) { background: #3e3021 !important; color: var(--ruc-warning) !important; }
+.ruc-app .award { background: #3e3021; color: var(--ruc-warning); }
+.ruc-app .warning-text { color: var(--ruc-warning) !important; }
+.ruc-app .rank { color: var(--ruc-accent) !important; }
+
+/* Forms, upload receipts, filters and management actions share the same controls. */
+.ruc-app .button {
+  min-height: 2.75rem;
+  padding: 0.625rem 1rem;
+  background: var(--ruc-accent);
+  color: var(--ruc-on-accent);
+  border: 1px solid transparent;
+  border-radius: 0.625rem;
+  box-shadow: none;
+  font-size: 1rem;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ruc-app .button:hover:not(:disabled) { background: var(--ruc-accent-hover); }
+.ruc-app :is(.button.secondary, .button.dark, .help-card .button) { background: var(--ruc-surface-hover); color: var(--ruc-text); border-color: var(--ruc-control-border); }
+.ruc-app :is(.button.secondary, .button.dark, .help-card .button):hover:not(:disabled) { background: #2c3247; }
+.ruc-app .button.danger { background: #432331; color: #ffc3d1; border-color: #b66b83; }
+.ruc-app :is(.text-button, .danger) { color: #ffc3d1; font-size: 1rem; }
+.ruc-app .text-button:not(.danger) { color: var(--ruc-accent); }
+.ruc-app :is(.button:disabled, input:disabled, select:disabled, textarea:disabled) { opacity: 1; background: #252a3a; color: var(--ruc-muted); cursor: not-allowed; }
+.ruc-app :is(.form-field > label, .keyword-fieldset legend) { color: var(--ruc-text); font-size: 1rem; }
+.ruc-app input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+.ruc-app select, .ruc-app textarea {
+  min-height: 2.875rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--ruc-control-border);
+  border-radius: 0.625rem;
+  background: var(--ruc-bg);
+  color: var(--ruc-text);
+  font-size: 1rem;
+}
+.ruc-app :is(input, textarea)::placeholder { color: var(--ruc-muted); opacity: 1; }
+.ruc-app select option { background: var(--ruc-surface); color: var(--ruc-text); }
+.ruc-app :is(input[type='checkbox'], input[type='radio']) { accent-color: var(--ruc-accent); }
+.ruc-app input[type='radio'] { width: 1.25rem; height: 1.25rem; }
+.ruc-app :is(.keyword-choices label, .categorized-tags .keyword-choices label, .attendance-hour) { border-color: var(--ruc-control-border); font-size: var(--ruc-small-size); color: var(--ruc-secondary); }
+.ruc-app :is(.keyword-choices label, .categorized-tags label):has(input:checked) { background: #2c2540; border-color: var(--ruc-accent); color: var(--ruc-accent); }
+.ruc-app .attendance-hour:has(input:checked) { background: #3e3021; border-color: var(--ruc-warning); color: var(--ruc-warning); }
+.ruc-app :is(.field-help, .field-error, .form-errors) { overflow-wrap: anywhere; }
+.ruc-app :is(.field-error, .required) { color: #ffc3d1; }
+.ruc-app :is(.message, .form-errors) { font-size: 1rem; }
+.ruc-app :is(.message.error, .form-errors) { background: #432331; color: #ffc3d1; border: 1px solid #b66b83; }
+.ruc-app .form-errors { border-radius: 0.625rem; padding: 1rem; margin-block: 1rem; }
+.ruc-app .message.success { background: #19372f; color: var(--ruc-success); border-color: #57917b; }
+.ruc-app .message.warning { background: #3e3021; color: var(--ruc-warning); border-color: #9d7c48; }
+.ruc-app .form-errors p, .ruc-app .message p { color: inherit; }
+.ruc-app .filter-bar { flex-wrap: wrap; gap: 0.75rem; }
+.ruc-app .filter-bar > input { flex: 1 1 16rem; min-width: 0; }
+.ruc-app .filter-bar > select { max-width: 100%; }
+.ruc-app :is(.tabs > a, .square-tabs) { font-size: 1rem; color: var(--ruc-secondary); }
+.ruc-app .tabs > a.selected { border-color: var(--ruc-accent); }
+.ruc-app :is(.actions, .form-actions, .compact-actions, .inline-form) { flex-wrap: wrap; }
+.ruc-app code { color: var(--ruc-accent); overflow-wrap: anywhere; }
+.ruc-app [data-upload-progress] { accent-color: var(--ruc-accent); }
+
+/* Timelines and notices keep real dates, empty states and published content. */
+.ruc-app .deadline-strip { border: 1px solid var(--ruc-border); background: var(--ruc-border); border-radius: var(--ruc-radius); }
+.ruc-app .deadline-strip > div { background: var(--ruc-surface); }
+.ruc-app .deadline-strip strong { font-size: 1.25rem; }
+.ruc-app .schedule-time { color: var(--ruc-accent); font-size: 1.25rem; }
+.ruc-app .schedule-row.happening .panel { background: #19372f; border-color: #57917b; }
+.ruc-app .hour-cell.empty { background: var(--ruc-surface-hover); border-color: var(--ruc-control-border); }
+.ruc-app .hour-cell.event { background: #396e59; border-color: var(--ruc-success); }
+.ruc-app .hour-cell.deadline { background: #865835; border-color: var(--ruc-warning); }
+.ruc-app .hour-calendar p, .ruc-app .hour-calendar-row time, .ruc-app .hour-calendar-scale { font-size: var(--ruc-small-size); color: var(--ruc-muted); }
+.ruc-app .hour-calendar-row, .ruc-app .hour-calendar-scale { grid-template-columns: 4.5rem repeat(24, minmax(10px, 1fr)); }
+.ruc-app .hour-cell:focus-visible { outline: 3px solid var(--ruc-focus); outline-offset: 3px; }
+.ruc-app :is(.two-column, .card-grid, .dashboard-grid) > * { min-width: 0; }
+.ruc-app .card-grid { gap: var(--ruc-gap); }
+.ruc-app .card-grid .resource-card { padding: 0 1.5rem 1.5rem; }
+.ruc-app :is(.resource-art, .poster) { margin-inline: -1.5rem; }
+.ruc-app .resource-card:hover { border-color: var(--ruc-control-border); }
+
+/* Staff tables retain the existing horizontal scroll and mobile card behavior. */
+.ruc-app .table-panel { padding: 0; }
+.ruc-app table { font-size: 1rem; }
+.ruc-app th { background: var(--ruc-surface-hover); color: var(--ruc-secondary); font-size: var(--ruc-small-size); }
+.ruc-app td, .ruc-app td strong { font-size: 1rem; }
+.ruc-app td small { color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .metric > div > span { color: var(--ruc-secondary); font-size: var(--ruc-small-size); }
+.ruc-app .metric strong small { color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .judge-team-links [aria-current] { background: #2c2540; color: var(--ruc-accent); }
+.ruc-app .score-total output { color: var(--ruc-accent); }
+.ruc-app .stage-board { background: var(--ruc-surface); color: var(--ruc-text); border: 1px solid var(--ruc-border); }
+.ruc-app .next-card { background: var(--ruc-surface-hover); }
+.ruc-app :is(.stage-sync, .stage-rule, .next-card > span) { color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .next-card > small { color: var(--ruc-muted); }
+.ruc-app .next-card > strong { color: var(--ruc-text); }
+.ruc-app:not(.display-mode) .next-card > strong { font-size: 1rem; }
+.ruc-app:not(.display-mode) .next-card > small { font-size: var(--ruc-small-size); }
+.ruc-app .timer { color: var(--ruc-accent); }
+.ruc-app .timer.warning { color: var(--ruc-warning); }
+body.ruc-app.display-mode .workspace { margin-left: 0; }
+body.ruc-app.display-mode main { width: 100%; max-width: none; padding: 0; background: var(--ruc-bg); }
+body.ruc-app.display-mode .stage-board { border: 0; }
+
+/* Match the shell breakpoints without changing the drawer or table scripts. */
+@media (max-width: 1199px) {
+  body.ruc-app:not(.display-mode) .topbar { height: auto; padding: 1rem 1.5rem; }
+  body.ruc-app:not(.display-mode) main { padding: 1.5rem; }
+}
+@media (max-width: 767px) {
+  body.ruc-app:not(.display-mode) main { padding: 1.25rem 1rem calc(7rem + env(safe-area-inset-bottom)); }
+  body.ruc-app:not(.display-mode) .topbar { padding: 0.75rem; }
+  .ruc-app .page-heading { align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
+  .ruc-app .panel { padding: 1.125rem; }
+  .ruc-app .table-panel { padding: 0; }
+  .ruc-app .card-grid .resource-card { padding: 0 1.125rem 1.125rem; }
+  .ruc-app :is(.resource-art, .poster) { margin-inline: -1.125rem; }
+  .ruc-app .schedule-row { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+  .ruc-app .schedule-time small { display: inline; margin-left: 0.5rem; }
+  .ruc-app .responsive-table td { color: var(--ruc-secondary); }
+  .ruc-app .attendance-hour { font-size: 0.75rem; }
+}
+@media print {
+  body.ruc-app { background: white; color: black; }
+  body.ruc-app .workspace { margin-left: 0; }
+  body.ruc-app main { max-width: none; padding: 0; }
+  .ruc-app .panel { background: white; border-color: #888; }
+  .ruc-app :is(h1, h2, h3, p, .article-body, td, th, small, .muted) { color: black; }
+}

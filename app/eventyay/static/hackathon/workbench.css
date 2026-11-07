@@ -233,7 +233,7 @@
 .ruc-app .ruc-timeline strong { display: block; margin-block-start: 0.25rem; font-size: 1rem; }
 .ruc-app .ruc-timeline p { margin-block-start: 0.25rem; color: var(--ruc-muted); font-size: var(--ruc-small-size); }
 
-/* Map the workbench palette to the existing shell; other pages retain their styles. */
+/* Map the workbench palette to the shared workspace shell. */
 .ruc-app {
   --ink: var(--ruc-text);
   --muted: var(--ruc-muted);

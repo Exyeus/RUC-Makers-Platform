@@ -53,7 +53,7 @@ def test_camp_navigation_and_calendar(client, hackathon, participant, user):
     assert response.status_code == 200
     navigation = [item[0] for item in response.context['navigation']]
     assert 'register' not in navigation
-    assert 'announcements' not in navigation
+    assert 'announcements' in navigation
     assert 'matching' not in navigation
     assert {'teams', 'bonus'} <= set(navigation)
     body = response.content.decode()
