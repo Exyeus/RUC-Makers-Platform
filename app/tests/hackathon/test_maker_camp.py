@@ -161,7 +161,7 @@ def test_absence_grid_validates_event_hours_and_persists(client, hackathon, part
 
 
 def test_absence_hours_visible_to_organizer_and_export_only(client, hackathon, participant, organizer_user):
-    hour = attendance_hours(hackathon)[0][1][0][0]
+    hour = next(value for _, hours in attendance_hours(hackathon) for value, _ in hours)
     participant.unavailable_slots = [int(hour)]
     participant.availability = ''
     participant.save()

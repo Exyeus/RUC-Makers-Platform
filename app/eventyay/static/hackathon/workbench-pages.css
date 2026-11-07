@@ -176,3 +176,75 @@ body.ruc-app.display-mode .stage-board { border: 0; }
   .ruc-app .panel { background: white; border-color: #888; }
   .ruc-app :is(h1, h2, h3, p, .article-body, td, th, small, .muted) { color: black; }
 }
+
+/* The team directory exposes every filter instead of native dropdown menus. */
+.ruc-app .team-directory-heading { margin-bottom: 1.25rem; }
+.ruc-app .team-directory-heading h1 { font-size: 2rem; }
+.ruc-app .team-directory-heading p { margin-top: 0.5rem; font-size: var(--ruc-small-size); }
+.ruc-app .team-directory-heading + .square-tabs { padding: 0.75rem 1rem; margin-bottom: 1rem; }
+.ruc-app .team-filters { margin-bottom: 2rem; }
+.ruc-app .team-filter-basics { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.25rem; }
+.ruc-app .team-filters-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+.ruc-app .team-filters-heading p { margin-top: 0.375rem; color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .team-filters-heading > a { flex-shrink: 0; padding-block: 0.5rem; }
+.ruc-app .team-filter-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem; position: relative; margin-bottom: 1rem; }
+.ruc-app .team-filter-search > svg { position: absolute; left: 0.875rem; top: 0.875rem; color: var(--ruc-muted); pointer-events: none; }
+.ruc-app .team-filters .team-filter-search input[type='search'] { padding-left: 2.75rem; }
+.ruc-app :is(.team-filter-row, .team-filter-keywords) { min-width: 0; border: 0; padding: 0; margin: 0 0 1.25rem; }
+.ruc-app :is(.team-filter-row, .team-filter-keywords) > legend { font-size: 1rem; font-weight: 650; color: var(--ruc-text); margin-bottom: 0.625rem; }
+.ruc-app .team-filter-keywords legend small { margin-left: 0.5rem; font-weight: 400; }
+.ruc-app .team-filter-choices { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.ruc-app .team-filter-chip { position: relative; display: inline-flex; max-width: 100%; cursor: pointer; }
+.ruc-app .team-filter-chip input[type='radio'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ruc-app .team-filter-chip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--ruc-border);
+  border-radius: 0.625rem;
+  background: var(--ruc-surface);
+  color: var(--ruc-secondary);
+  font-size: var(--ruc-small-size);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ruc-app .team-filter-chip > span::before { content: ''; width: 0.625rem; height: 0.625rem; border: 1px solid var(--ruc-control-border); border-radius: 50%; flex-shrink: 0; }
+.ruc-app .team-filter-chip:hover > span { background: var(--ruc-surface-hover); border-color: var(--ruc-control-border); color: var(--ruc-text); }
+.ruc-app .team-filter-chip input:checked + span { background: #2c2540; border-color: var(--ruc-accent); color: var(--ruc-accent); box-shadow: inset 0 0 0 1px var(--ruc-accent); }
+.ruc-app .team-filter-chip input:checked + span::before { background: var(--ruc-accent); border-color: var(--ruc-accent); }
+.ruc-app .team-filter-chip input:focus-visible + span { outline: 3px solid var(--ruc-focus); outline-offset: 3px; }
+.ruc-app .team-filter-all { margin-bottom: 0.875rem; }
+.ruc-app .team-keyword-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.875rem; }
+.ruc-app .team-keyword-category { min-width: 0; padding: 0.75rem; background: var(--ruc-bg); border: 1px solid var(--ruc-border); border-radius: 0.875rem; }
+.ruc-app .team-keyword-category h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+.ruc-app .team-filters-footer { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-top: 1px solid var(--ruc-border); padding-top: 1rem; }
+.ruc-app .team-filters-footer p { color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .team-filters-footer > button { flex-shrink: 0; }
+.ruc-app #team-results { scroll-margin-top: 6rem; }
+@media (max-width: 1199px) {
+  .ruc-app .team-keyword-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .ruc-app .team-keyword-grid, .ruc-app .team-filter-basics { grid-template-columns: minmax(0, 1fr); }
+  .ruc-app .team-filter-search { grid-template-columns: minmax(0, 1fr); }
+  .ruc-app .team-filter-chip > span { min-height: 2.75rem; }
+  .ruc-app .team-filter-keywords legend small { display: block; margin-left: 0; }
+  .ruc-app .team-filters-footer { align-items: stretch; flex-direction: column; }
+}
+@media (forced-colors: active) {
+  .ruc-app .team-filter-chip input:checked + span { outline: 2px solid Highlight; }
+  .ruc-app .team-filter-chip input:checked + span::before { background: Highlight; forced-color-adjust: none; }
+}

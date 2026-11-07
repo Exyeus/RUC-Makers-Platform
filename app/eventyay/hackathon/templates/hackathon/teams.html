@@ -1,15 +1,12 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
-  <section class="page-heading">
+  <section class="page-heading team-directory-heading">
     <div>
-      <div class="eyebrow">
-        FIND YOUR PEOPLE
-      </div>
       <h1>
-        一个想法，一群同路人。
+        我的队伍与组队
       </h1>
       <p>
-        遇见互补的技能，让创造的过程更有趣。名单冻结：
+        按技能、兴趣与赛道寻找伙伴。名单冻结：
         {{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}
         。
       </p>
@@ -20,7 +17,16 @@
       </a>
     {% endif %}
   </section>
-  {% include 'hackathon/square_feed.html' %}
+  <nav class="square-tabs panel" aria-label="组队广场栏目">
+    <a href="#community">交流与共创</a>
+    <a href="#work-pool">作品池</a>
+    <a href="#team-results">找队友</a>
+    {% if hackathon.matching_enabled %}
+      <a href="{% url 'hackathon:matching' hackathon.slug %}">匹配推荐与组队进度</a>
+    {% endif %}
+    <a href="{% url 'hackathon:post-new' hackathon.slug %}">＋ 分享交流卡片</a>
+  </nav>
+  {% include 'hackathon/team_filters.html' %}
   {% if hackathon.matching_enabled %}
     <section class="panel"><h2>正式组队与合作确认</h2><p>先交流、再确认合作。完整名单需每位成员同意。</p><a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}">查看匹配推荐与我的组队进度 ↗</a></section>
   {% else %}
@@ -157,35 +163,9 @@
       </form>
     {% endif %}
   {% endif %}
-  <form method="get" class="filter-bar">
-    <label class="sr-only" for="team-search">
-      搜索队伍与伙伴
-    </label>
-    <input id="team-search" name="q" value="{{ query }}" placeholder="搜索队伍、伙伴、技能或想法…">
-    <label class="sr-only" for="keyword">伙伴关键词</label>
-    <select name="keyword" id="keyword">
-      <option value="">所有伙伴关键词</option>
-      {% for keyword in keywords %}
-        <option value="{{ keyword }}" {% if selected_keyword == keyword %}selected{% endif %}>{{ keyword }}</option>
-      {% endfor %}
-    </select>
-    <label class="sr-only" for="track">
-      赛道
-    </label>
-    <select id="track" name="track">
-      <option value="">
-        所有赛道
-      </option>
-      {% for track in tracks %}
-        <option value="{{ track.pk }}" {% if selected_track == track.pk|stringformat:'s' %}selected{% endif %}>
-          {{ track.name }}
-        </option>
-      {% endfor %}
-    </select>
-    <button class="button secondary">
-      搜索
-    </button>
-  </form>
+  <div class="section-heading outside" id="team-results">
+    <div><h2 id="team-results-heading">招募中的队伍</h2><p>找到方向相近的队伍，一起把想法做出来。</p></div>
+  </div>
   <div class="card-grid">
     {% for team in teams %}
       <article class="panel team-card">
@@ -293,4 +273,5 @@
       </p>
     {% endfor %}
   </div>
+  {% include 'hackathon/square_feed.html' %}
 {% endblock %}

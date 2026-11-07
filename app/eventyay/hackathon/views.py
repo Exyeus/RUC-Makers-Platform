@@ -22,7 +22,7 @@ from eventyay.hackathon import forms, services
 from eventyay.hackathon.archive import zip_preview
 from eventyay.hackathon.calendar import absence_summary, schedule_heatmap
 from eventyay.hackathon.community import square_context
-from eventyay.hackathon.constants import KEYWORDS
+from eventyay.hackathon.constants import KEYWORD_CATEGORIES, KEYWORDS
 from eventyay.hackathon.downloads import asset_response, stream_file
 from eventyay.hackathon.matching import excluded_ids
 from eventyay.hackathon.models import (
@@ -294,6 +294,9 @@ def teams(request):
             | Q(bio__icontains=query)
             | Q(keywords__icontains=query)
         )
+    keyword_categories = KEYWORD_CATEGORIES
+    if keyword and keyword not in KEYWORDS:
+        keyword_categories += (('自定义关键词', (keyword,)),)
     applications = []
     if own and own.captain_id == request.participant.pk:
         applications = JoinRequest.objects.filter(team=own, state='pending').select_related('participant')
@@ -308,7 +311,7 @@ def teams(request):
         selected_track=track,
         tracks=Track.objects.filter(hackathon=h),
         seekers=seekers.order_by('-updated')[:60],
-        keywords=KEYWORDS,
+        keyword_categories=keyword_categories,
         selected_keyword=keyword,
         **square_context(h, request.participant, request.GET),
     )
