@@ -12,6 +12,7 @@ FROM debian:bookworm-slim
 COPY --from=build /minio /usr/local/bin/minio
 COPY --from=build /src/LICENSE /usr/share/doc/minio/LICENSE
 RUN mkdir /data && chown 65532:65532 /data
+ENV HOME=/data
 USER 65532:65532
 ENTRYPOINT ["minio"]
 CMD ["server", "/data"]
