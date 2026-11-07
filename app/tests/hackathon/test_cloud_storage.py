@@ -35,11 +35,13 @@ def storage_backend(request, settings, tmp_path, monkeypatch):
         storage.delete(name)
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_upload_replace_access_range_and_gc(
-    client, hackathon, project, user, participant, organizer_user, storage_backend, monkeypatch
+    client, hackathon, project, user, participant, organizer_user, storage_backend, monkeypatch,
+    django_capture_on_commit_callbacks,
 ):
-    result = complete(client, hackathon, user)
+    with django_capture_on_commit_callbacks(execute=True):
+        result = complete(client, hackathon, user)
     asset = Asset.objects.get(project=project)
     old_name = asset.file.name
     # Duplicate finish is idempotent; download stays behind existing business authorization.
@@ -64,7 +66,8 @@ def test_upload_replace_access_range_and_gc(
     asset.refresh_from_db()
     assert asset.file.name == old_name
     assert storage_backend.exists(old_name)
-    assert client.post(task['finish_url']).status_code == 200
+    with django_capture_on_commit_callbacks(execute=True):
+        assert client.post(task['finish_url']).status_code == 200
     assert client.post(task['finish_url']).status_code == 200
     asset.refresh_from_db()
     assert asset.file.name != old_name
@@ -79,9 +82,10 @@ def test_upload_replace_access_range_and_gc(
     data = PDF + b'organizer intake'
     form = AssetForm({'kind': 'slides'}, {'file': SimpleUploadedFile('intake.pdf', data)})
     assert form.is_valid(), form.errors
-    replacement = save_direct_asset(
-        hackathon, participant, project, form, organizer=organizer_user, reason='Test intake'
-    )
+    with django_capture_on_commit_callbacks(execute=True):
+        replacement = save_direct_asset(
+            hackathon, participant, project, form, organizer=organizer_user, reason='Test intake'
+        )
     assert replacement.file.name != previous
     assert storage_backend.exists(replacement.file.name)
     assert not storage_backend.exists(previous)
