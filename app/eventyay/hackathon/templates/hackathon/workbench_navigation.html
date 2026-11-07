@@ -1,0 +1,16 @@
+<div class="nav-label">参赛工作台</div>
+<nav aria-label="参赛导航">
+  <a class="nav-item active" href="{% url 'hackathon:home' hackathon.slug %}" aria-current="page"><svg aria-hidden="true"><use href="#i-grid" /></svg>参赛总览</a>
+  <a class="nav-item" href="{% url 'hackathon:teams' hackathon.slug %}"><svg aria-hidden="true"><use href="#i-users" /></svg>我的队伍与组队</a>
+  <a class="nav-item" href="{% url 'hackathon:project' hackathon.slug %}"><svg aria-hidden="true"><use href="#i-folder" /></svg>我的作品</a>
+</nav>
+<div class="nav-label">活动信息</div>
+<nav aria-label="活动信息">
+  <a class="nav-item" href="{% url 'hackathon:schedule' hackathon.slug %}"><svg aria-hidden="true"><use href="#i-calendar" /></svg>活动日程</a>
+  <a class="nav-item" href="{% url 'hackathon:announcements' hackathon.slug %}"><svg aria-hidden="true"><use href="#i-bell" /></svg>通知公告</a>
+  <a class="nav-item" href="{% url 'hackathon:resources' hackathon.slug %}?category=guide"><svg aria-hidden="true"><use href="#i-book" /></svg>参赛指南</a>
+  <a class="nav-item" href="{% url 'hackathon:gallery' hackathon.slug %}"><svg aria-hidden="true"><use href="#i-spark" /></svg>作品展厅</a>
+  <a class="nav-item" href="{% url 'hackathon:stage' hackathon.slug %}"><svg aria-hidden="true"><use href="#i-play" /></svg>路演现场</a>
+  <a class="nav-item" href="{% url 'hackathon:support' hackathon.slug %}"><svg aria-hidden="true"><use href="#i-help" /></svg>帮助与支持</a>
+  <a class="nav-item" href="{% url 'hackathon:judge-login' hackathon.slug %}"><svg aria-hidden="true"><use href="#i-chart" /></svg>评委入口</a>
+</nav>

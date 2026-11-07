@@ -1,0 +1,349 @@
+/* RUC Makers workbench — participant workbench, adapted from ruc-ui-redesign-kit (2026-11-07).
+ * Scope: put .ruc-app on the application wrapper (or this demo's body).
+ * Sizes use the user's root font size; no html font-size, zoom, or page scaling.
+ * Navigation and current-task content must come from the real app's routes/state.
+ */
+
+.ruc-app {
+  --ruc-bg: #0b0d14;
+  --ruc-sidebar: #10121d;
+  --ruc-surface: #171a27;
+  --ruc-surface-hover: #202436;
+  --ruc-border: #32384a;
+  --ruc-control-border: #7e899f;
+  --ruc-text: #f2f4f8;
+  --ruc-secondary: #b8c0d4;
+  --ruc-muted: #9ca6be;
+  --ruc-accent: #c7b7ff;
+  --ruc-accent-hover: #d7cbff;
+  --ruc-on-accent: #201638;
+  --ruc-focus: #e5d9ff;
+  --ruc-success: #84d4b2;
+  --ruc-warning: #f3c77c;
+  --ruc-radius: 1rem;
+  --ruc-gap: 1.5rem;
+  --ruc-sidebar-width: 16rem;
+  --ruc-content-max: 115rem;
+  --ruc-body-size: 1rem;
+  --ruc-small-size: 0.875rem;
+  --ruc-nav-size: 1rem;
+  --ruc-title-size: 2.25rem;
+  --ruc-card-title-size: 1.25rem;
+  margin: 0;
+  min-inline-size: 0;
+  background: var(--ruc-bg);
+  color: var(--ruc-text);
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC",
+    "Noto Sans CJK SC", sans-serif;
+  font-size: var(--ruc-body-size);
+  font-weight: 400;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ruc-app *,
+.ruc-app *::before,
+.ruc-app *::after { box-sizing: border-box; }
+.ruc-app :where(h1, h2, h3, p, ul, ol) { margin: 0; }
+.ruc-app :where(button, input, textarea, select) { font: inherit; }
+.ruc-app :where(a) { color: inherit; }
+.ruc-app :where(button, summary) { -webkit-tap-highlight-color: transparent; }
+.ruc-app :where(h1, h2, h3) { line-height: 1.35; }
+.ruc-app :where(h2) { font-size: var(--ruc-card-title-size); font-weight: 650; }
+.ruc-app :where(h3) { font-size: 1.125rem; font-weight: 600; }
+.ruc-app :where(a, button, summary, input, textarea, select):focus-visible {
+  outline: 3px solid var(--ruc-focus);
+  outline-offset: 4px;
+}
+.ruc-app :where([id]) { scroll-margin-block-start: 1.5rem; }
+.ruc-app ::selection { color: var(--ruc-on-accent); background: var(--ruc-accent); }
+
+.ruc-app .ruc-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin-block-end: 1.5rem;
+}
+.ruc-app .ruc-page-header h1 { margin-block: 0.25rem 0.5rem; font-size: var(--ruc-title-size); font-weight: 700; }
+.ruc-app .ruc-page-header p:last-child { color: var(--ruc-secondary); }
+.ruc-app .ruc-header-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.ruc-app .ruc-eyebrow { color: var(--ruc-secondary); font-size: var(--ruc-small-size); font-weight: 600; }
+.ruc-app .ruc-meta { color: var(--ruc-muted); font-size: var(--ruc-small-size); line-height: 1.6; }
+.ruc-app .ruc-secondary { color: var(--ruc-secondary); }
+.ruc-app .ruc-numeric { font-variant-numeric: tabular-nums; }
+.ruc-app .ruc-dashboard { display: grid; grid-template-columns: minmax(0, 1fr) 22.5rem; gap: var(--ruc-gap); align-items: start; }
+.ruc-app .ruc-primary-column,
+.ruc-app .ruc-rail { display: grid; gap: var(--ruc-gap); min-inline-size: 0; }
+.ruc-app .ruc-panel {
+  min-inline-size: 0;
+  padding: 1.5rem;
+  background: var(--ruc-surface);
+  border: 1px solid var(--ruc-border);
+  border-radius: var(--ruc-radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
+}
+.ruc-app .ruc-section-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.625rem 1rem; margin-block-end: 1.25rem; }
+.ruc-app .ruc-section-title { display: flex; align-items: center; gap: 0.75rem; }
+.ruc-app .ruc-section-header .ruc-text-link { font-size: var(--ruc-small-size); }
+.ruc-app .ruc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: fit-content;
+  padding: 0.1875rem 0.625rem;
+  border: 1px solid var(--ruc-border);
+  border-radius: 999px;
+  color: var(--ruc-secondary);
+  font-size: var(--ruc-small-size);
+  font-weight: 600;
+}
+.ruc-app .ruc-pill--accent { color: var(--ruc-accent); background: #2c2540; border-color: #655484; }
+.ruc-app .ruc-pill--success { color: var(--ruc-success); background: #1d332f; border-color: #3e6658; }
+.ruc-app .ruc-pill--warning { color: var(--ruc-warning); background: #362c20; border-color: #6c5431; }
+
+/* One primary action per workbench. Filled lavender uses dark text. */
+.ruc-app .ruc-task-panel {
+  padding: 1.875rem;
+  border-color: #77659a;
+  background: linear-gradient(120deg, #292136 0%, #1d1d2c 58%, #191d29 100%);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 16%);
+}
+.ruc-app .ruc-task-title { margin-block: 1rem 0.75rem; max-inline-size: 28em; font-size: 1.75rem; font-weight: 700; }
+.ruc-app .ruc-task-description { max-inline-size: 40em; color: var(--ruc-secondary); }
+.ruc-app .ruc-task-detail { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-block-start: 1.125rem; color: var(--ruc-secondary); }
+.ruc-app .ruc-inline-deadline { display: none; align-items: flex-start; gap: 0.5rem; margin-block-start: 1rem; color: var(--ruc-warning); font-size: var(--ruc-small-size); }
+.ruc-app .ruc-inline-deadline .ruc-icon { margin-block-start: 0.125rem; }
+.ruc-app .ruc-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-block-start: 1.5rem; }
+.ruc-app .ruc-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 3rem;
+  max-inline-size: 100%;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid transparent;
+  border-radius: 0.625rem;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.5;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.ruc-app .ruc-button--primary { color: var(--ruc-on-accent); background: var(--ruc-accent); border-color: var(--ruc-accent); }
+.ruc-app .ruc-button--primary:hover { background: var(--ruc-accent-hover); border-color: var(--ruc-accent-hover); box-shadow: 0 4px 16px rgb(199 183 255 / 16%); }
+.ruc-app .ruc-button--primary:active { background: #b6a3f0; border-color: #b6a3f0; }
+.ruc-app .ruc-button--secondary { color: var(--ruc-text); background: #202436; border-color: var(--ruc-control-border); }
+.ruc-app .ruc-button--secondary:hover { background: #2a3046; border-color: var(--ruc-accent); }
+.ruc-app .ruc-button--secondary:active { background: #343b54; }
+.ruc-app .ruc-button:disabled {
+  color: var(--ruc-muted);
+  background: #202330;
+  border-color: #4a5266;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.ruc-app .ruc-icon-button { min-inline-size: 2.75rem; min-block-size: 2.75rem; padding: 0.625rem; }
+.ruc-app .ruc-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-block-size: 2.75rem;
+  width: fit-content;
+  max-inline-size: 100%;
+  color: var(--ruc-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: #8978b4;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+}
+.ruc-app .ruc-text-link:hover { color: #e5dcff; text-decoration-color: currentColor; }
+.ruc-app .ruc-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  inline-size: 1.375rem;
+  block-size: 1.375rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
+}
+.ruc-app .ruc-progress { display: block; appearance: none; inline-size: 100%; block-size: 0.5rem; margin-block-end: 1.125rem; border: 0; border-radius: 999px; overflow: hidden; background: #34374a; accent-color: var(--ruc-accent); }
+.ruc-app .ruc-progress::-webkit-progress-bar { background: #34374a; border-radius: 999px; }
+.ruc-app .ruc-progress::-webkit-progress-value { background: var(--ruc-accent); border-radius: 999px; }
+.ruc-app .ruc-progress::-moz-progress-bar { background: var(--ruc-accent); border-radius: 999px; }
+.ruc-app .ruc-completed { margin-block-end: 0.25rem; }
+.ruc-app .ruc-completed > summary,
+.ruc-app .ruc-disclosure > summary,
+.ruc-app .ruc-mobile-nav > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-block-size: 3rem;
+  padding-block: 0.625rem;
+  list-style: none;
+  cursor: pointer;
+  border-radius: 0.375rem;
+}
+.ruc-app :where(summary)::-webkit-details-marker { display: none; }
+.ruc-app .ruc-summary-copy { flex: 1; min-inline-size: 0; }
+.ruc-app .ruc-summary-copy strong { display: block; font-size: 1rem; }
+.ruc-app .ruc-summary-copy small { display: block; color: var(--ruc-secondary); font-size: var(--ruc-small-size); }
+.ruc-app details[open] > summary > .ruc-chevron { transform: rotate(180deg); }
+.ruc-app .ruc-completed-list { display: grid; gap: 0.5rem; padding: 0.625rem 0 1rem 2.75rem; color: var(--ruc-secondary); list-style: none; }
+.ruc-app .ruc-status-circle { display: grid; place-items: center; flex: 0 0 auto; inline-size: 2rem; block-size: 2rem; border: 1px solid #69738b; border-radius: 50%; color: var(--ruc-secondary); font-size: var(--ruc-small-size); font-variant-numeric: tabular-nums; }
+.ruc-app .ruc-status-circle--success { color: var(--ruc-success); background: #1d332f; border-color: #3e6658; }
+.ruc-app .ruc-status-circle--current { color: var(--ruc-accent); background: #302743; border-color: #8e77b9; }
+.ruc-app .ruc-step-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.875rem; padding-block: 1.125rem; border-block-start: 1px solid var(--ruc-border); }
+.ruc-app .ruc-step-row:last-child { padding-block-end: 0; }
+.ruc-app .ruc-step-copy { flex: 1 1 12rem; min-inline-size: 0; }
+.ruc-app .ruc-step-copy h3 { margin-block-end: 0.25rem; font-size: 1rem; }
+.ruc-app .ruc-step-copy p { color: var(--ruc-secondary); font-size: var(--ruc-small-size); }
+.ruc-app .ruc-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ruc-gap); }
+.ruc-app .ruc-card-grid .ruc-panel { display: grid; align-content: start; gap: 1rem; }
+.ruc-app .ruc-card-grid .ruc-section-header { margin-block-end: 0; }
+.ruc-app .ruc-card-grid p { max-inline-size: 40em; }
+.ruc-app .ruc-activity-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem 1.25rem; padding: 0.25rem 0.25rem; color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .ruc-activity-strip strong { color: var(--ruc-secondary); font-weight: 600; }
+
+.ruc-app .ruc-deadline { border-block-start: 3px solid var(--ruc-warning); }
+.ruc-app .ruc-deadline .ruc-eyebrow { display: flex; align-items: center; gap: 0.5rem; color: var(--ruc-warning); }
+.ruc-app .ruc-deadline h2 { margin-block: 0.75rem 0.375rem; font-size: 1.875rem; font-weight: 700; }
+.ruc-app .ruc-deadline time { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; font-variant-numeric: tabular-nums; }
+.ruc-app .ruc-deadline-note { margin-block: 1rem 0.375rem; padding-block-start: 1rem; border-block-start: 1px solid var(--ruc-border); color: var(--ruc-secondary); font-size: var(--ruc-small-size); }
+.ruc-app .ruc-notice + .ruc-notice { margin-block-start: 1.125rem; padding-block-start: 1.125rem; border-block-start: 1px solid var(--ruc-border); }
+.ruc-app .ruc-notice-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-block-end: 0.625rem; }
+.ruc-app .ruc-notice h3 { margin-block-end: 0.375rem; font-size: 1rem; }
+.ruc-app .ruc-notice h3 a { display: inline-block; padding-block: 0.25rem; text-decoration: underline; text-underline-offset: 0.25em; text-decoration-color: #7e899f; }
+.ruc-app .ruc-notice h3 a:hover { color: var(--ruc-accent); }
+.ruc-app .ruc-notice p { color: var(--ruc-secondary); font-size: 1rem; }
+.ruc-app .ruc-timeline { display: grid; gap: 1.5rem; list-style: none; padding: 0; }
+.ruc-app .ruc-timeline li { position: relative; padding-inline-start: 1.125rem; }
+.ruc-app .ruc-timeline li::before { content: ""; position: absolute; inset-inline-start: 0; inset-block-start: 0.5rem; inline-size: 0.375rem; block-size: 0.375rem; border-radius: 50%; background: var(--ruc-accent); }
+.ruc-app .ruc-timeline time { color: var(--ruc-secondary); font-size: var(--ruc-small-size); font-variant-numeric: tabular-nums; }
+.ruc-app .ruc-timeline strong { display: block; margin-block-start: 0.25rem; font-size: 1rem; }
+.ruc-app .ruc-timeline p { margin-block-start: 0.25rem; color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+
+/* Map the workbench palette to the existing shell; other pages retain their styles. */
+.ruc-app {
+  --ink: var(--ruc-text);
+  --muted: var(--ruc-muted);
+  --line: var(--ruc-border);
+  --bg: var(--ruc-bg);
+  --purple: var(--ruc-accent);
+  --purple-soft: #2c2540;
+}
+.ruc-app p { color: var(--ruc-secondary); }
+.ruc-app h1, .ruc-app h2, .ruc-app h3 { letter-spacing: normal; }
+.ruc-app svg { width: 1.25rem; height: 1.25rem; stroke-width: 2; }
+.ruc-app .sidebar { width: var(--ruc-sidebar-width); background: var(--ruc-sidebar); padding: 1.75rem 1rem 1rem; }
+.ruc-app .brand { color: var(--ruc-text); font-size: 1.75rem; }
+.ruc-app .brand small { color: var(--ruc-muted); font-size: var(--ruc-small-size); letter-spacing: normal; }
+.ruc-app .event-switch { color: var(--ruc-text); font-size: 1rem; margin-block: 1.75rem; }
+.ruc-app .event-switch small, .ruc-app .nav-label { color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .event-avatar { background: #2c2540; color: var(--ruc-accent); }
+.ruc-app .nav-label { margin-block: 1.25rem 0.5rem; }
+.ruc-app .nav-item { position: relative; color: var(--ruc-secondary); font-size: var(--ruc-nav-size); min-height: 3rem; padding: 0.75rem; gap: 0.75rem; }
+.ruc-app .nav-item:hover { background: var(--ruc-surface-hover); color: var(--ruc-text); }
+.ruc-app .nav-item.active { color: var(--ruc-accent); background: #2c2540; font-weight: 700; }
+.ruc-app .nav-item.active::before { content: ''; position: absolute; left: 0; top: 0.75rem; bottom: 0.75rem; width: 3px; border-radius: 3px; background: var(--ruc-accent); }
+.ruc-app .sidebar-note { background: var(--ruc-surface); border-color: var(--ruc-border); }
+.ruc-app .sidebar-note strong, .ruc-app .sidebar-note p, .ruc-app .sidebar-note a { color: var(--ruc-secondary); font-size: var(--ruc-small-size); }
+.ruc-app .powered, .ruc-app .powered strong { color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .workspace { margin-left: var(--ruc-sidebar-width); }
+.ruc-app .topbar { background: var(--ruc-sidebar); min-height: 5rem; height: auto; padding: 1rem 2rem; flex-wrap: wrap; }
+.ruc-app .breadcrumb, .ruc-app .breadcrumb strong, .ruc-app .live-indicator, .ruc-app .organizer-login-link { color: var(--ruc-secondary); font-size: var(--ruc-small-size); }
+.ruc-app .live-indicator { display: none; }
+.ruc-app .topbar-actions { gap: 1rem; flex-wrap: wrap; min-width: 0; }
+.ruc-app .icon-button { background: var(--ruc-surface); color: var(--ruc-text); min-width: 2.75rem; min-height: 2.75rem; border: 1px solid var(--ruc-control-border); }
+.ruc-app .button.secondary { background: var(--ruc-surface); color: var(--ruc-text); border: 1px solid var(--ruc-control-border); min-height: 2.75rem; font-size: 1rem; }
+.ruc-app .button.secondary:hover, .ruc-app .icon-button:hover { background: var(--ruc-surface-hover); }
+.ruc-app .user-chip { color: var(--ruc-text); border-color: var(--ruc-control-border); min-height: 2.75rem; max-width: 18rem; }
+.ruc-app .user-chip small { color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .avatar { background: #2c2540; color: var(--ruc-accent); }
+.ruc-app main { max-width: var(--ruc-content-max); margin-inline: auto; padding: 2rem clamp(2rem, 2.4vw, 3rem) 3rem; }
+.ruc-app .ruc-page-header { margin-bottom: 2rem; }
+.ruc-app .ruc-page-header h1 { font-size: var(--ruc-title-size); }
+.ruc-app .ruc-page-header p { max-width: 40em; }
+.ruc-app .ruc-secondary { color: var(--ruc-secondary); }
+.ruc-app .ruc-meta, .ruc-app .page-footer { color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .ruc-dashboard > *, .ruc-app .ruc-card-grid > * { min-width: 0; }
+.ruc-app .ruc-task-title { font-size: 1.75rem; }
+.ruc-app .ruc-card-grid .ruc-panel h2, .ruc-app .ruc-rail .ruc-panel > h2 { margin-bottom: 1rem; }
+.ruc-app .ruc-rail .ruc-panel > p + a { margin-top: 1rem; }
+.ruc-app .ruc-button { text-decoration: none; }
+.ruc-app .ruc-button--primary { color: var(--ruc-on-accent); }
+.ruc-app .ruc-button:focus-visible, .ruc-app :focus-visible { outline: 3px solid var(--ruc-focus); outline-offset: 3px; }
+.ruc-app .ruc-button:disabled { opacity: 1; color: var(--ruc-muted); background: #252a3a; }
+.ruc-app .ruc-button[aria-busy='true'] { cursor: progress; }
+.ruc-app .ruc-step-copy h3 { font-size: 1.125rem; }
+.ruc-app .ruc-deadline-value { margin-top: 1rem; color: var(--ruc-warning); font-size: 1.25rem; }
+.ruc-app .ruc-deadline-value time { display: block; color: var(--ruc-text); font-size: 1.75rem; font-weight: 700; }
+.ruc-app .ruc-resource-row { display: flex; justify-content: space-between; gap: 1rem; padding-block: 1rem; border-bottom: 1px solid var(--ruc-border); margin-bottom: 0.75rem; }
+.ruc-app .ruc-resource-row:hover { color: var(--ruc-accent); }
+.ruc-app .ruc-resource-row small { display: block; color: var(--ruc-muted); font-size: var(--ruc-small-size); }
+.ruc-app .ruc-calendar > summary, .ruc-app .ruc-tracks > summary { cursor: pointer; min-height: 2.75rem; padding-block: 0.5rem; color: var(--ruc-secondary); }
+.ruc-app .hour-calendar { background: var(--ruc-surface); color: var(--ruc-text); margin-top: 1rem; }
+.ruc-app .hour-calendar .section-heading h2 { font-size: var(--ruc-card-title-size); }
+.ruc-app .calendar-legend, .ruc-app .hour-label, .ruc-app .hour-day strong, .ruc-app .hour-calendar .muted, .ruc-app .calendar-detail { color: var(--ruc-secondary); font-size: var(--ruc-small-size); }
+.ruc-app .skip-link { background: var(--ruc-surface); color: var(--ruc-text); }
+.ruc-app .message { background: var(--ruc-surface); color: var(--ruc-text); border-color: var(--ruc-control-border); }
+.ruc-app .mobile-nav { background: var(--ruc-sidebar); border-color: var(--ruc-border); backdrop-filter: none; }
+.ruc-app .mobile-nav > a, .ruc-app .mobile-nav > button { color: var(--ruc-secondary); }
+.ruc-app .mobile-nav > [aria-current], .ruc-app .mobile-nav > [aria-expanded='true'] { color: var(--ruc-accent); background: #2c2540; }
+@media (min-width: 120rem) {
+  .ruc-app { --ruc-body-size: 1.125rem; --ruc-nav-size: 1.0625rem; --ruc-title-size: 2.5rem; --ruc-card-title-size: 1.375rem; --ruc-gap: 2rem; }
+  .ruc-app .ruc-panel { padding: 1.75rem; }
+  .ruc-app .ruc-task-panel { padding: 2rem; }
+}
+@media (max-width: 80rem) {
+  .ruc-app .ruc-inline-deadline { display: flex; }
+  .ruc-app .ruc-dashboard { grid-template-columns: minmax(0, 1fr); }
+  .ruc-app .ruc-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Keep the existing drawer breakpoint in sync with responsive.js. */
+@media (max-width: 1199px) {
+  .ruc-app .workspace { margin-left: 0; }
+  .ruc-app .sidebar { width: min(20rem, calc(100vw - 48px)); }
+  .ruc-app .topbar { padding: 1rem 1.5rem; }
+  .ruc-app .topbar-actions { gap: 0.5rem; }
+  .ruc-app main { padding: 1.5rem; }
+}
+@media (max-width: 40rem) {
+  .ruc-app { --ruc-title-size: 2rem; --ruc-gap: 1rem; }
+  .ruc-app main { padding: 1.25rem 1rem calc(7rem + env(safe-area-inset-bottom)); }
+  .ruc-app .topbar { padding: 0.75rem; gap: 0.5rem; }
+  .ruc-app .topbar .breadcrumb { display: none; }
+  .ruc-app .topbar-actions { margin-left: auto; }
+  .ruc-app .topbar-actions > .icon-button { display: none; }
+  .ruc-app .ruc-page-header { margin-bottom: 1.5rem; }
+  .ruc-app .ruc-card-grid, .ruc-app .ruc-rail { grid-template-columns: minmax(0, 1fr); }
+  .ruc-app .ruc-panel, .ruc-app .ruc-task-panel { padding: 1.125rem; }
+  .ruc-app .ruc-task-title { font-size: 1.5rem; }
+  .ruc-app .ruc-actions { align-items: stretch; }
+  .ruc-app .ruc-actions > .ruc-button { width: 100%; }
+  .ruc-app .ruc-step-copy { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ruc-app *, .ruc-app *::before, .ruc-app *::after { animation: none !important; transition: none !important; }
+}
+@media (forced-colors: active) {
+  .ruc-app .nav-item.active, .ruc-app .ruc-task-panel, .ruc-app .ruc-button { border-color: ButtonText; }
+  .ruc-app .ruc-progress { forced-color-adjust: auto; }
+}
+/* These selectors also outrank the shared responsive shell's body:not(...) rules. */
+body.ruc-app { font-size: var(--ruc-body-size); }
+body.ruc-app:not(.display-mode) .mobile-nav { background: var(--ruc-sidebar); border-color: var(--ruc-border); backdrop-filter: none; }
+.ruc-app .page-footer { border-color: var(--ruc-border); }
+.ruc-app .brand { flex-direction: column; align-items: flex-start; gap: 0; }
+.ruc-app .association-logo { display: block; width: 13.375rem; height: 4.125rem; max-width: 100%; object-fit: cover; }
+.ruc-app .brand .brand-program { margin: 0.375rem 0 0 0.5rem; color: var(--ruc-muted); font-size: var(--ruc-small-size); }
