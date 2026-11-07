@@ -52,7 +52,7 @@ def test_upload_replace_access_range_and_gc(
     response = client.get(result['download_url'], HTTP_RANGE='bytes=1-9')
     assert response.status_code == 206
     assert b''.join(response.streaming_content) == PDF[1:10]
-    response.close()
+    # Django test client closes a fully consumed streaming response automatically.
     response = client.head(result['download_url'])
     assert response.status_code == 200
     assert int(response['Content-Length']) == len(PDF)
