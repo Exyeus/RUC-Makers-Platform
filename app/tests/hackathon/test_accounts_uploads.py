@@ -12,12 +12,12 @@ from threading import Barrier
 from unittest.mock import patch
 
 import pytest
-from django.core import signing
+from django.core import mail, signing
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.db import close_old_connections
+from django.db import IntegrityError, close_old_connections
 from django.test import AsyncRequestFactory, Client
 from django.utils import timezone
 from django_scopes import scope
@@ -81,12 +81,13 @@ def complete(client, hackathon, user, data=PDF, **changes):
     return response.json()
 
 
-def test_student_register_login_without_email(client, hackathon):
+def test_student_register_login_with_email(client, hackathon):
     response = client.post(
         endpoint(hackathon, 'student-signup'),
         {
             'student_id': 'ab20260001',
             'name': '同学',
+            'email': 'student@example.com',
             'password': PASSWORD,
             'password_confirm': PASSWORD,
             'consent': 'on',
@@ -94,7 +95,7 @@ def test_student_register_login_without_email(client, hackathon):
     )
     assert response.status_code == 302
     account = StudentAccount.objects.get(student_id='AB20260001')
-    assert account.user.email is None
+    assert account.user.email == 'student@example.com'
     assert account.user.check_password(PASSWORD)
     assert account.user.password != PASSWORD
     assert not account.user.is_staff and not account.user.is_administrator
@@ -112,17 +113,186 @@ def test_student_register_login_without_email(client, hackathon):
 def test_invalid_student_signup(client, hackathon, student_id, password, confirm):
     response = client.post(
         endpoint(hackathon, 'student-signup'),
-        {'student_id': student_id, 'name': '同学', 'password': password, 'password_confirm': confirm, 'consent': 'on'},
+        {
+            'student_id': student_id,
+            'name': '同学',
+            'email': 'test@example.com',
+            'password': password,
+            'password_confirm': confirm,
+            'consent': 'on',
+        },
     )
     assert response.status_code == 200
     assert not StudentAccount.objects.exists()
+
+
+def test_student_signup_requires_email(client, hackathon):
+    response = client.post(
+        endpoint(hackathon, 'student-signup'),
+        {
+            'student_id': 'ab20260002',
+            'name': '同学',
+            'password': PASSWORD,
+            'password_confirm': PASSWORD,
+            'consent': 'on',
+        },
+    )
+    assert response.status_code == 200
+    assert not StudentAccount.objects.exists()
+    assert '邮箱' in response.content.decode()
+
+
+def test_student_signup_duplicate_email(client, hackathon):
+    user = User.objects.create_user(email='exists@example.com', password=PASSWORD, fullname='旧用户')
+    StudentAccount.objects.create(student_id='20260099', user=user)
+    response = client.post(
+        endpoint(hackathon, 'student-signup'),
+        {
+            'student_id': 'ab20260003',
+            'name': '新同学',
+            'email': 'exists@example.com',
+            'password': PASSWORD,
+            'password_confirm': PASSWORD,
+            'consent': 'on',
+        },
+    )
+    assert response.status_code == 200
+    assert '已被使用' in response.content.decode()
+    assert StudentAccount.objects.count() == 1
+
+
+def test_student_email_update_in_profile(client, hackathon, participant):
+    client.force_login(participant.user)
+    response = client.post(
+        endpoint(hackathon, 'register'),
+        {
+            'name': participant.name,
+            'school': participant.school,
+            'contact': participant.contact,
+            'email': 'New@Example.com',
+            'consent': 'on',
+        },
+    )
+    assert response.status_code == 302
+    participant.user.refresh_from_db()
+    assert participant.user.email == 'new@example.com'
+    assert 'value="new@example.com"' in client.get(endpoint(hackathon, 'register')).content.decode()
+
+
+def test_empty_email_submission_keeps_existing_binding(client, hackathon, participant):
+    participant.user.email = 'keep@example.com'
+    participant.user.save()
+    client.force_login(participant.user)
+    response = client.post(
+        endpoint(hackathon, 'register'),
+        {
+            'name': participant.name,
+            'school': participant.school,
+            'contact': participant.contact,
+            'consent': 'on',
+        },
+    )
+    assert response.status_code == 302
+    participant.user.refresh_from_db()
+    assert participant.user.email == 'keep@example.com'
+
+
+def test_register_reports_email_collision_as_form_error(client, hackathon, participant):
+    client.force_login(participant.user)
+    with patch('eventyay.hackathon.services.save_participant', side_effect=IntegrityError):
+        response = client.post(
+            endpoint(hackathon, 'register'),
+            {
+                'name': participant.name,
+                'school': participant.school,
+                'contact': participant.contact,
+                'email': 'race@example.com',
+                'consent': 'on',
+            },
+        )
+    assert response.status_code == 200
+    assert '刚刚被其他账户绑定' in response.content.decode()
+
+
+def test_signup_integrity_error_blames_email_when_student_id_free(client, hackathon):
+    with patch.object(StudentAccount.objects, 'create', side_effect=IntegrityError):
+        response = client.post(
+            endpoint(hackathon, 'student-signup'),
+            {
+                'student_id': 'ab20260009',
+                'name': '同学',
+                'email': 'race@example.com',
+                'password': PASSWORD,
+                'password_confirm': PASSWORD,
+                'consent': 'on',
+            },
+        )
+    assert response.status_code == 200
+    body = response.content.decode()
+    assert '该邮箱已被使用' in body
+    assert '该学号已注册' not in body
+    assert not StudentAccount.objects.exists()
+
+
+def test_register_prefills_account_email_before_first_save(client, hackathon):
+    user = User.objects.create_user(email='prefill@example.com', password=PASSWORD, fullname='预填邮箱')
+    StudentAccount.objects.create(student_id='20260002', user=user)
+    client.force_login(user)
+    assert 'value="prefill@example.com"' in client.get(endpoint(hackathon, 'register')).content.decode()
+
+
+def test_student_email_unique_in_profile(client, hackathon, participant):
+    User.objects.create_user(email='taken@example.com', fullname='占用邮箱的账户')
+    client.force_login(participant.user)
+    response = client.post(
+        endpoint(hackathon, 'register'),
+        {
+            'name': participant.name,
+            'school': participant.school,
+            'contact': participant.contact,
+            'email': 'taken@example.com',
+            'consent': 'on',
+        },
+    )
+    assert response.status_code == 200
+    assert '已被其他账户使用' in response.content.decode()
+
+
+def test_bound_email_receives_reset_link_and_new_password_logs_in(client, hackathon, participant):
+    new_password = 'Reset!Password2026'
+    participant.user.email = 'reset@example.com'
+    participant.user.set_password(PASSWORD)
+    participant.user.save()
+    account = StudentAccount.objects.create(student_id='20260001', user=participant.user)
+    response = client.post(endpoint(hackathon, 'student-password-reset-request'), {'student_id': '20260001'})
+    assert response.status_code == 302
+    assert response.url == endpoint(hackathon, 'home') + '#join'
+    assert [message.to for message in mail.outbox] == [['reset@example.com']]
+    account.user.refresh_from_db()
+    token = account.user.pw_reset_token
+    confirm = endpoint(hackathon, 'student-password-reset-confirm')
+    assert client.get(confirm + '?token=' + token).status_code == 200
+    response = client.post(confirm, {'token': token, 'password': new_password, 'password_confirm': new_password})
+    assert response.status_code == 302
+    account.user.refresh_from_db()
+    assert account.user.check_password(new_password)
+    assert not account.user.pw_reset_token
+    client.post(endpoint(hackathon, 'student-login'), {'student_id': '20260001', 'password': new_password})
+    assert str(client.session['_auth_user_id']) == str(account.user_id)
 
 
 def test_duplicate_student_and_inactive_login(client, hackathon, user):
     StudentAccount.objects.create(student_id='20260001', user=user)
     response = client.post(
         endpoint(hackathon, 'student-signup'),
-        {'student_id': '20260001', 'name': '同学', 'password': PASSWORD, 'password_confirm': PASSWORD, 'consent': 'on'},
+        {
+            'student_id': '20260001',
+            'name': '同学',
+            'email': 'test@example.com',
+            'password': PASSWORD,
+            'password_confirm': PASSWORD,
+            'consent': 'on',
+        },
     )
     assert '已注册' in response.content.decode()
     assert StudentAccount.objects.count() == 1

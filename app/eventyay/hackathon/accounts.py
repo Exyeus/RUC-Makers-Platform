@@ -27,7 +27,7 @@ from eventyay.hackathon.forms import (
 )
 from eventyay.hackathon.models import Participant, StaffAssignment, StudentAccount
 from eventyay.hackathon.permissions import event_view, is_organizer
-from eventyay.hackathon.views import page, url
+from eventyay.hackathon.views import landing_context, page, url
 from eventyay.multidomain.middlewares import get_cookie_domain
 
 
@@ -154,12 +154,22 @@ def logout(request):
     return response
 
 
+def login_entry_url(request):
+    """The landing page hosts the only student login card; keep `next` and scroll to it."""
+    target = url(request.hackathon, 'home')
+    if request.GET.get('next'):
+        target += '?' + urlencode({'next': request.GET['next']})
+    return target + '#join'
+
+
 @sensitive_post_parameters('password', 'password_confirm')
 @event_view()
 @require_http_methods(['GET', 'POST'])
 def student_auth(request, signup=False):
     if request.user.is_authenticated:
         return redirect(workspace_destination(request, request.user))
+    if not signup and request.method == 'GET':
+        return redirect(login_entry_url(request))
     form = (StudentSignupForm if signup else StudentLoginForm)(request.POST if request.method == 'POST' else None)
     status = 200
     if request.method == 'POST':
@@ -172,7 +182,7 @@ def student_auth(request, signup=False):
                 try:
                     with transaction.atomic():
                         user = User.objects.create_user(
-                            email=None,
+                            email=form.cleaned_data['email'],
                             password=form.cleaned_data['password'],
                             fullname=form.cleaned_data['name'],
                             locale='zh-hans',
@@ -181,7 +191,10 @@ def student_auth(request, signup=False):
                         StudentAccount.objects.create(student_id=form.cleaned_data['student_id'], user=user)
                 except IntegrityError:
                     user = None
-                    form.add_error('student_id', '该学号已注册，请直接登录。')
+                    if StudentAccount.objects.filter(student_id=form.cleaned_data['student_id']).exists():
+                        form.add_error('student_id', '该学号已注册，请直接登录。')
+                    else:
+                        form.add_error('email', '该邮箱已被使用，请直接登录。')
             else:
                 account = (
                     StudentAccount.objects.select_related('user')
@@ -202,17 +215,26 @@ def student_auth(request, signup=False):
                     form.add_error(None, '学号或密码不正确，或账户已停用。')
             if user:
                 return finish_login(request, user)
-    response = page(
-        request,
-        'student_auth',
-        form=form,
-        signup=signup,
-        title='用学号注册' if signup else '学号登录',
-        other_url=url(request.hackathon, 'student-login' if signup else 'student-signup'),
-        email_login=url(request.hackathon, 'organizer-login')
-        + ('?' + urlencode({'next': request.GET['next']}) if request.GET.get('next') else ''),
-        password_reset_url=url(request.hackathon, 'student-password-reset-request'),
-    )
+    if signup:
+        response = page(
+            request,
+            'student_auth',
+            form=form,
+            signup=True,
+            title='用学号注册',
+            other_url=url(request.hackathon, 'student-login'),
+            email_login=url(request.hackathon, 'organizer-login')
+            + ('?' + urlencode({'next': request.GET['next']}) if request.GET.get('next') else ''),
+            password_reset_url=url(request.hackathon, 'student-password-reset-request'),
+        )
+    else:
+        response = page(
+            request,
+            'landing',
+            login_form=form,
+            password_reset_url=url(request.hackathon, 'student-password-reset-request'),
+            **landing_context(request),
+        )
     response.status_code = status
     return response
 
@@ -258,7 +280,7 @@ def student_password_reset_request(request):
                                 '链接有效期为 24 小时。\n\n'
                                 '如果你没有请求重置密码，请忽略此邮件。'
                             ),
-                            from_email=settings.MAIL_FROM or settings.DEFAULT_FROM_EMAIL,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
                             recipient_list=[user.email],
                             fail_silently=False,
                         )
@@ -270,7 +292,7 @@ def student_password_reset_request(request):
                     user.log_action('eventyay.hackathon.student.password.reset.request')
                 else:
                     messages.info(request, '24 小时内已请求过重置，请检查邮箱或稍后再试。')
-                return redirect(url(request.hackathon, 'student-login'))
+                return redirect(login_entry_url(request))
             elif user:
                 # User exists but has no email
                 contact_info = request.hackathon.contact or '请在现场咨询工作人员'
@@ -285,7 +307,7 @@ def student_password_reset_request(request):
                     request,
                     '如果该学号已注册且绑定了邮箱，你将收到密码重置链接。如未收到，请联系组织者。'
                 )
-            return redirect(url(request.hackathon, 'student-login'))
+            return redirect(login_entry_url(request))
 
     return page(request, 'student_password_reset_request', form=form, title='忘记密码')
 
@@ -324,6 +346,6 @@ def student_password_reset_confirm(request):
 
             messages.success(request, '密码已重置成功，请使用新密码登录。')
             user.log_action('eventyay.hackathon.student.password.reset.complete')
-            return redirect(url(request.hackathon, 'student-login'))
+            return redirect(login_entry_url(request))
 
     return page(request, 'student_password_reset_confirm', form=form, title='重置密码', token=token)

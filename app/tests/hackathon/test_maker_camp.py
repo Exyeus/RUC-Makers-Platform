@@ -126,6 +126,14 @@ def test_tags_have_no_count_cap_and_custom_tags_persist(client, hackathon, parti
     assert len(form.fields['keywords'].choices) >= 8
 
 
+def test_email_field_sits_between_contact_and_tags(client, hackathon, participant, user):
+    client.force_login(user)
+    body = client.get(endpoint(hackathon, 'register')).content.decode()
+    assert body.index('name="contact"') < body.index('name="email"') < body.index('name="keywords"')
+    form = ParticipantForm(instance=participant, hackathon=hackathon)
+    assert list(form.fields)[:4] == ['name', 'school', 'contact', 'email']
+
+
 def test_absence_grid_validates_event_hours_and_persists(client, hackathon, participant, user):
     hours = [hour for _, choices in attendance_hours(hackathon) for hour, _ in choices]
     selected = [hours[0], hours[-1]]

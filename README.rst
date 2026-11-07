@@ -104,7 +104,7 @@
 
 * 活动首页：``/hackathon/camp/``
 * 参赛者注册：``/hackathon/camp/account/signup/``
-* 参赛者登录：``/hackathon/camp/account/login/``
+* 参赛者登录：活动首页 ``/hackathon/camp/#join`` 的登录卡片；``/hackathon/camp/account/login/`` 会跳转到该卡片
 * 主办方登录：``/hackathon/camp/account/organizer/``
 * 主办方工作台：``/hackathon/camp/manage/``
 * 评委登录：``/hackathon/camp/account/judge/``
