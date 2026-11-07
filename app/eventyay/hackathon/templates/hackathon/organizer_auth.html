@@ -1,18 +1,15 @@
-{% extends 'hackathon/base.html' %}
+{% extends 'hackathon/entry_base.html' %}
 {% load turnstile_tags %}
-{% block content %}
-  <section class="page-heading">
-    <div>
-      <div class="eyebrow">MAKER CAMP</div>
-      <h1>{% if judge_login %}评委登录{% else %}主办方 / 邮箱登录{% endif %}</h1>
-      <p>{% if judge_login %}使用主办方分配的评委邮箱账户，登录后进入当前路演的打分工作台。{% else %}使用已有账户登录，主办方将进入本届活动管理工作台。{% endif %}</p>
-    </div>
-  </section>
+{% block page_title %}{% if judge_login %}评委登录{% else %}主办方 / 邮箱登录{% endif %} · {{ hackathon.name }}{% endblock %}
+{% block auth_card %}
+<section class="glass-card auth-card" id="join" aria-labelledby="login-title">
+  <div class="auth-heading"><h2 id="login-title">{% if judge_login %}评委登录{% else %}主办方 / 邮箱登录{% endif %}</h2><a href="{% url 'hackathon:home' hackathon.slug %}">返回主页 ↗</a></div>
+  <p class="auth-intro">{% if judge_login %}使用主办方分配的评委邮箱账户，登录后进入当前路演的打分工作台。{% else %}使用已有邮箱账户和本站密码登录，主办方将进入本届活动管理工作台。{% endif %}</p>
   {% if switch_account %}
-    <section class="panel form-panel">
+    <section class="auth-panel">
       <h2>当前已登录其他账户</h2>
       <p>你正在使用 {{ request.user.fullname|default:'参赛者账户' }}。请退出并切换到已获授相应权限的账户。</p>
-      <form method="post" action="{% url 'hackathon:logout' hackathon.slug %}" class="form-actions">
+      <form method="post" action="{% url 'hackathon:logout' hackathon.slug %}" class="auth-actions">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ login_url }}">
         <button type="submit" class="button">退出并切换账户</button>
@@ -20,14 +17,14 @@
       </form>
     </section>
   {% elif unavailable %}
-    <section class="panel form-panel"><p>当前未启用邮箱密码登录，请联系活动主办方。</p></section>
+    <section class="auth-panel"><p>当前未启用邮箱密码登录，请联系活动主办方。</p></section>
   {% else %}
-    <form method="post" class="panel form-panel" data-once-form>
+    <form method="post" class="auth-panel" data-once-form>
       {% csrf_token %}
       {% include 'hackathon/form_fields.html' %}
       {% turnstile_widget 'login' %}
       {% turnstile_script 'login' %}
-      <div class="form-actions">
+      <div class="auth-actions">
         <button type="submit" class="button">登录工作台 ↗</button>
         <a class="button secondary" href="{% url 'hackathon:student-login' hackathon.slug %}">选手学号登录</a>
         {% if not judge_login %}<a class="button secondary" href="{% url 'hackathon:judge-login' hackathon.slug %}">评委登录</a>{% endif %}
@@ -35,4 +32,5 @@
       <p class="muted">已有邮箱账户的选手、评委和志愿者也可在这里登录，登录后按活动权限进入对应工作台。</p>
     </form>
   {% endif %}
+</section>
 {% endblock %}

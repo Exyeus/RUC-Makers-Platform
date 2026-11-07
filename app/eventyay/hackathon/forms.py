@@ -53,6 +53,58 @@ class OrganizerLoginForm(LoginForm):
             self.fields['keep_logged_in'].label = '保持登录'
 
 
+class StudentPasswordResetRequestForm(forms.Form):
+    """Form for students to request a password reset by entering their student ID."""
+    student_id = forms.RegexField(
+        r'^[A-Za-z0-9]{4,32}$',
+        label='学号',
+        max_length=32,
+        help_text='请输入注册时使用的学号。',
+        widget=forms.TextInput(attrs={'autocomplete': 'username'}),
+    )
+
+    def clean_student_id(self):
+        return self.cleaned_data['student_id'].upper()
+
+    def get_user(self):
+        """Return the User associated with this student_id, or None."""
+        try:
+            account = StudentAccount.objects.select_related('user').get(
+                student_id=self.cleaned_data['student_id']
+            )
+            return account.user
+        except StudentAccount.DoesNotExist:
+            return None
+
+
+class StudentPasswordResetForm(forms.Form):
+    """Form for students to enter a new password after clicking the reset link."""
+    password = forms.CharField(
+        label='新密码',
+        min_length=10,
+        max_length=128,
+        strip=False,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+    password_confirm = forms.CharField(
+        label='确认新密码',
+        max_length=128,
+        strip=False,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+
+    def clean(self):
+        data = super().clean()
+        password = data.get('password')
+        if password:
+            validate_password(password, User())
+            if password.isdigit():
+                self.add_error('password', '密码不能是纯数字。')
+        if password and password != data.get('password_confirm'):
+            self.add_error('password_confirm', '两次密码不一致。')
+        return data
+
+
 class StudentLoginForm(forms.Form):
     student_id = forms.RegexField(
         r'^[A-Za-z0-9]{4,32}$',

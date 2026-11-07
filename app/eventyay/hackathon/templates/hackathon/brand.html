@@ -1,0 +1,3 @@
+{% load static %}
+<img class="association-logo" src="{% static 'hackathon/brand/makers-logo-gradient.png' %}" width="224" height="68" alt="中国人民大学创客协会">
+{% if hackathon %}<small class="brand-program">{% if hackathon.program == 'maker_camp' %}MAKER CAMP{% else %}HACKATHON{% endif %}</small>{% endif %}

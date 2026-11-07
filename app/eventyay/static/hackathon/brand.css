@@ -1,0 +1,167 @@
+/* Shared association identity for the public entrance and activity workspaces. */
+:root {
+  color-scheme: dark;
+  --night: #070919;
+  --bg: #070919;
+  --surface: #141328;
+  --surface-raised: #211c38;
+  --ink: #f6effc;
+  --text: #f6effc;
+  --muted: #bcb2cc;
+  --line: #b985dc33;
+  --purple: #d6aff8;
+  --purple-soft: #322044;
+  --violet: #b276e4;
+  --rose: #e05a9d;
+  --green: #9bdab9;
+  --orange: #f6bc94;
+  --shadow: 0 12px 36px #00000024;
+  --radius: 16px;
+}
+body { background-color: var(--night); color: var(--ink); }
+.entry-page { background: transparent; }
+.association-logo { display: block; width: 224px; height: 68px; max-width: 100%; object-fit: cover; flex: 0 1 auto; }
+.brand { min-width: 0; flex-direction: column; align-items: flex-start; gap: 0; }
+.brand .brand-program { color: var(--muted); font-size: 9px; letter-spacing: 2px; margin: 0 0 0 8px; }
+.entry-page .brand { flex: 0 1 224px; }
+.entry-page .header-inner { padding-block: 8px; }
+.campaign-mark { display: block; width: 252px; height: 72px; max-width: 100%; object-fit: cover; margin: 0 0 20px; }
+.sky-glow {
+  background: linear-gradient(135deg, #07091955, #070919b8), url('brand/promotion-background.png') center / cover;
+}
+.workspace-page {
+  background-image: linear-gradient(#070919c7, #070919e6), url('brand/promotion-background.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+.workspace-page .sidebar, .workspace-page .topbar, body.workspace-page:not(.display-mode) .mobile-nav {
+  background: #0d0e20f5;
+  color: var(--ink);
+  border-color: var(--line);
+}
+.workspace-page .sidebar { backdrop-filter: blur(20px); }
+.workspace-page .sidebar .brand { margin: -8px -5px 24px; }
+.workspace-page .sidebar .association-logo { width: 214px; height: 66px; }
+.workspace-page :is(.panel, .metric, .learning-card, .event-picker-menu, .deadline-strip > div) {
+  background: linear-gradient(145deg, #1b172eea, #101224f5);
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
+.workspace-page :is(.hero, .sidebar-note, .help-card, .track-card, .track-green, .resource-art, .learning-cover, .poster) {
+  background: radial-gradient(ellipse at top right, #b43c7629, transparent 65%), linear-gradient(135deg, #2b1c44, #14152b);
+  border-color: var(--line);
+  color: #dac3ed;
+}
+.workspace-page .hero { box-shadow: inset 0 1px 0 #ffffff09; }
+.workspace-page :is(.event-switch, .tag, .avatar, .event-avatar, .team-card .team-avatar, .invite-box, .team-needs, .task-owners, .ticket-reply, .score-total, .token-block, blockquote, .community-invitation) {
+  background: var(--surface-raised);
+  color: #dac3ed;
+  border-color: var(--line);
+}
+.workspace-page :is(h1, h2, h3, .hero h2, .metric strong, .journey-item strong, .track-card h3, .learning-card h3, .notice h3, .timeline-item h3, .help-card h3, td strong, .deadline-strip strong, .announcement h2, .empty h2, .empty h3, .breadcrumb strong) { color: var(--ink); }
+.workspace-page :is(p, .page-heading p, .hero-copy > p, .hero-meta, .hero-actions > a:last-child, .metric > div > span, .metric strong small, .section-heading p, .section-heading > a, .journey-item small, .learning-card p, .notice p, .notice time, .timeline-item p, .timeline-item time, .help-card p, .sidebar-note p, .sidebar-note strong, .sidebar-note a, .nav-label, .nav-item, .powered, .breadcrumb, .live-indicator, .user-chip small, .page-footer, .field-help, .empty, .empty p, .article-body, .check-list, .submission-check ul, .meta, .team-needs span, .team-needs strong, .asset-list a, .asset-list small, .list-row, .list-row small, .task-owners strong, .audit-entry, .audit-entry small, td, td small, .calendar-legend, .attendance-picker output, .tag-category legend, .mobile-cell-label) { color: var(--muted); }
+.workspace-page :is(.nav-item:hover, .nav-item.active, .mobile-nav a[aria-current], .event-picker-menu a:hover, .event-picker-menu a[aria-current]) {
+  color: #f5dcff;
+  background: linear-gradient(110deg, #7036a44d, #b43c7629);
+}
+.workspace-page :is(.nav-item.active, .tabs > a.selected) { border-color: var(--violet); }
+.workspace-page :is(.text-link, .back-link, .details summary, .tabs > a, .tabs > a.selected, .organizer-login-link, .file-row, .link-list a) { color: #d6aff8; }
+.workspace-page :is(.journey-item, .notice, .timeline-item, .page-footer, .step-number, .orbit, .orbit-two, .window-bar, .terminal, .categorized-tags .keyword-choices label, .attendance-hour) { border-color: var(--line); }
+.workspace-page :is(.code-window, .window-bar) { background: #211a35; border-color: #784768; }
+.workspace-page .window-code { color: #e2c9ee; }
+.workspace-page .art-tag { background: #17372f; border-color: #547a65; color: #bbe6c8; }
+.workspace-page .journey progress, .workspace-page .journey progress::-webkit-progress-bar { background: #312540; }
+.workspace-page .complete .step-number { background: #17372f; color: #bbe6c8; border-color: #547a65; }
+.workspace-page th { color: #dac3ed; background: #211c38; }
+.workspace-page .schedule-row.happening .panel { background: #153229; }
+.workspace-page .hour-cell.empty { background: #211e36; border-color: #4a3e62; }
+.workspace-page .hour-cell.event { background: #396e59; border-color: #70ad8d; }
+.workspace-page .hour-cell.deadline { background: #9b5136; border-color: #e5a078; }
+.workspace-page .categorized-tags label:has(input:checked) { background: #432c5a; border-color: #bd8ee8; }
+.workspace-page .attendance-hour:has(input:checked) { background: #603b31; border-color: #f6bc94; }
+.workspace-page .event-picker-menu small { color: var(--muted); }
+.workspace-page .mobile-nav > a, .workspace-page .mobile-nav > button { color: var(--muted); }
+.workspace-page .mobile-nav > [aria-current], .workspace-page .mobile-nav > [aria-expanded='true'] { background: #372448; color: #f5dcff; }
+.workspace-page .judge-team-picker { background: var(--surface); border-color: var(--line); color: var(--ink); }
+.workspace-page .judge-team-links [aria-current] { background: #372448; color: #f5dcff; }
+.workspace-page .keyword-choices label:has(input:checked) { background: #432c5a; border-color: #bd8ee8; }
+.workspace-page .award { background: #4a381c; color: #ffdea1; }
+.workspace-page .lavender, .workspace-page .state-submitted, .workspace-page .state-live { background: #372448 !important; color: #e0bcff !important; }
+.workspace-page .blue { background: #1f304e !important; color: #bbd8ff !important; }
+.workspace-page .mint, .workspace-page .state-approved, .workspace-page .state-ready, .workspace-page .state-done { background: #1b3b31 !important; color: #b6e6c9 !important; }
+.workspace-page .peach, .workspace-page .orange, .workspace-page .state-changes, .workspace-page .state-deferred { background: #4a3025 !important; color: #f6c6a3 !important; }
+.workspace-page .display-mode main, .workspace-page.display-mode main { background: var(--night); }
+.button, .workspace-page .button, .help-card .button {
+  background: linear-gradient(105deg, #7036a4, #a2388e 65%, #b43c76);
+  color: #fff;
+  border: 1px solid #eb9cdb59;
+  border-radius: 10px;
+  box-shadow: 0 7px 24px #832e872e;
+}
+.button:hover, .workspace-page .button:hover { background: linear-gradient(105deg, #8748bc, #b546a0 65%, #c64e88); border-color: #e4a0d6; }
+.button.secondary, .workspace-page .button.secondary, .help-card .button {
+  background: #211c38;
+  border-color: #b985dc66;
+  color: #f0d9fc;
+  box-shadow: none;
+}
+.button.secondary:hover, .workspace-page .button.secondary:hover { background: #382746; }
+.button.danger, .workspace-page .button.danger { color: #ffc2cc; background: #491e2b; border-color: #b56177; }
+.workspace-page input:not([type='checkbox']):not([type='hidden']),
+.workspace-page select, .workspace-page textarea, .entry-page .form-field input:not([type='checkbox']) {
+  background: #ffffff06;
+  border: 1px solid #c09bd44d;
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 11px 12px;
+  min-height: 46px;
+}
+.workspace-page select option { background: var(--surface); color: var(--ink); }
+.form-field label, .workspace-page .form-field > label { color: #e0cfe9; }
+input::placeholder, textarea::placeholder { color: #b0a2be; }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #e5a4d9; outline-offset: 3px; }
+input[type='checkbox'], input[type='radio'] { accent-color: #bb7bdc; }
+.entry-page .checkbox-field { display: flex; align-items: start; flex-wrap: wrap; gap: 8px; }
+.entry-page .checkbox-field input { width: 18px; min-height: 18px; height: 18px; margin: 3px 0 0; }
+.entry-page .checkbox-field label { flex: 1; }
+.entry-page .field-help { color: var(--muted); }
+.entry-page .auth-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+.entry-page .auth-actions .button { margin: 0; }
+.entry-page .auth-panel { padding-block: 20px; }
+.entry-page .auth-panel h2 { font-size: 17px; margin-bottom: 12px; }
+.entry-page .auth-card { min-width: 0; overflow-wrap: anywhere; }
+.message, .workspace-page .message { color: #e0cfe9; background: #271d38; border: 1px solid var(--line); }
+.message.error, .workspace-page .message.error, .form-errors, .workspace-page .form-errors { color: #ffc1cc; background: #411d30; border: 1px solid #af5979; }
+.message.success, .workspace-page .message.success { color: #c6eed6; background: #17372f; border-color: #547a65; }
+.message.warning, .workspace-page .message.warning { color: #ffdda9; background: #43311e; border-color: #a8814b; }
+.field-error, .workspace-page .field-error { color: #ffc1cc; }
+.form-errors { border-radius: 10px; padding: 14px; margin: 18px 0; }
+.form-errors ul, .field-error ul { margin: 0; padding-left: 20px; }
+.field-help, .field-error, .form-errors { overflow-wrap: anywhere; }
+.workspace-page .skip-link { color: var(--ink); background: var(--surface); }
+@media (max-width: 760px) {
+  .entry-page .header-inner { gap: 12px; padding-inline: 16px; }
+  .entry-page .brand { flex-basis: 185px; }
+  .entry-page .association-logo { width: 185px; height: 56px; }
+  .entry-page .header-login { font-size: 11px; padding-inline: 12px; white-space: nowrap; }
+  .campaign-mark { margin-inline: auto; width: 220px; height: 64px; }
+  .entry-page .hero-grid { gap: 20px; }
+  .entry-page .auth-card { scroll-margin-top: 90px; }
+  .workspace-page .user-chip > span:last-child { display: block; }
+  .workspace-page .user-chip small { font-size: 11px; }
+  .workspace-page .user-chip > span:last-child { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (max-width: 360px) {
+  .entry-page .brand { flex-basis: 160px; }
+  .entry-page .association-logo { width: 160px; height: 50px; }
+  .entry-page .header-login { padding-inline: 8px; font-size: 10px; }
+  .workspace-page .user-chip > span:last-child { font-size: 0; max-width: 40px; }
+  .workspace-page .topbar-actions { gap: 6px; }
+  .workspace-page .user-chip { gap: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .button { transition: none; }
+  .workspace-page { background-attachment: scroll; }
+}

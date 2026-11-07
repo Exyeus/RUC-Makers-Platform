@@ -25,7 +25,7 @@ def test_organizer_login_uses_hub_and_opens_management(client, hackathon, organi
     response = client.get(location)
     assert response.status_code == 200
     assert 'hackathon/organizer_auth.html' in [template.name for template in response.templates]
-    assert 'hackathon/base.html' in [template.name for template in response.templates]
+    assert 'hackathon/entry_base.html' in [template.name for template in response.templates]
     response = client.post(location, {'email': organizer_user.email, 'password': PASSWORD})
     assert response.status_code == 302
     assert response.url == endpoint(hackathon, 'manage')
@@ -115,7 +115,7 @@ def test_logout_requires_post_and_clears_session(client, hackathon, user):
     assert '_auth_user_id' in client.session
     assert '退出登录' in client.get(endpoint(hackathon, 'home')).content.decode()
     response = client.post(location)
-    assert response.url == endpoint(hackathon, 'student-login')
+    assert response.url == endpoint(hackathon, 'home')
     assert '_auth_user_id' not in client.session
     assert response.cookies['sso_token']['max-age'] == 0
     assert client.get(endpoint(hackathon, 'project')).status_code == 302
@@ -146,7 +146,7 @@ def test_login_and_logout_reject_external_redirects(client, hackathon, participa
     response = client.post(location, {'email': user.email, 'password': 'a-strong-test-password'})
     assert response.url == endpoint(hackathon, 'home')
     response = client.post(endpoint(hackathon, 'logout'), {'next': '//example.org'})
-    assert response.url == endpoint(hackathon, 'student-login')
+    assert response.url == endpoint(hackathon, 'home')
 
 
 def test_student_organizer_login_opens_management(client, hackathon, organizer_user):
@@ -161,3 +161,25 @@ def test_login_links_stay_within_hub(client, hackathon):
     response = client.get(endpoint(hackathon, 'student-login'))
     assert endpoint(hackathon, 'organizer-login') in response.content.decode()
     assert 'href="' + reverse('auth.login') + '?next=' not in response.content.decode()
+
+
+@pytest.mark.parametrize('route', ['student-login', 'student-signup', 'organizer-login', 'judge-login'])
+def test_auth_entry_keeps_next_and_shows_validation_errors(client, hackathon, route):
+    destination = endpoint(hackathon, 'resources') + '?category=guide'
+    location = endpoint(hackathon, route) + '?next=' + destination
+    response = client.get(location)
+    assert response.status_code == 200
+    assert 'hackathon/entry_base.html' in [template.name for template in response.templates]
+    response = client.post(location, {'student_id': '20260001', 'email': 'unknown@example.org', 'password': 'wrong'})
+    assert response.status_code == 200
+    assert response.context['form'].errors
+    assert 'hackathon/entry_base.html' in [template.name for template in response.templates]
+    assert 'role="alert"' in response.content.decode()
+    assert '_auth_user_id' not in client.session
+    assert response.context['request'].GET['next'] == destination
+
+
+def test_student_login_preserves_password_reset_entry(client, hackathon):
+    response = client.get(endpoint(hackathon, 'student-login'))
+    assert response.status_code == 200
+    assert 'href="' + endpoint(hackathon, 'student-password-reset-request') + '"' in response.content.decode()
