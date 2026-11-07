@@ -54,7 +54,8 @@ jobs:
           sudo apt-get update && sudo apt-get install -y gettext libmagic1t64
           uv sync --directory app --locked --no-default-groups --group test --no-install-project
           uv pip install --python app/.venv/bin/python -r deployment/requirements-s3.txt
-          docker run -d --name minio -p 127.0.0.1:9000:9000 -e MINIO_ROOT_USER=test-access -e MINIO_ROOT_PASSWORD=test-secret-key quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          docker build -f deployment/Dockerfile.minio-test -t ruc-minio-test:ci .
+          docker run -d --name minio -p 127.0.0.1:9000:9000 -e MINIO_ROOT_USER=test-access -e MINIO_ROOT_PASSWORD=test-secret-key ruc-minio-test:ci server /data
       - name: Wait for isolated bucket
         run: |
           app/.venv/bin/python - <<'PY'

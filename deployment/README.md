@@ -85,4 +85,4 @@ docker compose run --rm web python manage.py cleanup_hackathon_uploads --dry-run
 
 离线轻量检查（不连接数据库/云）：`PYTHONPATH=app <隔离环境>/bin/python -m unittest discover -s deployment -p test_storage.py -v`。
 
-手动 MinIO：以 `compose.minio.yml` 的 storage-test profile 启动隔离服务，使用测试 SDK 创建 `ruc-storage-test` bucket；访问凭据固定为测试值 test-access/test-secret-key，设置 `HACKATHON_TEST_S3_ENDPOINT=http://127.0.0.1:9000`。使用独立 PostgreSQL 并设置 CI_POSTGRES_* 后，从 app 运行 `pytest --ds=tests.hackathon.ci_settings tests/hackathon/test_cloud_storage.py`；没有 endpoint 时 S3 测试明确 skip，不能记为通过。不要把这些测试指向正式 bucket。
+手动 MinIO：以 `compose.minio.yml` 的 storage-test profile 启动隔离服务（加 `--build`；Dockerfile.minio-test 从固定源码 commit 构建，避免依赖已撤回的官方镜像），使用测试 SDK 创建 `ruc-storage-test` bucket；访问凭据固定为测试值 test-access/test-secret-key，设置 `HACKATHON_TEST_S3_ENDPOINT=http://127.0.0.1:9000`。使用独立 PostgreSQL 并设置 CI_POSTGRES_* 后，从 app 运行 `pytest --ds=tests.hackathon.ci_settings tests/hackathon/test_cloud_storage.py`；没有 endpoint 时 S3 测试明确 skip，不能记为通过。不要把这些测试指向正式 bucket。

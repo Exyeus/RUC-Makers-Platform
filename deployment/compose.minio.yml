@@ -1,7 +1,10 @@
 # Optional isolated service: never point this at an existing production bucket.
 services:
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: ruc-minio-test:source-0d7408fc
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.minio-test
     profiles: [storage-test]
     command: server /data
     environment:
