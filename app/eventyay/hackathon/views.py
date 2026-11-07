@@ -49,6 +49,7 @@ from eventyay.hackathon.models import (
 )
 from eventyay.hackathon.permissions import event_view, is_organizer
 from eventyay.hackathon.scoring import rule_description
+from eventyay.hackathon.workbench import next_task
 
 
 def url(hackathon, name, **kwargs):
@@ -137,13 +138,20 @@ def home(request):
     h = request.hackathon
     participant = request.participant
     team = participant.team if participant else None
-    project = Project.objects.filter(team=team).first() if team else None
+    project = Project.objects.filter(hackathon=h, team=team).first() if team else None
     required = Resource.objects.filter(hackathon=h, required=True)
     read_count = (
         ResourceRead.objects.filter(resource__in=required, user=request.user).count()
         if request.user.is_authenticated
         else 0
     )
+    required_count = required.count()
+    unread = None
+    if request.user.is_authenticated:
+        unread = required.exclude(
+            pk__in=ResourceRead.objects.filter(hackathon=h, user=request.user).values('resource_id')
+        ).first()
+    current_task = next_task(h, participant, project, unread, timezone.now())
     checklist = [
         {
             'title': '完善参赛信息',
@@ -153,14 +161,14 @@ def home(request):
         },
         {
             'title': '找到你的队友',
-            'detail': f'每队最多 {h.team_size} 人，也可以独立参赛',
+            'detail': f'每队最多 {h.team_size} 人，参赛人数以活动规则为准',
             'done': bool(team),
             'url': url(h, 'teams'),
         },
         {
             'title': '读完参赛必读',
-            'detail': f'已完成 {read_count} / {required.count()} 篇',
-            'done': required.exists() and read_count == required.count(),
+            'detail': f'已完成 {read_count} / {required_count} 篇',
+            'done': read_count == required_count,
             'url': url(h, 'resources'),
         },
         {
@@ -177,6 +185,12 @@ def home(request):
         team=team,
         project=project,
         journey_url=url(h, 'project' if participant else 'register'),
+        workbench=request.user.is_authenticated,
+        current_task=current_task,
+        completed_steps=[item for item in checklist if item['done']],
+        pending_steps=[item for item in checklist if not item['done']],
+        required_count=required_count,
+        read_count=read_count,
         checklist=checklist,
         progress=sum(item['done'] for item in checklist) * 25,
         tracks=Track.objects.filter(hackathon=h),
