@@ -40,24 +40,21 @@ class MessageTests(unittest.TestCase):
     def at_ids(self, post):
         return [node['user_id'] for row in post['zh_cn']['content'] for node in row if node['tag'] == 'at']
 
-    def test_template_contains_only_original_title_body_and_url(self):
+    def test_compact_template_omits_body_and_shortens_link(self):
         post = self.post(body='正文，没有 reviewer')['zh_cn']
-        self.assertEqual(
-            post,
-            {
-                'title': ITEM['title'],
-                'content': [
-                    [{'tag': 'text', 'text': '正文，没有 reviewer'}],
-                    [{'tag': 'a', 'text': f'{SERVER}/{REPO}/issues/17', 'href': f'{SERVER}/{REPO}/issues/17'}],
-                ],
-            },
-        )
+        self.assertEqual(post['title'], ITEM['title'])
+        self.assertEqual(len(post['content']), 1)
+        self.assertNotIn('正文', json.dumps(post, ensure_ascii=False))
+        self.assertEqual(post['content'][0][-1], {
+            'tag': 'a', 'text': '#17', 'href': f'{SERVER}/{REPO}/issues/17',
+        })
+        self.assertIn('@owner', json.dumps(post))
 
     def test_opened_pr_maps_requested_reviewer_and_preserves_team_text(self):
         post = self.post('pull_request_target', body='测试正文')
         self.assertEqual(self.at_ids(post), ['ou_alice'])
         self.assertIn('@example/backend', json.dumps(post, ensure_ascii=False))
-        self.assertEqual(post['zh_cn']['content'][-1][0]['href'], f'{SERVER}/{REPO}/pull/17')
+        self.assertEqual(post['zh_cn']['content'][-1][-1]['href'], f'{SERVER}/{REPO}/pull/17')
 
     def test_dependency_bot_events_are_silent(self):
         for login in ('dependabot[bot]', 'renovate[bot]', 'Dependabot[bot]'):
@@ -150,7 +147,7 @@ class MessageTests(unittest.TestCase):
                 event = {'action': 'created', 'issue': item, 'comment': {'id': 123, 'body': '请 @alice review'}}
                 post = notify.build_post('issue_comment', event, REPO, SERVER, {'alice': 'ou_alice'})
                 self.assertEqual(self.at_ids(post), ['ou_alice'])
-                self.assertTrue(post['zh_cn']['content'][-1][0]['href'].endswith('#issuecomment-123'))
+                self.assertTrue(post['zh_cn']['content'][-1][-1]['href'].endswith('#issuecomment-123'))
                 event['comment']['body'] = '普通讨论'
                 self.assertIsNone(notify.build_post('issue_comment', event, REPO, SERVER))
 
@@ -192,12 +189,8 @@ class MessageTests(unittest.TestCase):
                         REPO,
                         SERVER,
                     )
-                    self.assertEqual(
-                        post['zh_cn']['content'][0],
-                        [
-                            {'tag': 'text', 'text': '@Exyeus Check further'},
-                        ],
-                    )
+                    self.assertIn('@exyeus', json.dumps(post))
+                    self.assertNotIn('Check further', json.dumps(post))
 
     def test_null_previous_comment_body_notifies_and_title_edits_stay_silent(self):
         event = {
@@ -207,7 +200,7 @@ class MessageTests(unittest.TestCase):
             'changes': {'body': {'from': None}},
         }
         post = notify.build_post('issue_comment', event, REPO, SERVER)
-        self.assertTrue(post['zh_cn']['content'][-1][0]['href'].endswith('#issuecomment-123'))
+        self.assertTrue(post['zh_cn']['content'][-1][-1]['href'].endswith('#issuecomment-123'))
         self.assertIsNone(
             notify.build_post(
                 'issues',
@@ -254,16 +247,18 @@ class MessageTests(unittest.TestCase):
     def test_untrusted_html_cannot_create_a_feishu_mention(self):
         text = '<at user_id="all">所有人</at> ${{ secrets.FEISHU_APP_SECRET }} $(touch /tmp/pwned)'
         post = self.post(body=text)
-        self.assertEqual(post['zh_cn']['content'][0], [{'tag': 'text', 'text': text}])
+        self.assertEqual(self.at_ids(post), [])
+        self.assertNotIn('user_id', json.dumps(post))
+        self.assertNotIn('secrets', json.dumps(post))
 
     def test_long_body_still_mentions_mapped_user_after_excerpt(self):
         post = self.post(body='中' * 65000 + ' @alice')
         self.assertEqual(self.at_ids(post), ['ou_alice'])
         self.assertLess(len(json.dumps(post, ensure_ascii=False).encode()), 20000)
-        self.assertIn('已截断', json.dumps(post, ensure_ascii=False))
+        self.assertNotIn('中', json.dumps(post, ensure_ascii=False))
 
     def test_empty_body_and_unsubscribed_events(self):
-        self.assertEqual(self.post(body=None)['zh_cn']['content'][0][0]['text'], '（无正文）')
+        self.assertIsNotNone(self.post(body=None))
         self.assertIsNone(notify.build_post('issues', {'action': 'closed'}, REPO, SERVER))
         self.assertIsNone(notify.build_post('pull_request_target', {'action': 'synchronize'}, REPO, SERVER))
         self.assertIsNone(
@@ -290,6 +285,53 @@ class MessageTests(unittest.TestCase):
             'workflow_dispatch', {'inputs': {'mention_user': 'Alice'}}, REPO, SERVER, {'alice': 'ou_alice'}
         )
         self.assertEqual(self.at_ids(post), ['ou_alice'])
+
+    def test_assignment_only_pings_new_assignee(self):
+        post = self.post(action='assigned', assignee={'login': 'Bob'})
+        self.assertEqual(self.at_ids(post), ['ou_bob'])
+        self.assertNotIn('@owner', json.dumps(post))
+        self.assertIn('指派', json.dumps(post, ensure_ascii=False))
+        self.assertIsNone(self.post(action='assigned'))
+        self.assertIsNone(self.post(action='unassigned', assignee={'login': 'bob'}))
+        post = self.post(action='assigned', assignee={'login': 'unknown'})
+        self.assertIn('@unknown', json.dumps(post))
+        self.assertEqual(self.at_ids(post), [])
+
+    def test_opened_issue_maps_all_assignees_and_deduplicates_mentions(self):
+        post = self.post(issue={**ITEM, 'body': '@alice', 'assignees': [{'login': 'Alice'}, {'login': 'bob'}]})
+        self.assertEqual(self.at_ids(post), ['ou_alice', 'ou_bob'])
+
+    def test_same_feishu_identity_is_only_pinged_once(self):
+        event = {'action': 'opened', 'issue': {**ITEM, 'body': '@alice @bob', 'assignees': []}}
+        post = notify.build_post('issues', event, REPO, SERVER, {'alice': 'ou_same', 'bob': 'ou_same'})
+        self.assertEqual(self.at_ids(post), ['ou_same'])
+
+    def test_assignment_bot_filter_and_workflow_subscription(self):
+        self.assertIsNone(self.post(action='assigned', assignee={'login': 'bob'}, sender={'login': 'dependabot[bot]'}))
+        workflow = (Path(__file__).parents[1] / 'workflows/feishu-notify.yml').read_text()
+        self.assertIn('issues:\n    types: [opened, edited, assigned]', workflow)
+
+    def test_many_unknown_mentions_cannot_expand_the_compact_post(self):
+        body = ' '.join(f'@user{number}' for number in range(4000)) + ' @alice'
+        post = self.post(body=body)
+        self.assertEqual(self.at_ids(post), ['ou_alice'])
+        self.assertLess(len(json.dumps(post, ensure_ascii=False).encode()), 2000)
+        self.assertIn('等4001人', json.dumps(post, ensure_ascii=False))
+
+    def test_visible_template_and_payload_are_less_than_half_the_old_long_message(self):
+        body = '详细描述和验证步骤' * 300 + ' @alice'
+        item = {**ITEM, 'title': '长标题' * 100, 'body': body}
+        post = notify.build_post('issues', {'action': 'opened', 'issue': item}, REPO, SERVER, {'alice': 'ou_alice'})
+        self.assertLessEqual(len(post['zh_cn']['title']), 80)
+        self.assertEqual(self.at_ids(post), ['ou_alice'])
+        old = {'zh_cn': {'title': item['title'][:200], 'content': [
+            [{'tag': 'text', 'text': body[:2000]}],
+            [{'tag': 'a', 'text': f'{SERVER}/{REPO}/issues/17', 'href': f'{SERVER}/{REPO}/issues/17'}],
+        ]}}
+        self.assertLess(
+            len(json.dumps(post, ensure_ascii=False).encode()), len(json.dumps(old, ensure_ascii=False).encode()) / 2
+        )
+
 
 
 class ApiTests(unittest.TestCase):

@@ -31,7 +31,7 @@ def text_node(text: str) -> dict:
 
 
 def clip(text: str, limit: int) -> str:
-    return text if len(text) <= limit else text[:limit] + '…（已截断，请查看 GitHub 原文）'
+    return text if len(text) <= limit else text[: limit - 1] + '…'
 
 
 def unique_user_keys(pairs: list[tuple[str, object]]) -> dict:
@@ -125,7 +125,7 @@ def build_post(
     # Filter the event sender, so people can still request reviews on bot-created PRs.
     if event.get('sender', {}).get('login', '').lower() in DEPENDENCY_BOTS:
         return None
-    if event_name == 'issues' and action in ('opened', 'edited'):
+    if event_name == 'issues' and action in ('opened', 'edited', 'assigned'):
         item = event['issue']
         if 'pull_request' in item:
             return None
@@ -161,30 +161,47 @@ def build_post(
     url = f'{server}/{repo}/{kind}/{number}'
     if event_name == 'issue_comment':
         url += f'#issuecomment-{int(source["id"])}'
+    teams = []
     if action == 'review_requested':
         target = event.get('requested_reviewer')
-        if target:
-            body = f'请 @{target["login"]} review。\n\n{body}'
-            targets = {target['login'].lower()}
-        elif event.get('requested_team'):
-            body = f'请 @{repo.split("/")[0]}/{event["requested_team"]["slug"]} 团队 review。\n\n{body}'
-            targets = set()  # No implicit team-to-person expansion.
-    elif action == 'opened' and kind == 'pull':
-        requested = [user['login'] for user in item.get('requested_reviewers', [])]
-        teams = [f'{repo.split("/")[0]}/{team["slug"]}' for team in item.get('requested_teams', [])]
-        if requested or teams:
-            body = '请求审阅：' + ' '.join('@' + name for name in requested + teams) + '\n\n' + body
-            targets.update(name.lower() for name in requested)
+        targets = {target['login'].lower()} if target else set()
+        if event.get('requested_team'):
+            teams = [f"{repo.split('/')[0]}/{event['requested_team']['slug']}"]
+        label = 'PR · review'
+    elif action == 'assigned':
+        target = event.get('assignee')
+        if not target:
+            return None
+        targets = {target['login'].lower()}
+        label = 'Issue · 指派'
+    else:
+        label = ('PR' if kind == 'pull' else 'Issue') + (' · 新建' if action == 'opened' else ' · 提及')
+        if action == 'opened':
+            if kind == 'pull':
+                targets.update(user['login'].lower() for user in item.get('requested_reviewers', []))
+                teams = [f"{repo.split('/')[0]}/{team['slug']}" for team in item.get('requested_teams', [])]
+            else:
+                targets.update(user['login'].lower() for user in item.get('assignees', []))
     mapping = mapping or {}
-    nodes = body_nodes(clip(body or '（无正文）', 2000), mapping, targets)
-    rendered_ids = {node['user_id'] for node in nodes if node['tag'] == 'at'}
-    # A mention near the end of a long description must still reach its recipient.
+    nodes = [text_node(label)]
+    rendered_ids = set()
+    unmapped = []
     for login in sorted(targets):
-        if login in mapping and mapping[login] not in rendered_ids:
-            nodes.extend([text_node('\n'), {'tag': 'at', 'user_id': mapping[login]}])
+        if login in mapping:
+            if mapping[login] in rendered_ids:
+                continue
+            nodes.extend([text_node(' '), {'tag': 'at', 'user_id': mapping[login]}])
             rendered_ids.add(mapping[login])
-    rows = [nodes, [{'tag': 'a', 'text': url, 'href': url}]]
-    return {'zh_cn': {'title': clip(item['title'], 200), 'content': rows}}
+        else:
+            unmapped.append(login)
+    for login in unmapped[:5]:
+        nodes.append(text_node(' @' + login))
+    if len(unmapped) > 5:
+        nodes.append(text_node(f' 等{len(unmapped)}人'))
+    for team in teams:
+        nodes.append(text_node(' @' + team))
+    nodes.extend([text_node(' · '), {'tag': 'a', 'text': f'#{number}', 'href': url}])
+    return {'zh_cn': {'title': clip(item['title'], 80), 'content': [nodes]}}
 
 
 def request_json(path: str, payload: dict, token: str = '') -> dict:

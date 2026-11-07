@@ -8,25 +8,24 @@
 
 默认过滤事件发送者为 `dependabot[bot]` 或 `renovate[bot]` 的自动通知，包括依赖更新 PR、自动编辑、评论和 reviewer 请求。按本次事件的 `sender.login` 精确匹配（不区分大小写），不根据标题、`dependencies` 标签或 PR 原作者屏蔽整个讨论。同学在机器人创建的 PR 中手动新增 @、发表评论 @ 人或请求 reviewer，仍按下表发送；其他机器人也继续按原规则处理。过滤在获取飞书 token、发送消息之前完成；Actions 显示成功跳过，不产生群消息。手动测试不受此过滤影响。
 
-消息只展示三部分：
+消息只保留短标题和一行事件、接收人、链接：
 
 ```text
-PR/Issue 标题
-正文
-链接
+修复上传
+Issue · 指派 @alice · #17
 ```
 
-标题使用 GitHub 原标题；正文使用描述或本次评论内容。通过 Reviewers 请求审阅时，正文前加“请 @用户名 review”；新建 PR 已有 reviewer 时，正文前加请求审阅名单。最后一行展示可点击的 GitHub URL。移除仓库、作者、操作者、状态等额外展示行。
+标题上限从 200 降至 80 字符（含省略号）；删除原来最多 2000 字符的正文，链接仅显示编号。新建、提及、review、指派均使用同一紧凑模板。正文仍完整扫描个人 @，截断或省略展示不会丢失接收人；未映射用户最多显示 5 个 GitHub 用户名，超出显示总人数；已映射的真实 @ 全部保留。正文中的 Markdown、HTML 和模板占位符不再转发。
 
-| GitHub 事件 | 发送条件与正文 |
+| GitHub 事件 | 发送条件与接收人 |
 | --- | --- |
-| `issues.opened` / `pull_request_target.opened` | 每次创建发送；正文为原描述，PR 附当前个人和团队 reviewer |
-| `issues.edited` / `pull_request_target.edited` | 仅正文新增个人 @用户名时发送；支持原正文为空（空字符串或 null）后首次添加 @；仅提醒本次新增的用户名 |
-| `issue_comment.created` / `issue_comment.edited` | Issue 或 PR 的 Conversation 评论中包含/新增个人 @用户名时发送；正文为评论，链接定位到该评论 |
-| `pull_request_target.review_requested` | 发送审阅请求；只 @ 本次被请求的个人 reviewer，不重复提醒描述中其他人 |
-| `workflow_dispatch` | 发送一条测试消息；可填 `mention_user` 测试指定 GitHub 用户的飞书 @ 映射 |
-
-正文最多展示 2000 字符，标题最多展示 200 字符，超出内容通过链接查看。已映射用户的 @ 位于截断部分时，会补到正文末尾，保留提醒。Markdown 和 HTML 按普通文字显示；真正的 @ 由结构化 `at` 标签生成，不执行正文中的 HTML。
+| `issues.opened` | 每次创建发送，提醒描述中的 @ 和已有 Assignee |
+| `pull_request_target.opened` | 每次创建发送，提醒描述中的 @ 和已有个人 Reviewer；保留团队名称 |
+| `issues.assigned` | 每次新增指派发送，仅提醒本次 `assignee`，不重复提醒其他负责人或描述中的 @ |
+| `issues.edited` / `pull_request_target.edited` | 仅正文新增个人 @ 时发送，仅提醒新增用户名；支持旧正文为空或 null |
+| `issue_comment.created` / `issue_comment.edited` | Conversation 评论中包含/新增个人 @ 时发送，链接定位到评论 |
+| `pull_request_target.review_requested` | 每次请求审阅发送，仅提醒本次个人 Reviewer；团队请求只显示团队名称 |
+| `workflow_dispatch` | 手动通道测试，可填 `mention_user` 测试映射 |
 
 个人用户名不区分大小写，一条消息内同一个 GitHub 用户只转换一次。识别普通文字里的 `@alice`，跳过常见反引号代码片段、代码围栏、HTML 注释、邮箱、URL 路径、转义的 `\@alice`。这是轻量文本识别，不是 GitHub Markdown 的完整渲染器。团队 `@组织/团队` 只显示原文字，不自动展开群成员，也不会 @ 所有人。未配置映射的用户名仍以普通文字发送。
 
@@ -73,7 +72,7 @@ lark-cli --profile eventyay-notify im chat.members get \
 请 @alice review 这部分改动。
 ```
 
-也可在 PR 右侧 **Reviewers** 里选择 alice。两者都会触发通知，区别是：评论里的 @ 只是提及，Reviewers 会创建 GitHub 的正式审阅请求；Issue 没有正式 Reviewers 功能。
+也可在 PR 右侧 **Reviewers** 里选择 alice，或在 Issue 右侧 **Assignees** 里指定负责人。两者都会触发通知，区别是：评论里的 @ 只是提及，Reviewers 会创建 GitHub 的正式审阅请求；Issue 没有正式 Reviewers 功能。
 
 完成映射后，脚本将 `@alice` 转为飞书富文本节点 `{"tag":"at","user_id":"ou_真实ID"}`，在群里显示为该成员的飞书名字。原理见[飞书富文本 at 标签文档](https://open.feishu.cn/document/server-docs/im-v1/message-content-description/create_json?lang=zh-CN)。团队到个人的提醒规则尚未配置，团队请求仅显示团队文字。
 
@@ -101,7 +100,7 @@ lark-cli --profile eventyay-notify im chat.members get \
 
 ## 启用与验收
 
-将相关文件合入仓库默认分支（本仓库为 `main`）后，进入 **Actions → Feishu notifications → Run workflow**，选择 `main` 运行。该操作会向配置的群发送一条测试消息。配置映射后可填 `mention_user`（如 `alice`，不含 `@`），测试真正 @ 到本人。然后创建 Issue/PR，在描述与 Conversation 评论中新增 @，并通过 Reviewers 请求个人审阅，核对群消息、链接和实际提醒。
+将相关文件合入仓库默认分支（本仓库为 `main`）后，进入 **Actions → Feishu notifications → Run workflow**，选择 `main` 运行。该操作会向配置的群发送一条测试消息。配置映射后可填 `mention_user`（如 `alice`，不含 `@`），测试真正 @ 到本人。然后创建 Issue/PR，在描述与 Conversation 评论中新增 @，通过 Reviewers 请求个人审阅、通过 Issue Assignees 指定负责人，核对群消息、链接和实际提醒。
 
 Issue、评论事件依赖默认分支上存在新版工作流；PR 使用默认分支的可信代码。测试分支的改动合入前，自动事件仍使用旧版；可以手动 Run workflow 选择测试分支，预览其模板和 @ 测试。首次添加本工作流的 PR 不保证能触发自身通知，以合入后的新事件验收。不补发历史事件。脚本和工作流只在本地新增时，GitHub 还不会开始通知。
 
