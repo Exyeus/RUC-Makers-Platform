@@ -76,7 +76,7 @@
 保持终端运行，浏览器访问 http://localhost:8000/hackathon/camp/ 。按 ``Ctrl+C`` 停止预览。
 也可以在仓库根目录运行 ``./shutdown-local.sh`` 关闭本项目的本地预览；
 如果启动时指定了其他监听地址，请向关闭脚本传入相同地址，例如 ``./shutdown-local.sh 127.0.0.1:8001``。
-脚本会同步 Python 依赖、检查是否有待应用迁移并收集静态文件；首次缺少前端构建产物时会自动构建。
+脚本会同步 Python 依赖、检查是否有待应用迁移并收集静态文件；首次缺少前端构建产物时会自动构建（需 Node.js 20 及以上，先用 ``node -v`` 确认，否则前端构建会失败）。
 脚本不自动应用迁移或初始化/公开活动。存在待应用迁移时先核实目标库和备份，再在 ``app/`` 显式执行 ``python manage.py migrate``；
 需要新活动时执行上方初始化命令，默认保持私有。
 修改前端源码或静态资源后，执行 ``./start-local.sh --rebuild-assets`` 重新构建。
@@ -301,7 +301,7 @@ Requirements:
 * `uv <https://docs.astral.sh/uv/getting-started/installation/>`_
 * PostgreSQL
 * Redis
-* Node.js and npm
+* Node.js 20 or newer, and npm (the frontend build requires Node 20+; older versions fail with ``does not provide an export named 'styleText'``). Verify with ``node -v`` before running ``./start-local.sh`` or ``make npminstall``.
 * Debian or Ubuntu packages listed in ``deb-packages.txt`` or equivalent packages for your distribution
 
 Run the following setup steps from the root of this customized repository.
@@ -573,6 +573,24 @@ For Gmail SMTP, use:
    TLS: enabled
 
 If 2FA is enabled on the Google account, you may need to use an App Password.
+
+For local runs the mail backend is configured through ``EVY_EMAIL_*`` variables in the gitignored ``app/.env``. This drives the password-reset and other transactional mail. Example for an SSL (implicit-TLS) SMTP host on port 465:
+
+.. code-block:: bash
+
+   EVY_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+   EVY_EMAIL_HOST=smtp.example.edu
+   EVY_EMAIL_PORT=465
+   EVY_EMAIL_HOST_USER=you@example.edu
+   EVY_EMAIL_HOST_PASSWORD=<your-smtp-password-or-authorization-code>
+   EVY_DEFAULT_FROM_EMAIL=you@example.edu
+   EVY_EMAIL_USE_TLS=false
+
+``EMAIL_USE_SSL`` is the inverse of ``EVY_EMAIL_USE_TLS``, so implicit-TLS hosts on port 465/994 must set ``EVY_EMAIL_USE_TLS=false``; STARTTLS hosts on port 587 set it to ``true``. Some providers (for example campus mail) require a client authorization code rather than the account password.
+
+.. warning::
+
+   ``app/.env`` is gitignored and holds credentials. Never commit it and never paste real passwords or authorization codes into tracked files or the repository history.
 
 Plugins and extensions
 ----------------------
