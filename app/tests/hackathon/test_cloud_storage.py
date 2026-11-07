@@ -11,7 +11,7 @@ from eventyay.hackathon.forms import AssetForm
 from eventyay.hackathon.models import Asset
 from eventyay.hackathon.storage import PrivateStorage, S3Storage
 from eventyay.hackathon.uploads import save_direct_asset
-from tests.hackathon.test_accounts_uploads import PDF, begin, complete, send_chunk
+from tests.hackathon.test_accounts_uploads import PDF, begin, send_chunk
 from tests.hackathon.test_accounts_uploads import project as project
 
 
@@ -40,8 +40,12 @@ def test_upload_replace_access_range_and_gc(
     client, hackathon, project, user, participant, organizer_user, storage_backend, monkeypatch,
     django_capture_on_commit_callbacks,
 ):
+    initial = begin(client, hackathon, user)
+    assert send_chunk(client, initial, PDF).status_code == 200
     with django_capture_on_commit_callbacks(execute=True):
-        result = complete(client, hackathon, user)
+        response = client.post(initial['finish_url'])
+        assert response.status_code == 200, response.content
+    result = response.json()
     asset = Asset.objects.get(project=project)
     old_name = asset.file.name
     # Duplicate finish is idempotent; download stays behind existing business authorization.
