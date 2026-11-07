@@ -1,0 +1,5 @@
+# Isolated optional SDK: local development and the existing app lock remain unchanged.
+boto3==1.40.76
+botocore==1.40.76
+s3transfer==0.14.0
+jmespath==1.0.1

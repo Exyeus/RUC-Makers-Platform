@@ -1,25 +1,23 @@
 from datetime import timedelta
-from pathlib import Path
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django_scopes import scope
 
-from eventyay.hackathon.models import Asset, Hackathon, PrivateStorage, UploadSession
+from eventyay.hackathon.models import Asset, Hackathon, UploadSession
+from eventyay.hackathon.storage import PrivateStorage, temporary_root
 from eventyay.hackathon.uploads import expire_uploads, remove_file
 
 
 class Command(BaseCommand):
-    help = 'Expire idle uploads and remove unreferenced upload files older than 48 hours.'
+    help = 'Expire idle uploads and collect unreferenced private files older than 48 hours.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--dry-run', action='store_true', help='Only list candidate files; do not change data.')
+        parser.add_argument('--dry-run', action='store_true')
 
     def handle(self, dry_run=False, **options):
-        root = Path(PrivateStorage().location)
         cutoff = timezone.now() - timedelta(hours=48)
-        live_parts = set()
-        removed = 0
+        live_parts, referenced = set(), set()
         for hackathon in Hackathon.objects.select_related('event'):
             with scope(event=hackathon.event):
                 if not dry_run:
@@ -27,26 +25,29 @@ class Command(BaseCommand):
                 sessions = UploadSession.objects.filter(
                     hackathon=hackathon, state='uploading', expires_at__gt=timezone.now()
                 )
-                live_ids = {pk.hex for pk in sessions.values_list('pk', flat=True)}
                 live_parts.update(f'{pk}.part' for pk in sessions.values_list('pk', flat=True))
-                referenced = set(Asset.objects.filter(hackathon=hackathon).values_list('file', flat=True))
-                for path in (root / str(hackathon.pk)).rglob('*'):
-                    if (
-                        not path.is_file()
-                        or path.is_symlink()
-                        or path.stat().st_mtime >= cutoff.timestamp()
-                        or path.relative_to(root).as_posix() in referenced
-                        or path.stem in live_ids
-                    ):
+                referenced.update(Asset.objects.filter(hackathon=hackathon).values_list('file', flat=True))
+        removed = 0
+        storage = PrivateStorage()
+        for name, modified in storage.iter_objects():
+            if modified >= cutoff or name in referenced:
+                continue
+            # Recheck at deletion time. New objects use UUID names and are age gated.
+            event_id = name.split('/', 1)[0]
+            if not event_id.isdecimal():
+                continue
+            hackathon = Hackathon.objects.filter(pk=event_id).select_related('event').first()
+            if hackathon:
+                with scope(event=hackathon.event):
+                    if Asset.objects.filter(file=name).exists():
                         continue
-                    self.stdout.write(f'Unreferenced: {path}')
-                    if not dry_run:
-                        remove_file(path)
-                    removed += 1
-                # Keep upload receipts for support and deadline disputes for the event's lifetime.
-        for path in (root / '.uploads').glob('*.part'):
-            if path.name not in live_parts and path.stat().st_mtime < cutoff.timestamp():
-                self.stdout.write(f'Temporary: {path}')
+            self.stdout.write(f'Unreferenced: {name}')
+            if not dry_run:
+                storage.delete(name)
+            removed += 1
+        for path in temporary_root().glob('*.part'):
+            if not path.is_symlink() and path.name not in live_parts and path.stat().st_mtime < cutoff.timestamp():
+                self.stdout.write(f'Temporary: {path.name}')
                 if not dry_run:
                     remove_file(path)
                 removed += 1
