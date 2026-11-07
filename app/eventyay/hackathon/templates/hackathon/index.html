@@ -5,19 +5,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>
-      创客营 · eventyay
+      活动工作台 · 人大创协
     </title>
     <link rel="stylesheet" href="{% static 'hackathon/hub.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/responsive.css' %}">
+    <meta name="theme-color" content="#070919">
+    <link rel="icon" href="{% static 'hackathon/brand/favicon.svg' %}" type="image/svg+xml">
+    <link rel="stylesheet" href="{% static 'hackathon/brand.css' %}">
   </head>
-  <body>
+  <body class="workspace-page">
     <main class="edition-index">
-      <a class="brand" href="/">
-        eventyay
-        <small>
-          MAKER CAMP
-        </small>
-      </a>
+      <a class="brand" href="/">{% include 'hackathon/brand.html' %}</a>
       <div class="eyebrow">
         YOUR NEXT BIG IDEA STARTS HERE
       </div>
@@ -25,7 +23,7 @@
         把好奇心，变成真实的作品。
       </h1>
       <p>
-        从报名到组队，从第一行代码到路演。你的创客营旅程，从这里开始。
+        从报名到组队，从第一行代码到路演。你的活动旅程，从这里开始。
       </p>
       <div class="card-grid">
         {% for edition in editions %}

@@ -146,7 +146,7 @@ def organizer_login(request, judge=False):
 @require_POST
 @event_view()
 def logout(request):
-    destination = safe_workspace_next(request, request.POST.get('next'), url(request.hackathon, 'student-login'))
+    destination = safe_workspace_next(request, request.POST.get('next'), url(request.hackathon, 'home'))
     auth_logout(request)
     response = redirect(destination)
     response.delete_cookie('sso_token', path=settings.CSRF_COOKIE_PATH, domain=get_cookie_domain(request))

@@ -27,7 +27,8 @@ def test_visitor_landing_uses_event_content(client, hackathon):
         assert text in body
     assert '&lt;script&gt;alert(1)&lt;/script&gt;' in body
     assert '<script>alert(1)</script>' not in body
-    for placeholder in ('造物有心', '50,000', '36 小时', 'RUC · SSO', '11.14 - 11.16'):
+    assert 'alt="中国人民大学创客协会"' in body
+    for placeholder in ('50,000', '36 小时', 'RUC · SSO', '11.14 - 11.16'):
         assert placeholder not in body
 
 
