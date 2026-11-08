@@ -74,5 +74,5 @@ if [[ "$rebuild_assets" == true || ! -d eventyay/static.dist/CACHE ]]; then
     python manage.py compress --force
 fi
 
-printf 'Starting http://localhost:%s/hackathon/camp/ (Ctrl+C to stop)\n' "${bind_address##*:}"
+printf 'Starting http://localhost:%s/hackathon/tongzhou26/ (Ctrl+C to stop)\n' "${bind_address##*:}"
 exec python manage.py run_hackathon_preview "$bind_address" --insecure

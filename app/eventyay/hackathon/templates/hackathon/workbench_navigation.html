@@ -1,0 +1,10 @@
+{% for label, items in navigation_groups %}
+  <div class="nav-label">{{ label }}</div>
+  <nav aria-label="{{ label }}">
+    {% for name, title, icon, href in items %}
+      <a class="nav-item{% if navigation_active == name %} active{% endif %}" href="{{ href }}" {% if navigation_active == name %}aria-current="page"{% endif %}>
+        <svg aria-hidden="true"><use href="#i-{{ icon }}" /></svg>{{ title }}
+      </a>
+    {% endfor %}
+  </nav>
+{% endfor %}

@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.debug import sensitive_post_parameters
@@ -65,6 +66,9 @@ def workspace_destination(request, user):
 
 
 def safe_workspace_next(request, value, fallback):
+    legacy_home = reverse('hackathon:legacy-workspace')
+    if request.hackathon.slug == 'tongzhou26' and value and value.startswith(legacy_home):
+        value = url(request.hackathon, 'home') + value.removeprefix(legacy_home)
     if (
         value
         and value.startswith(url(request.hackathon, 'home'))
@@ -272,7 +276,7 @@ def student_password_reset_request(request):
                     # Send email
                     try:
                         send_mail(
-                            subject='创客营密码重置',
+                            subject='黑客松密码重置',
                             message=(
                                 '你好，\n\n'
                                 '请点击以下链接重置你的密码：\n\n'

@@ -22,7 +22,9 @@ def post_edit(request, post_id=None):
     if not participant:
         return redirect(url(h, 'register'))
     post = get_object_or_404(CommunityPost, hackathon=h, pk=post_id, author=participant) if post_id else None
-    form = CommunityPostForm(request.POST if request.method == 'POST' else None, instance=post)
+    kind = request.GET.get('kind', '')
+    initial = {'kind': kind} if not post and kind in CommunityPost.Kind.values else {}
+    form = CommunityPostForm(request.POST if request.method == 'POST' else None, instance=post, initial=initial)
     if request.method == 'POST' and form.is_valid():
         post = form.save(commit=False)
         post.hackathon, post.author = h, participant
@@ -112,7 +114,7 @@ def bonus(request):
                         claim.reviewer = request.user
                         claim.awarded_points = claim.rule.points if claim.state == BonusClaim.State.APPROVED else 0
                         claim.save()
-                        services.audit(h, request.user, '审核创客营加分申请', claim.pk, claim.review_note)
+                        services.audit(h, request.user, '审核黑客松加分申请', claim.pk, claim.review_note)
                     else:
                         messages.error(request, '该申请已经审核，请刷新后查看结果。')
                 return redirect(url(h, 'bonus'))

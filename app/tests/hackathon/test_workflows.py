@@ -81,7 +81,7 @@ def png():
 def test_public_pages_render(client, hackathon, name):
     response = client.get(endpoint(hackathon, name))
     assert response.status_code == 200
-    assert b'MAKER CAMP' in response.content
+    assert b'HACKATHON' in response.content
 
 
 @pytest.mark.django_db
