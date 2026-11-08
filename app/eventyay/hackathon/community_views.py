@@ -22,7 +22,9 @@ def post_edit(request, post_id=None):
     if not participant:
         return redirect(url(h, 'register'))
     post = get_object_or_404(CommunityPost, hackathon=h, pk=post_id, author=participant) if post_id else None
-    form = CommunityPostForm(request.POST if request.method == 'POST' else None, instance=post)
+    kind = request.GET.get('kind', '')
+    initial = {'kind': kind} if not post and kind in CommunityPost.Kind.values else {}
+    form = CommunityPostForm(request.POST if request.method == 'POST' else None, instance=post, initial=initial)
     if request.method == 'POST' and form.is_valid():
         post = form.save(commit=False)
         post.hackathon, post.author = h, participant

@@ -531,7 +531,18 @@ class CommunityPostForm(forms.ModelForm):
     class Meta:
         model = CommunityPost
         fields = ['kind', 'title', 'body', 'invitation', 'demo_url', 'is_public', 'is_open']
-        widgets = {'body': forms.Textarea(attrs={'rows': 5})}
+        widgets = {
+            'title': forms.TextInput(attrs={'placeholder': '用一句话说清问题、进展或想合作的小目标'}),
+            'body': forms.Textarea(attrs={'rows': 5, 'placeholder': '发生了什么？现在做到哪一步？你已经尝试过什么？'}),
+            'invitation': forms.TextInput(attrs={'placeholder': '希望哪类伙伴，以什么方式一起参与？'}),
+        }
+        help_texts = {
+            'kind': '选择最贴近内容的形式。灵感、展示 / 开发日志和微型共创也会进入作品池。',
+            'body': '补充具体背景和当前状态，让伙伴能判断自己如何参与。请勿公开密码、密钥或私人资料。',
+            'invitation': '例如：想找一位后端伙伴一起排查接口，或邀请大家体验原型并反馈。',
+            'demo_url': '可选；可以附作品、截图、录屏或代码链接。',
+            'is_public': '勾选后在本活动组队广场展示；取消后保存为非公开草稿。',
+        }
 
 
 class CommunityResponseForm(forms.ModelForm):

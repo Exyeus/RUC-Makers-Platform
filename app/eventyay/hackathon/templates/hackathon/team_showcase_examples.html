@@ -1,0 +1,34 @@
+<details class="showcase-guide" open>
+  <summary>
+    <span>{{ guide_title }}</span>
+    <span class="showcase-guide-count">{{ examples|length }} 个写法示例</span>
+    <svg aria-hidden="true"><use href="#i-arrow" /></svg>
+  </summary>
+  <p class="showcase-guide-note">以下是写法示例，供你参考；请根据自己的真实情况填写。</p>
+  <div class="showcase-example-grid">
+    {% for example in examples %}
+      <article class="showcase-example">
+        <div class="showcase-example-meta">
+          <span class="showcase-example-label">写法示例</span>
+          <span>{{ example.label }}</span>
+        </div>
+        <h3>{{ example.title }}</h3>
+        {% if example.tags %}
+          <div class="keyword-tags">
+            {% for tag in example.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+          </div>
+        {% endif %}
+        <p>{{ example.body }}</p>
+        <p class="showcase-example-invitation">{{ example.invitation }}</p>
+        <div class="showcase-example-footer">
+          <p><strong>怎么写</strong>{{ example.tip }}</p>
+          {% if example.kind %}
+            <a class="showcase-example-action" href="{% url 'hackathon:post-new' hackathon.slug %}?kind={{ example.kind }}">{{ example.action }} <span aria-hidden="true">↗</span></a>
+          {% else %}
+            <a class="showcase-example-action" href="{{ seeker_profile_url }}">{{ example.action }} <span aria-hidden="true">↗</span></a>
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</details>

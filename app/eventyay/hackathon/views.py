@@ -49,6 +49,7 @@ from eventyay.hackathon.models import (
 )
 from eventyay.hackathon.permissions import event_view, is_organizer
 from eventyay.hackathon.scoring import rule_description
+from eventyay.hackathon.team_showcase import COMMUNITY_EXAMPLES, POOL_EXAMPLES, SEEKER_EXAMPLES
 from eventyay.hackathon.workbench import next_task
 
 
@@ -322,6 +323,10 @@ def teams(request):
         seekers=seekers.order_by('-updated')[:60],
         keyword_categories=keyword_categories,
         selected_keyword=keyword,
+        seeker_examples=SEEKER_EXAMPLES,
+        community_examples=COMMUNITY_EXAMPLES,
+        pool_examples=POOL_EXAMPLES,
+        seeker_profile_url=url(h, 'register'),
         **square_context(h, request.participant, request.GET),
     )
 

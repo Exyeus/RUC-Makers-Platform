@@ -20,7 +20,8 @@
   <nav class="square-tabs panel" aria-label="组队广场栏目">
     <a href="#community">交流与共创</a>
     <a href="#work-pool">作品池</a>
-    <a href="#team-results">找队友</a>
+    <a href="#team-results">找队伍</a>
+    <a href="#people">找伙伴</a>
     {% if hackathon.matching_enabled %}
       <a href="{% url 'hackathon:matching' hackathon.slug %}">匹配推荐与组队进度</a>
     {% endif %}
@@ -234,44 +235,6 @@
       </div>
     {% endfor %}
   </div>
-  <div class="section-heading outside">
-    <div>
-      <h2>
-        还在寻找队伍的伙伴
-      </h2>
-      <p>
-        仅展示主动选择公开的选手介绍。
-      </p>
-    </div>
-    <a href="{% url 'hackathon:register' hackathon.slug %}">
-      更新我的介绍 ↗
-    </a>
-  </div>
-  <div class="card-grid">
-    {% for person in seekers %}
-      <article class="panel">
-        <span class="avatar">
-          {{ person.name|slice:':1' }}
-        </span>
-        <h3>
-          {{ person.name }}
-        </h3>
-        {% if person.tagline %}<p><strong>{{ person.tagline }}</strong></p>{% endif %}
-        <div class="keyword-tags">
-          {% for keyword in person.keywords %}<span class="tag lavender">{{ keyword }}</span>{% endfor %}
-        </div>
-        <p>
-          {{ person.bio }}
-        </p>
-        <span class="tag mint">
-          {{ person.skills|default:'保持好奇，愿意学习' }}
-        </span>
-      </article>
-    {% empty %}
-      <p class="muted">
-        暂时没有公开的找队友信息。
-      </p>
-    {% endfor %}
-  </div>
+  {% include 'hackathon/team_seekers.html' %}
   {% include 'hackathon/square_feed.html' %}
 {% endblock %}
