@@ -112,7 +112,7 @@ def bonus(request):
                         claim.reviewer = request.user
                         claim.awarded_points = claim.rule.points if claim.state == BonusClaim.State.APPROVED else 0
                         claim.save()
-                        services.audit(h, request.user, '审核创客营加分申请', claim.pk, claim.review_note)
+                        services.audit(h, request.user, '审核黑客松加分申请', claim.pk, claim.review_note)
                     else:
                         messages.error(request, '该申请已经审核，请刷新后查看结果。')
                 return redirect(url(h, 'bonus'))

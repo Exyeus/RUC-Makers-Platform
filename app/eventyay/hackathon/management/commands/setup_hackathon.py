@@ -19,7 +19,7 @@ class Command(BaseCommand):
         parser.add_argument('--organizer', default='hackathon')
         parser.add_argument('--event', default='maker-camp')
         parser.add_argument('--slug', default='camp')
-        parser.add_argument('--name', default='人大创客营')
+        parser.add_argument('--name', default='人大通州黑客松')
         parser.add_argument('--program', choices=Hackathon.Program.values, default=Hackathon.Program.MAKER_CAMP)
         parser.add_argument(
             '--copy-organizers-from',
@@ -47,7 +47,7 @@ class Command(BaseCommand):
         camp = program == Hackathon.Program.MAKER_CAMP
         start = datetime.combine(first_day, time(9 if camp else 18), tzinfo=zone)
         end = datetime.combine(first_day + timedelta(days=1 if camp else 2), time(17, 30), tzinfo=zone)
-        org, _ = Organizer.objects.get_or_create(slug=organizer, defaults={'name': '创客活动组委会'})
+        org, _ = Organizer.objects.get_or_create(slug=organizer, defaults={'name': '黑客松组委会'})
         ev, _ = Event.objects.get_or_create(
             organizer=org,
             slug=event,
@@ -71,7 +71,7 @@ class Command(BaseCommand):
                 name=name,
                 program=program,
                 tagline='把好奇心，变成真实的作品。',
-                description='从一个真实问题出发，分享灵感、学习工具、完成小作品，在两天的创客营里找到一起探索的伙伴。'
+                description='从一个真实问题出发，分享灵感、学习工具、完成小作品，在两天的黑客松里找到一起探索的伙伴。'
                 if camp
                 else '三天两晚，从一个真实问题出发，和伙伴一起完成作品。',
                 venue='主会场 / 候场区 · 待确认',
@@ -96,7 +96,7 @@ class Command(BaseCommand):
                 content = resource
                 if camp:
                     content = {
-                        key: value.replace('黑客松', '创客营').replace('三个夜晚', '两天').replace('三天', '两天')
+                        key: value.replace('三个夜晚', '两天').replace('三天', '两天')
                         if isinstance(value, str)
                         else value
                         for key, value in resource.items()

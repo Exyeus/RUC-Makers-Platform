@@ -19,6 +19,7 @@ from eventyay.hackathon.models import (
     Idea,
     MatchingProfile,
     Participant,
+    Resource,
     ScheduleItem,
 )
 from tests.hackathon.test_workflows import endpoint
@@ -379,12 +380,18 @@ def test_cross_event_post_and_bonus_are_inaccessible(client, hackathon, particip
     assert not BonusClaim.objects.exists()
 
 
-def test_setup_defaults_to_two_day_camp(hackathon):
+def test_setup_uses_hackathon_branding_with_existing_two_day_schedule(hackathon):
     output = StringIO()
     call_command(
         'setup_hackathon', organizer=hackathon.event.organizer.slug, slug='camp-new', event='camp-new', stdout=output
     )
     created = Hackathon.objects.get(slug='camp-new')
     assert created.program == 'maker_camp'
-    assert '黑客松' not in created.name
+    assert created.name == '人大通州黑客松'
+    assert '创客营' not in created.description
+    assert '黑客松' in created.description
+    with scope(event=created.event):
+        titles = list(Resource.objects.filter(hackathon=created).values_list('title', flat=True))
+    assert '第一次参加黑客松？从这里开始' in titles
+    assert not any('创客营' in title for title in titles)
     assert (created.event.date_to.date() - created.event.date_from.date()).days == 1

@@ -3,7 +3,7 @@
     <h2 id="login-title">{% if signup %}用学号注册{% else %}学号登录{% endif %}</h2>
     <a href="{% if signup %}{% url 'hackathon:student-login' hackathon.slug %}{% else %}{% url 'hackathon:student-signup' hackathon.slug %}{% endif %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">{% if signup %}已有账户，去登录{% else %}用学号注册{% endif %} ↗</a>
   </div>
-  <p class="auth-intro">选手入口 · 无需邮箱，用学号和你设置的本站密码进入{{ hackathon.get_program_display }}。</p>
+  <p class="auth-intro">选手入口 · 无需邮箱，用学号和你设置的本站密码进入黑客松。</p>
   <form method="post" action="{% if signup %}{% url 'hackathon:student-signup' hackathon.slug %}{% else %}{% url 'hackathon:student-login' hackathon.slug %}{% endif %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">
     {% csrf_token %}
     {% include 'hackathon/form_fields.html' %}

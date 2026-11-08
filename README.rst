@@ -1,7 +1,7 @@
-创客营一体化平台 · 基于 Eventyay
+黑客松一体化平台 · 基于 Eventyay
 ========================================
 
-本仓库是在 `Eventyay <https://github.com/fossasia/eventyay>`_ 基础上开发的创客活动定制版本，
+本仓库是在 `Eventyay <https://github.com/fossasia/eventyay>`_ 基础上开发的中国人民大学通州黑客松定制版本，
 把参赛报名、学习资料、组队、作品提交、现场路演、评委打分和主办方管理放在同一个网站中。
 支持电脑、平板和手机访问，各端保留相同的业务功能。
 
@@ -23,7 +23,7 @@
   也可回看其他团队。支持草稿与正式评分，以及自定义维度权重和去极值规则。
   默认按创新性、完成度与实机演示、实际价值、表达的 30% / 40% / 20% / 10% 加权，再取评委平均分。
 * **现场协作：** 志愿者任务、签到与工时记录、求助处理、路演展示和作品展示。
-* **创客营交流：** 组队广场整合七类交流卡片、私密回应和作品池；个人标签按类别选择，数量不限，支持自定义。
+* **黑客松交流：** 组队广场整合七类交流卡片、私密回应和作品池；个人标签按类别选择，数量不限，支持自定义。
 * **日程与加分：** 小时日历标出重要截止；两天小时表登记缺席时段；加分事项由主办方配置、审核并独立记录。
 * **多端界面：** 手机底部角色导航与单列布局，平板抽屉导航与适配布局，桌面完整工作台。
 
@@ -31,15 +31,22 @@
 --------
 
 请使用**当前定制仓库的代码**。单独克隆上游 Eventyay 仓库不会包含这里的黑客松模块。
-当前开放创客营板块，下面以活动标识 ``camp`` 为例；更换 ``--slug`` 后，访问地址也要相应替换。
+界面与默认内容统一使用黑客松名称。下面沿用已有活动标识 ``camp``；它和 ``maker_camp`` 是历史技术标识，
+不表示另一种活动。更换 ``--slug`` 后，访问地址也要相应替换；已有活动不必修改标识。
 
 已有数据库升级
 ~~~~~~~~~~~~~~
 
 应用 ``0012_isolate_existing_hackathons`` 前先备份并核对已有工作区：它会将执行迁移时已有的全部工作区标为 ``program=hackathon``，
-与新创客营隔离，旧工作区不再由只接受 ``maker_camp`` 的参赛者入口呈现（返回 404）。
-该数据迁移的反向操作为空，回滚迁移不会恢复旧 program。升级后按计划使用新标识创建创客营，或由负责人明确处理既有工作区。
+与当前工作区隔离；现有入口仍按历史 ``maker_camp`` 值筛选，旧工作区返回 404。
+该数据迁移的反向操作为空，回滚迁移不会恢复旧 program。界面名称整改不改动此隔离规则；
+请勿把既有工作区的 program 改为 ``hackathon`` 来更名。升级与既有工作区的访问安排仍需单独确认。
 代码合入不会自动迁移、初始化或发布活动。
+
+已有工作区仍保留旧默认名称时，在 ``app/`` 中先运行
+``python manage.py refresh_hackathon_branding camp`` 查看涉及字段，再用相同命令加 ``--apply`` 保存。
+命令只更新指定工作区中精确匹配的默认名称、介绍、欢迎公告和两篇指南标题，保留自定义内容与活动标识；
+重复执行无额外变化。完整范围见 `黑客松工作区文档 <doc/hackathon-workspace.md>`_。
 
 首次准备
 ~~~~~~~~
@@ -56,7 +63,7 @@
    python manage.py migrate
    python manage.py create_admin_user
    python manage.py setup_hackathon --organizer hackathon --event maker-camp \
-     --slug camp --name '人大创客营' --program maker_camp
+     --slug camp --name '人大通州黑客松' --program maker_camp
 
 ``create_admin_user`` 会提示创建管理员，请保存自己设置的登录信息；已有管理员时可跳过此命令。仓库不提供通用默认密码。
 ``setup_hackathon`` 创建活动、教程和赛程等初始内容，不创建虚构选手或作品。
@@ -114,10 +121,10 @@
 首次主办方登录使用上面创建的管理员账号。主办方可在工作台创建评委账号或为已有用户分配活动角色；
 普通参赛者注册不会自动获得主办方或评委权限。登录后可通过账户菜单退出。
 主办方登录后，右上角保留“主办方后台”入口，手机端显示为设置图标按钮。
-创客营管理请使用 ``/hackathon/camp/manage/``，``/control/`` 和 ``/orga/`` 是原 Eventyay 管理界面。
+黑客松管理请使用 ``/hackathon/camp/manage/``，``/control/`` 和 ``/orga/`` 是原 Eventyay 管理界面。
 若原主办方仅有旧活动的管理权限，可执行
 ``python manage.py setup_hackathon --slug camp --copy-organizers-from next``，
-将同一主办方下 ``next`` 工作区管理团队的活动访问权限扩展至创客营；已有内容不会被覆盖。
+将同一主办方下 ``next`` 工作区管理团队的活动访问权限扩展至黑客松；已有内容不会被覆盖。
 
 数据保存与常见问题
 ~~~~~~~~~~~~~~~~~~
@@ -266,7 +273,7 @@ Create an admin user and initialize the hackathon workspace (after the web servi
 
    docker compose exec web python manage.py create_admin_user
    docker compose exec web python manage.py setup_hackathon --organizer hackathon \
-     --event maker-camp --slug camp --name '人大创客营' --program maker_camp
+     --event maker-camp --slug camp --name '人大通州黑客松' --program maker_camp
 
 New workspaces are private by default. Sign in with the organizer account and confirm the event settings before making it public.
 
@@ -387,7 +394,7 @@ Create an admin user:
 
    python manage.py create_admin_user
    python manage.py setup_hackathon --organizer hackathon --event maker-camp \
-     --slug camp --name '人大创客营' --program maker_camp
+     --slug camp --name '人大通州黑客松' --program maker_camp
 
 Build frontend and static assets:
 

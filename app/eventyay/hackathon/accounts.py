@@ -250,7 +250,7 @@ def student_password_reset_request(request):
                     # Send email
                     try:
                         send_mail(
-                            subject='创客营密码重置',
+                            subject='黑客松密码重置',
                             message=(
                                 '你好，\n\n'
                                 '请点击以下链接重置你的密码：\n\n'
