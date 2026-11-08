@@ -1,4 +1,4 @@
-{% load static %}
+{% load static hackathon_static %}
 <!DOCTYPE html>
 <html lang="zh-CN" class="ruc-root">
   <head>
@@ -11,12 +11,12 @@
         · 黑客松
       {% endblock %}
     </title>
-    <link rel="stylesheet" href="{% static 'hackathon/hub.css' %}">
-    <link rel="stylesheet" href="{% static 'hackathon/responsive.css' %}">
-    <link rel="stylesheet" href="{% static 'hackathon/camp.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/hub.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/responsive.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/camp.css' %}">
     <link rel="icon" href="{% static 'hackathon/brand/favicon.svg' %}" type="image/svg+xml">
-    <link rel="stylesheet" href="{% static 'hackathon/workbench.css' %}">
-    <link rel="stylesheet" href="{% static 'hackathon/workbench-pages.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/workbench.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/workbench-pages.css' %}">
     <script type="module" src="{% static 'hackathon/hub.js' %}">
     </script>
     <script type="module" src="{% static 'hackathon/upload.js' %}"></script>

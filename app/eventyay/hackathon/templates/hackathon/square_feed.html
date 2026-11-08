@@ -1,15 +1,13 @@
 <section class="team-showcase" id="community" aria-labelledby="community-heading">
   <header class="showcase-heading">
-    <div>
-      <span class="showcase-kicker">交流与共创 · 从一次对话开始</span>
-      <h2 id="community-heading">先聊一点，再一起做一点。</h2>
-      <p>分享真实经历、提出一个问题，或向伙伴求助。发布和回应不自动加分。</p>
+    <div class="showcase-title-group">
+      <span class="showcase-section-icon"><svg aria-hidden="true"><use href="#i-spark" /></svg></span>
+      <div><h2 id="community-heading">交流与共创</h2><p>分享经历、提出问题，或找人一起试试。</p></div>
     </div>
     <a class="button showcase-publish" href="{% url 'hackathon:post-new' hackathon.slug %}">
       <span aria-hidden="true">＋</span> 分享交流卡片
     </a>
   </header>
-  <div class="showcase-publish-note">选择内容形式，写清具体背景，再告诉大家你期待怎样的回应。首次发布前需登录并完善参赛信息。</div>
   {% if community_posts %}
     <div class="showcase-results">
       {% for post in community_posts %}
@@ -29,23 +27,22 @@
     </div>
   {% else %}
     <p class="showcase-empty">
-      {% if query or selected_kind %}当前筛选暂无交流卡片，可以调整筛选或分享自己的经历。{% else %}还没有交流卡片，一段经历或一个具体问题就可以成为开始。{% endif %}
+      {% if query or selected_kind %}暂无匹配的交流卡片，试试调整筛选。{% else %}还没有交流卡片。分享一个问题或一次经历，开启第一场对话。{% endif %}
     </p>
   {% endif %}
-  {% include 'hackathon/team_showcase_examples.html' with examples=community_examples guide_title='从哪一种分享开始？' %}
+  {% include 'hackathon/team_showcase_examples.html' with examples=community_examples guide_title='交流卡片示例' example_icon='spark' %}
+  <footer class="showcase-section-footer"><p>登录并完善参赛信息后即可发布，发布和回应不自动加分。</p></footer>
 </section>
 <section class="team-showcase" id="work-pool" aria-labelledby="pool-heading">
   <header class="showcase-heading">
-    <div>
-      <span class="showcase-kicker">作品池 · 把进展展示出来</span>
-      <h2 id="pool-heading">想法、原型与作品，都有自己的位置</h2>
-      <p>黑客松的作品不必等到完成才分享；从一个问题、一张原型或一篇开发日志开始。</p>
+    <div class="showcase-title-group">
+      <span class="showcase-section-icon"><svg aria-hidden="true"><use href="#i-code" /></svg></span>
+      <div><h2 id="pool-heading">作品池</h2><p>从一个灵感到可运行的原型，让进展被看见。</p></div>
     </div>
     <a class="button showcase-publish" href="{% url 'hackathon:post-new' hackathon.slug %}?kind=showcase">
       <span aria-hidden="true">＋</span> 分享作品 / 开发日志
     </a>
   </header>
-  <div class="showcase-publish-note">发布灵感、展示 / 开发日志或微型共创，公开后会出现在作品池。这里用于交流，正式参赛材料请在“我的作品”提交。</div>
   {% if pool_posts or pool_ideas %}
     <div class="showcase-results">
       {% for post in pool_posts %}
@@ -69,7 +66,8 @@
       {% endfor %}
     </div>
   {% else %}
-    <p class="showcase-empty">作品池还在等待第一份分享，未完成的想法和原型也欢迎加入。</p>
+    <p class="showcase-empty">还没有作品分享。灵感、原型和开发日志都可以从这里开始。</p>
   {% endif %}
-  {% include 'hackathon/team_showcase_examples.html' with examples=pool_examples guide_title='你的进展，可以这样展示' %}
+  {% include 'hackathon/team_showcase_examples.html' with examples=pool_examples guide_title='作品分享示例' example_icon='code' %}
+  <footer class="showcase-section-footer"><p>公开的灵感、展示 / 开发日志和微型共创会进入作品池；正式参赛材料仍在“我的作品”提交。</p></footer>
 </section>

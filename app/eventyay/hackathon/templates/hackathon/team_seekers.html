@@ -1,21 +1,16 @@
 <section class="team-showcase" id="people" aria-labelledby="people-heading">
   <header class="showcase-heading">
-    <div>
-      <span class="showcase-kicker">找伙伴 · 让彼此认识</span>
-      <h2 id="people-heading">还在寻找队伍的伙伴</h2>
-      <p>仅展示本人选择公开的介绍，学号、联系方式和缺席时段不会展示。</p>
+    <div class="showcase-title-group">
+      <span class="showcase-section-icon"><svg aria-hidden="true"><use href="#i-users" /></svg></span>
+      <div>
+        <h2 id="people-heading">还在寻找队伍的伙伴</h2>
+        <p>发现互补的技能，找到合拍的伙伴。</p>
+      </div>
     </div>
     <a class="button showcase-publish" href="{{ seeker_profile_url }}">
       <span aria-hidden="true">＋</span> 更新我的介绍
     </a>
   </header>
-  <div class="showcase-publish-note">
-    {% if hackathon.matching_enabled %}
-      先更新个人介绍，再在<a href="{% url 'hackathon:matching-profile' hackathon.slug %}">匹配资料</a>中勾选“同意将以上资料用于本活动匹配”，将资料可见范围设为“本活动可见”；未组队的伙伴可在这里展示介绍。
-    {% else %}
-      填写一句话介绍、技能和个人标签，勾选“在组队广场展示我的名字、技能和介绍”；尚未加入队伍时，介绍就会出现在这里。
-    {% endif %}
-  </div>
   {% if seekers %}
     <div class="showcase-results">
       {% for person in seekers %}
@@ -35,8 +30,19 @@
     </div>
   {% else %}
     <p class="showcase-empty">
-      {% if query or selected_keyword %}当前筛选暂无公开的找队友介绍，可以调整筛选或发布自己的介绍。{% else %}这里还在等待第一位伙伴，先看看介绍可以怎么写。{% endif %}
+      {% if query or selected_keyword %}暂无匹配的公开介绍，试试调整筛选。{% else %}还没有公开介绍。参考下面的示例，发布你的第一张介绍卡。{% endif %}
     </p>
   {% endif %}
-  {% include 'hackathon/team_showcase_examples.html' with examples=seeker_examples guide_title='让伙伴一眼认识你' %}
+  {% include 'hackathon/team_showcase_examples.html' with examples=seeker_examples guide_title='个人介绍示例' example_icon='users' %}
+  <footer class="showcase-section-footer">
+    <p>仅展示选手主动公开的介绍，学号、联系方式和缺席时段不会展示。</p>
+    <details class="showcase-publish-note">
+      <summary>如何公开我的介绍 <svg class="showcase-chevron" aria-hidden="true"><use href="#i-arrow" /></svg></summary>
+      {% if hackathon.matching_enabled %}
+        <p>先更新个人介绍，再在<a href="{% url 'hackathon:matching-profile' hackathon.slug %}">匹配资料</a>中勾选“同意将以上资料用于本活动匹配”，将资料可见范围设为“本活动可见”；未组队的伙伴可在这里展示介绍。</p>
+      {% else %}
+        <p>填写一句话介绍、技能和个人标签，勾选“在组队广场展示我的名字、技能和介绍”；尚未加入队伍时，介绍就会出现在这里。</p>
+      {% endif %}
+    </details>
+  </footer>
 </section>
