@@ -82,4 +82,9 @@ event_patterns = [
     path('station/assets/<uuid:asset_id>/', views.station_asset, name='station-asset'),
 ]
 
-urlpatterns = [path('', views.index, name='index'), path('<slug:hackathon_slug>/', include(event_patterns))]
+urlpatterns = [
+    path('', views.index, name='index'),
+    path('camp/', views.legacy_workspace, name='legacy-workspace'),
+    path('camp/<path:suffix>', views.legacy_workspace),
+    path('<slug:hackathon_slug>/', include(event_patterns)),
+]

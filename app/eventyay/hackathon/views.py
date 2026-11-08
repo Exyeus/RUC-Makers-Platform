@@ -11,7 +11,7 @@ from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, F, Q
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -149,6 +149,15 @@ def page(request, template, **context):
 def report_validation(request, error):
     for message in error.messages:
         messages.error(request, message)
+
+
+def legacy_workspace(request, suffix=''):
+    target = reverse('hackathon:home', kwargs={'hackathon_slug': 'tongzhou26'}) + suffix
+    if query := request.META.get('QUERY_STRING'):
+        target += '?' + query
+    response = HttpResponsePermanentRedirect(target, preserve_request=request.method not in {'GET', 'HEAD'})
+    response['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @require_GET

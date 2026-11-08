@@ -31,8 +31,8 @@
 --------
 
 请使用**当前定制仓库的代码**。单独克隆上游 Eventyay 仓库不会包含这里的黑客松模块。
-界面与默认内容统一使用黑客松名称。下面沿用已有活动标识 ``camp``；它和 ``maker_camp`` 是历史技术标识，
-不表示另一种活动。更换 ``--slug`` 后，访问地址也要相应替换；已有活动不必修改标识。
+界面与默认内容统一使用黑客松名称。当前活动标识为 ``tongzhou26``，入口为 ``/hackathon/tongzhou26/``。旧 ``/hackathon/camp/`` 地址会跳转到新地址。
+数据库中的 ``maker_camp`` 是历史技术标识，不表示另一种活动；其他届次仍可使用独立的 ``--slug``。
 
 已有数据库升级
 ~~~~~~~~~~~~~~
@@ -44,9 +44,15 @@
 代码合入不会自动迁移、初始化或发布活动。
 
 已有工作区仍保留旧默认名称时，在 ``app/`` 中先运行
-``python manage.py refresh_hackathon_branding camp`` 查看涉及字段，再用相同命令加 ``--apply`` 保存。
+``python manage.py refresh_hackathon_branding tongzhou26`` 查看涉及字段，再用相同命令加 ``--apply`` 保存。
 命令只更新指定工作区中精确匹配的默认名称、介绍、欢迎公告和两篇指南标题，保留自定义内容与活动标识；
 重复执行无额外变化。完整范围见 `黑客松工作区文档 <doc/hackathon-workspace.md>`_。
+
+从旧版本升级当前活动地址时，先在 ``app/`` 执行
+``python manage.py rename_hackathon_workspace camp tongzhou26`` 预览，确认后加 ``--apply`` 保存。
+该命令只修改工作区 URL 标识，保留关联 Event、参赛信息与材料；不创建活动或复制数据。
+``camp`` 已保留为兼容入口，不允许新建工作区或改入此标识。
+切换地址与部署本版本需一并安排，旧链接的路径和查询参数会保留；POST 等请求采用 308 跳转以保留方法与请求体。
 
 首次准备
 ~~~~~~~~
@@ -62,8 +68,8 @@
    . .venv/bin/activate
    python manage.py migrate
    python manage.py create_admin_user
-   python manage.py setup_hackathon --organizer hackathon --event maker-camp \
-     --slug camp --name '人大通州黑客松' --program maker_camp
+   python manage.py setup_hackathon --organizer hackathon --event tongzhou26 \
+     --slug tongzhou26 --name '人大通州黑客松' --program maker_camp
 
 ``create_admin_user`` 会提示创建管理员，请保存自己设置的登录信息；已有管理员时可跳过此命令。仓库不提供通用默认密码。
 ``setup_hackathon`` 创建活动、教程和赛程等初始内容，不创建虚构选手或作品。
@@ -80,7 +86,7 @@
 
    ./start-local.sh
 
-保持终端运行，浏览器访问 http://localhost:8000/hackathon/camp/ 。按 ``Ctrl+C`` 停止预览。
+保持终端运行，浏览器访问 http://localhost:8000/hackathon/tongzhou26/ 。按 ``Ctrl+C`` 停止预览。
 也可以在仓库根目录运行 ``./shutdown-local.sh`` 关闭本项目的本地预览；
 如果启动时指定了其他监听地址，请向关闭脚本传入相同地址，例如 ``./shutdown-local.sh 127.0.0.1:8001``。
 脚本会同步 Python 依赖、检查是否有待应用迁移并收集静态文件；首次缺少前端构建产物时会自动构建。
@@ -101,7 +107,7 @@
    export EVY_TALK_HOSTNAME=http://192.168.1.100:8000
    python manage.py run_hackathon_preview 0.0.0.0:8000 --insecure
 
-随后在移动设备打开 ``http://192.168.1.100:8000/hackathon/camp/``。
+随后在移动设备打开 ``http://192.168.1.100:8000/hackathon/tongzhou26/``。
 移动设备上的 ``localhost`` 指向设备自身，不是运行网站的电脑。
 
 登录入口与常用页面
@@ -109,21 +115,21 @@
 
 以下路径均相对于网站地址，例如 ``http://localhost:8000``：
 
-* 活动首页：``/hackathon/camp/``
-* 参赛者注册：``/hackathon/camp/account/signup/``
-* 参赛者登录：``/hackathon/camp/account/login/``
-* 主办方登录：``/hackathon/camp/account/organizer/``
-* 主办方工作台：``/hackathon/camp/manage/``
-* 评委登录：``/hackathon/camp/account/judge/``
-* 评委现场评分：``/hackathon/camp/judging/live/``
-* 路演展示：``/hackathon/camp/stage/``
+* 活动首页：``/hackathon/tongzhou26/``
+* 参赛者注册：``/hackathon/tongzhou26/account/signup/``
+* 参赛者登录：``/hackathon/tongzhou26/account/login/``
+* 主办方登录：``/hackathon/tongzhou26/account/organizer/``
+* 主办方工作台：``/hackathon/tongzhou26/manage/``
+* 评委登录：``/hackathon/tongzhou26/account/judge/``
+* 评委现场评分：``/hackathon/tongzhou26/judging/live/``
+* 路演展示：``/hackathon/tongzhou26/stage/``
 
 首次主办方登录使用上面创建的管理员账号。主办方可在工作台创建评委账号或为已有用户分配活动角色；
 普通参赛者注册不会自动获得主办方或评委权限。登录后可通过账户菜单退出。
 主办方登录后，右上角保留“主办方后台”入口，手机端显示为设置图标按钮。
-黑客松管理请使用 ``/hackathon/camp/manage/``，``/control/`` 和 ``/orga/`` 是原 Eventyay 管理界面。
+黑客松管理请使用 ``/hackathon/tongzhou26/manage/``，``/control/`` 和 ``/orga/`` 是原 Eventyay 管理界面。
 若原主办方仅有旧活动的管理权限，可执行
-``python manage.py setup_hackathon --slug camp --copy-organizers-from next``，
+``python manage.py setup_hackathon --slug tongzhou26 --copy-organizers-from next``，
 将同一主办方下 ``next`` 工作区管理团队的活动访问权限扩展至黑客松；已有内容不会被覆盖。
 
 数据保存与常见问题
@@ -273,7 +279,7 @@ Create an admin user and initialize the hackathon workspace (after the web servi
 
    docker compose exec web python manage.py create_admin_user
    docker compose exec web python manage.py setup_hackathon --organizer hackathon \
-     --event maker-camp --slug camp --name '人大通州黑客松' --program maker_camp
+     --event tongzhou26 --slug tongzhou26 --name '人大通州黑客松' --program maker_camp
 
 New workspaces are private by default. Sign in with the organizer account and confirm the event settings before making it public.
 
@@ -281,7 +287,7 @@ Open the local site:
 
 .. code-block:: text
 
-   http://localhost:8000/hackathon/camp/
+   http://localhost:8000/hackathon/tongzhou26/
 
 View logs:
 
@@ -393,8 +399,8 @@ Create an admin user:
 .. code-block:: bash
 
    python manage.py create_admin_user
-   python manage.py setup_hackathon --organizer hackathon --event maker-camp \
-     --slug camp --name '人大通州黑客松' --program maker_camp
+   python manage.py setup_hackathon --organizer hackathon --event tongzhou26 \
+     --slug tongzhou26 --name '人大通州黑客松' --program maker_camp
 
 Build frontend and static assets:
 
@@ -414,7 +420,7 @@ Open:
 
 .. code-block:: text
 
-   http://localhost:8000/hackathon/camp/
+   http://localhost:8000/hackathon/tongzhou26/
 
 Run Celery locally when working on background tasks:
 
@@ -755,7 +761,7 @@ Important local endpoints include:
 .. code-block:: text
 
    /hackathon/               Hackathon workspace entry
-   /hackathon/camp/manage/    Hackathon organiser workspace
+   /hackathon/tongzhou26/manage/    Hackathon organiser workspace
    /                         Public start page
    /orga/                    Organiser area for talks and speakers configuration and setup
    /control/                 Ticketing control and organiser management area

@@ -17,8 +17,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--organizer', default='hackathon')
-        parser.add_argument('--event', default='maker-camp')
-        parser.add_argument('--slug', default='camp')
+        parser.add_argument('--event', default='tongzhou26')
+        parser.add_argument('--slug', default='tongzhou26')
         parser.add_argument('--name', default='人大通州黑客松')
         parser.add_argument('--program', choices=Hackathon.Program.values, default=Hackathon.Program.MAKER_CAMP)
         parser.add_argument(
@@ -39,6 +39,8 @@ class Command(BaseCommand):
                 self.grant_organizer_access(copy_organizers_from, existing)
             self.stdout.write(f'Workspace /hackathon/{slug}/ already exists; no data was overwritten.')
             return
+        if slug == 'camp':
+            raise CommandError('camp is reserved for legacy URL redirects; choose another workspace slug.')
         try:
             first_day = date.fromisoformat(start_date) if start_date else timezone.localdate() + timedelta(days=30)
         except ValueError as error:
