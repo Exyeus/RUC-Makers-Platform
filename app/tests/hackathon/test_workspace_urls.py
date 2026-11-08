@@ -95,7 +95,10 @@ def test_legacy_login_preserves_post_body_and_csrf(hackathon, participant, user)
     old_login = '/hackathon/camp/account/login/'
     response = client.get(old_login, follow=True)
     assert response.status_code == 200
-    assert response.redirect_chain == [(endpoint(hackathon, 'student-login'), 301)]
+    assert response.redirect_chain == [
+        (endpoint(hackathon, 'student-login'), 301),
+        (endpoint(hackathon, 'home') + '#join', 302),
+    ]
     credentials = {'student_id': '20260001', 'password': 'a-strong-test-password'}
     assert client.post(old_login, credentials, follow=True).status_code == 403
     token = client.cookies['eventyay_csrftoken'].value

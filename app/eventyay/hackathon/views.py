@@ -7,9 +7,10 @@ from pathlib import Path
 
 from defusedcsv import csv
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, F, Q
 from django.http import Http404, HttpResponse, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -174,6 +175,15 @@ def index(request):
 @event_view()
 @require_GET
 def home(request):
+    authenticated = request.user.is_authenticated
+    context = landing_context(request)
+    if not authenticated:
+        context['login_form'] = forms.StudentLoginForm()
+        context['password_reset_url'] = url(request.hackathon, 'student-password-reset-request')
+    return page(request, 'home' if authenticated else 'landing', **context)
+
+
+def landing_context(request):
     h = request.hackathon
     participant = request.participant
     team = participant.team if participant else None
@@ -217,40 +227,45 @@ def home(request):
             'url': url(h, 'project'),
         },
     ]
-    return page(
-        request,
-        'home' if request.user.is_authenticated else 'landing',
-        login_form=forms.StudentLoginForm() if not request.user.is_authenticated else None,
-        team=team,
-        project=project,
-        journey_url=url(h, 'project' if participant else 'register'),
-        current_task=current_task,
-        completed_steps=[item for item in checklist if item['done']],
-        pending_steps=[item for item in checklist if not item['done']],
-        required_count=required_count,
-        read_count=read_count,
-        checklist=checklist,
-        progress=sum(item['done'] for item in checklist) * 25,
-        tracks=Track.objects.filter(hackathon=h),
-        participant_count=Participant.objects.filter(hackathon=h).count(),
-        team_count=Team.objects.filter(hackathon=h).count(),
-        project_count=Project.objects.filter(hackathon=h, submitted_at__isnull=False).count(),
-        notices=Announcement.objects.filter(hackathon=h, audience='all')[:3],
-        upcoming=ScheduleItem.objects.filter(hackathon=h, ends_at__gte=timezone.now())[:3],
-        featured_resources=Resource.objects.filter(hackathon=h)[:3],
-        calendar_days=schedule_heatmap(h),
-    )
+    return {
+        'team': team,
+        'project': project,
+        'journey_url': url(h, 'project' if participant else 'register'),
+        'current_task': current_task,
+        'completed_steps': [item for item in checklist if item['done']],
+        'pending_steps': [item for item in checklist if not item['done']],
+        'required_count': required_count,
+        'read_count': read_count,
+        'checklist': checklist,
+        'progress': sum(item['done'] for item in checklist) * 25,
+        'tracks': Track.objects.filter(hackathon=h),
+        'participant_count': Participant.objects.filter(hackathon=h).count(),
+        'team_count': Team.objects.filter(hackathon=h).count(),
+        'project_count': Project.objects.filter(hackathon=h, submitted_at__isnull=False).count(),
+        'notices': Announcement.objects.filter(hackathon=h, audience='all')[:3],
+        'upcoming': ScheduleItem.objects.filter(hackathon=h, ends_at__gte=timezone.now())[:3],
+        'featured_resources': Resource.objects.filter(hackathon=h)[:3],
+        'calendar_days': schedule_heatmap(h),
+    }
 
 
 @event_view('login')
 def register(request):
-    form = forms.ParticipantForm(request.POST or None, instance=request.participant, hackathon=request.hackathon)
+    instance = request.participant or Participant(hackathon=request.hackathon, user=request.user)
+    form = forms.ParticipantForm(request.POST or None, instance=instance, hackathon=request.hackathon)
     if request.method == 'POST' and form.is_valid():
+        bound_email = request.user.email
         try:
             services.save_participant(request.hackathon, request.user, form)
         except ValidationError as error:
             form.add_error(None, error)
+        except IntegrityError:
+            form.add_error('email', '该邮箱刚刚被其他账户绑定，请更换后重试。')
         else:
+            if request.user.email != bound_email:
+                # The session auth hash covers the email; refresh it so saving
+                # does not log the participant out of this session.
+                update_session_auth_hash(request, request.user)
             messages.success(request, '参赛信息已保存。你的选手编号将贯穿本次活动。')
             return redirect(url(request.hackathon, 'home'))
     return page(

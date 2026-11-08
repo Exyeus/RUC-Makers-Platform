@@ -56,6 +56,15 @@ def require_submission_open(hackathon, organizer=None, reason=''):
         raise ValidationError('作品提交已截止，无法继续修改。提交异常请通过支持中心说明时间与证据。')
 
 
+def bind_participant_email(form, participant):
+    """The bound email lives on the user row; an empty submission keeps the current
+    binding, because unbinding would silently drop the password-recovery channel."""
+    email = form.cleaned_data.get('email')
+    if email and participant.user_id and participant.user.email != email:
+        participant.user.email = email
+        participant.user.save(update_fields=['email'])
+
+
 @transaction.atomic
 def save_participant(hackathon, user, form):
     hackathon = lock_event(hackathon)
@@ -67,6 +76,7 @@ def save_participant(hackathon, user, form):
     participant = form.save(commit=False)
     participant.hackathon, participant.user = hackathon, user
     participant.save(update_fields=[*form.Meta.fields, 'updated'] if current else None)
+    bind_participant_email(form, participant)
     if current:
         profile = MatchingProfile.objects.filter(hackathon=hackathon, participant=participant).first()
         if profile and profile.slots is not None:

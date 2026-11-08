@@ -126,6 +126,7 @@ class StudentLoginForm(forms.Form):
 
 class StudentSignupForm(StudentLoginForm):
     name = forms.CharField(label='姓名 / 常用名', max_length=80)
+    email = forms.EmailField(label='邮箱', max_length=190, help_text='用于密码找回，请确保邮箱可用。')
     password = forms.CharField(
         label='设置密码',
         min_length=10,
@@ -146,6 +147,12 @@ class StudentSignupForm(StudentLoginForm):
         if StudentAccount.objects.filter(student_id=value).exists():
             raise ValidationError('该学号已注册，请直接登录。')
         return value
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise ValidationError('该邮箱已被使用，请直接登录。')
+        return email
 
     def clean(self):
         data = super().clean()
@@ -211,6 +218,7 @@ def validate_demo_url(value):
 
 class ParticipantForm(forms.ModelForm):
     consent = forms.BooleanField(label='同意组委会为报名、联络、评审和证书使用上述信息')
+    email = forms.EmailField(label='绑定邮箱', max_length=190, required=False, help_text='用于密码找回，建议填写。')
     keywords = forms.MultipleChoiceField(
         label='个人标签（数量不限）',
         choices=KEYWORD_CHOICES,
@@ -220,6 +228,7 @@ class ParticipantForm(forms.ModelForm):
     custom_keywords = TagsField(
         label='自定义标签', required=False, help_text='用逗号或换行分隔，数量不限，每个最多 40 字。'
     )
+    field_order = ['name', 'school', 'contact', 'email']
 
     def __init__(self, *args, hackathon=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -233,6 +242,14 @@ class ParticipantForm(forms.ModelForm):
         self.initial['keywords'] = [tag for tag in self.instance.keywords if tag in KEYWORDS]
         self.initial['custom_keywords'] = ', '.join(tag for tag in self.instance.keywords if tag not in KEYWORDS)
         self.fields['availability'].label = '其他特殊安排（仅工作人员可见）'
+        if self.instance.user_id:
+            self.initial['email'] = self.instance.user.email
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        if email and User.objects.filter(email__iexact=email).exclude(pk=self.instance.user_id).exists():
+            raise ValidationError('该邮箱已被其他账户使用。')
+        return email or None
 
     def clean(self):
         data = super().clean()

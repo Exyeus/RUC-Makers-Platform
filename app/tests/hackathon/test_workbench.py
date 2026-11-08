@@ -309,7 +309,7 @@ def test_public_workspace_uses_theme_but_entrance_keeps_its_layout(client, hacka
     assert response.status_code == 200
     assert 'workbench-pages.css' in response.content.decode()
     for route in ['home', 'student-login', 'organizer-login', 'judge-login']:
-        response = client.get(endpoint(hackathon, route))
+        response = client.get(endpoint(hackathon, route), follow=True)
         assert response.status_code == 200
         soup = BeautifulSoup(response.content, 'html.parser')
         assert 'entry-page' in soup.body['class']
