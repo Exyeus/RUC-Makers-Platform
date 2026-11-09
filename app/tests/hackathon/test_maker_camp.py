@@ -170,6 +170,8 @@ def test_absence_grid_validates_event_hours_and_persists(client, hackathon, part
 
 
 def test_absence_hours_visible_to_organizer_and_export_only(client, hackathon, participant, organizer_user):
+    # Day 0 has no hours when the event starts late in the day (e.g. 23:xx local),
+    # so take the first hour from the first day that actually has one.
     hour = next(value for _, hours in attendance_hours(hackathon) for value, _ in hours)
     participant.unavailable_slots = [int(hour)]
     participant.availability = ''
