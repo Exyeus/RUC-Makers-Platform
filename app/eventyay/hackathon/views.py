@@ -1032,7 +1032,10 @@ def results(request):
 def stage_data(hackathon):
     slots = DemoSlot.objects.filter(hackathon=hackathon).select_related('project__team')
     active = slots.filter(state='live').first()
-    upcoming = slots.filter(state__in=['waiting', 'ready', 'deferred']).order_by('position')[:3]
+    upcoming = (
+        slots.filter(state__in=['waiting', 'ready', 'deferred'], project__state='approved')
+        .order_by('position')[:3]
+    )
     return {
         'server_time': timezone.now().isoformat(),
         'clock': services.clock_state(hackathon, active),
@@ -1143,8 +1146,10 @@ def station_state(request, hackathon_slug):
     h = station_auth(request, hackathon_slug)
     with scope(event=h.event):
         data = stage_data(h)
-        queued = DemoSlot.objects.filter(hackathon=h, state__in=['live', 'ready', 'waiting', 'deferred']).values(
-            'project_id'
+        queued = (
+            DemoSlot.objects.filter(hackathon=h, state__in=['live', 'ready', 'waiting', 'deferred'])
+            .filter(Q(state='live') | Q(project__state='approved'))
+            .values('project_id')
         )
         data['assets'] = [
             {

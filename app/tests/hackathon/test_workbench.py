@@ -317,7 +317,8 @@ def test_public_workspace_uses_theme_but_entrance_keeps_its_layout(client, hacka
 
 
 def test_fullscreen_stage_keeps_display_mode(client, hackathon, team):
-    project = Project.objects.create(hackathon=hackathon, team=team, title='候场作品')
+    # 路演队列只列仍"已通过"的作品，故候场作品需为 approved 才会进入 upcoming。
+    project = Project.objects.create(hackathon=hackathon, team=team, title='候场作品', state='approved')
     DemoSlot.objects.create(hackathon=hackathon, project=project, position=1, state='waiting')
     response = client.get(endpoint(hackathon, 'stage'), {'display': '1'})
     assert response.status_code == 200
