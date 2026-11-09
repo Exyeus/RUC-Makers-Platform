@@ -31,8 +31,8 @@ def test_setup_explicitly_restores_event_limited_organizers(hackathon, user, exi
     )
     options = {
         'organizer': hackathon.event.organizer.slug,
-        'event': 'camp',
-        'slug': 'camp',
+        'event': 'permission-target',
+        'slug': 'permission-target',
         'stdout': StringIO(),
     }
     if existing:
@@ -40,7 +40,7 @@ def test_setup_explicitly_restores_event_limited_organizers(hackathon, user, exi
     if copy_organizers:
         options['copy_organizers_from'] = hackathon.slug
     call_command('setup_hackathon', **options)
-    camp = Hackathon.objects.get(slug='camp')
+    camp = Hackathon.objects.get(slug='permission-target')
     assert is_organizer(user, camp) == copy_organizers
     assert organizer_team.limit_events.filter(pk=hackathon.event_id).exists()
     assert not volunteer_team.limit_events.filter(pk=camp.event_id).exists()
@@ -62,9 +62,9 @@ def test_setup_rejects_invalid_permission_source_without_partial_changes(hackath
         call_command(
             'setup_hackathon',
             organizer='another-organizer',
-            event='camp',
-            slug='camp',
+            event='permission-target',
+            slug='permission-target',
             copy_organizers_from=source,
             stdout=StringIO(),
         )
-    assert not Hackathon.objects.filter(slug='camp').exists()
+    assert not Hackathon.objects.filter(slug='permission-target').exists()

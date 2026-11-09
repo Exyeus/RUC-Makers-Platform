@@ -1,18 +1,20 @@
 # 活动平台 Agent 规范
 
-这是所有 coding agents 的项目规范主源。编辑前应用匹配的 `.github/instructions/*.md`；适配文件仅指向本页。协作入口为 [.agents/README.md](.agents/README.md)。
+## 当前业务描述
+
+为中国人民大学通州黑客松开发活动平台。本平台基于 Eventyay 开发。仅关于黑客松，不考虑任何“创客营”的内容。
 
 ## 当前开发范围
 
 - Python 3.12、Django 5.2+；PostgreSQL、Redis、Celery 为已有后端基础。
 - 活动功能：`app/eventyay/hackathon/`；测试：`app/tests/hackathon/`。
-- 页面：Django 模板和 `app/eventyay/static/hackathon/` 的原生 JavaScript/CSS。上游 `webapp/` 中的 Vue 构建规则只用于实际修改对应子应用时，不作为活动页面的默认选型。
+- 页面：Django 模板和 `app/eventyay/static/hackathon/` 的原生 JavaScript/CSS。
 - 文档：`doc/`、`README.rst`；上游公共模块只在确有依赖时修改，PR 说明受影响入口。
-- [architecture.md](.agents/context/architecture.md) 提供业务模块和运行入口；先核实实际源码，不把历史设计或分支名当成已验证结果。
+- [architecture.md](.agents/context/architecture.md) 提供业务模块和运行入口；
 
 ## 实现与安全
 
-1. 事件数据查询沿用 `django_scopes.scope(event=event)`；活动子对象同时绑定当前 hackathon，服务端校验用户角色、队伍归属与对象所属活动，不能只靠隐藏按钮。
+1. 事件数据查询沿用 `django_scopes.scope(event=event)`；活动子对象同时绑定当前 hackathon。
 2. 用 Django forms/模型和服务层验证输入；表单校验错误保留可理解的反馈。模板不承载复杂业务规则。
 3. 新代码使用 `eventyay.*` 命名空间，导入放文件顶部；仅为解决循环依赖使用局部导入。保留具体异常类型。
 4. JavaScript 放外部 ES modules，不引入 jQuery 或内联脚本；保持键盘操作、移动端和错误状态可用。第三方 vendored 文件保留许可证。
@@ -21,9 +23,7 @@
 
 ## 协作与验证
 
-从 [WORKFLOW.md](.agents/WORKFLOW.md) 的主任务卡确定范围和正确例子；学校 PR 面向 `main`，上游只读，分支步骤见 [BRANCHES.md](.agents/BRANCHES.md)。先确认工作树状态和已有改动归属，按授权范围提交，保留他人改动。
-
-实质活动功能改动用 [adversarial-audit](.agents/skills/adversarial-audit/SKILL.md) 独立复看，通常一名 reviewer；小文案/微小样式可人工快速复看。记录实际环境、命令、结果和未验证项。学校 [Activity CI](doc/development-ci.md) 在 main 的 PR、push 和手动运行中执行基础检查；合并前查看结果并处理失败。CI 不替代任务例子、自测和独立复看。
+从 [WORKFLOW.md](.agents/WORKFLOW.md) 的主任务卡确定范围和正确例子；面向 `main` 分支，分支步骤见 .agents/BRANCHES.md。先确认工作树状态和已有改动归属，按授权范围提交，保留他人改动。
 
 本机 Linux 开发/测试通过 WSL2 Ubuntu、显式工作目录运行；Windows 应用/UI 检查在 Windows。共享一棵源树，分开平台依赖与产物。远端检查标明服务器环境。
 

@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#070919">
-    <title>{% block page_title %}{{ hackathon.name }} · {{ hackathon.get_program_display }}{% endblock %}</title>
+    <title>{% block page_title %}{{ hackathon.name }} · 黑客松{% endblock %}</title>
     <link rel="icon" href="{% static 'hackathon/brand/favicon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'hackathon/landing.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/brand.css' %}">
@@ -42,7 +42,7 @@
               <span class="status-dot" aria-hidden="true"></span>
               {% if hackathon.submissions_open %}正在集结{% else %}创造进行时{% endif %}
               <span class="kicker-divider" aria-hidden="true">/</span>
-              {{ hackathon.event.date_from|date:'Y' }} · {% if hackathon.program == 'maker_camp' %}MAKER CAMP{% else %}HACKATHON{% endif %}
+              {{ hackathon.event.date_from|date:'Y' }} · HACKATHON
             </div>
             <h1 id="hero-title">{{ hackathon.name }}</h1>
             <p class="hero-tagline">{{ hackathon.tagline }}</p>

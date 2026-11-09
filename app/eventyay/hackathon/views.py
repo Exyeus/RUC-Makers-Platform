@@ -12,7 +12,7 @@ from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Count, F, Q
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -23,7 +23,7 @@ from eventyay.hackathon import forms, services
 from eventyay.hackathon.archive import zip_preview
 from eventyay.hackathon.calendar import absence_summary, schedule_heatmap
 from eventyay.hackathon.community import square_context
-from eventyay.hackathon.constants import KEYWORDS
+from eventyay.hackathon.constants import KEYWORD_CATEGORIES, KEYWORDS
 from eventyay.hackathon.downloads import asset_response, stream_file
 from eventyay.hackathon.matching import excluded_ids
 from eventyay.hackathon.models import (
@@ -50,6 +50,8 @@ from eventyay.hackathon.models import (
 )
 from eventyay.hackathon.permissions import event_view, is_organizer
 from eventyay.hackathon.scoring import rule_description
+from eventyay.hackathon.team_showcase import COMMUNITY_EXAMPLES, POOL_EXAMPLES, SEEKER_EXAMPLES
+from eventyay.hackathon.workbench import next_task
 
 
 def url(hackathon, name, **kwargs):
@@ -59,17 +61,29 @@ def url(hackathon, name, **kwargs):
 def page(request, template, **context):
     hackathon = request.hackathon
     participant = request.participant
-    navigation = [
-        ('home', '总览', 'grid'),
-        ('schedule', '活动日程', 'calendar'),
-        ('resources', '学习与指南', 'book'),
-        ('teams', '组队广场', 'users'),
-        ('bonus', '加分规则', 'badge'),
-        ('project', '我的作品', 'folder'),
-        ('gallery', '作品展厅', 'spark'),
-        ('stage', '路演现场', 'play'),
-        ('support', '帮助与支持', 'help'),
-        ('judge-login', '评委入口', 'chart'),
+    navigation_groups = [
+        ('参赛工作台', [
+            ('home', '参赛总览', 'grid'),
+            ('teams', '我的队伍与组队', 'users'),
+            ('project', '我的作品', 'folder'),
+        ]),
+        ('活动安排', [
+            ('schedule', '活动日程', 'calendar'),
+            ('announcements', '通知公告', 'bell'),
+            ('stage', '路演现场', 'play'),
+        ]),
+        ('学习与展示', [
+            ('resources', '学习与指南', 'book'),
+            ('gallery', '作品展厅', 'spark'),
+        ]),
+        ('帮助与入口', [
+            ('support', '帮助与支持', 'help'),
+            ('judge-login', '评委入口', 'chart'),
+        ]),
+    ]
+    navigation_groups = [
+        (label, [(name, title, icon, url(hackathon, name)) for name, title, icon in items])
+        for label, items in navigation_groups
     ]
     staff_navigation = []
     if request.hackathon_organizer:
@@ -96,7 +110,8 @@ def page(request, template, **context):
         'is_staff_member': request.hackathon_organizer or bool(request.hackathon_roles),
         'is_judge': 'judge' in request.hackathon_roles,
         'now': timezone.now(),
-        'navigation': [(name, label, icon, url(hackathon, name)) for name, label, icon in navigation],
+        'navigation': [item for label, items in navigation_groups for item in items],
+        'navigation_groups': navigation_groups,
         'staff_navigation': [(name, label, icon, url(hackathon, name)) for name, label, icon in staff_navigation],
         'active': request.resolver_match.url_name,
         'latest_notice': Announcement.objects.filter(hackathon=hackathon, audience='all').first(),
@@ -108,18 +123,43 @@ def page(request, template, **context):
         'idea-create',
         'idea-edit',
         'proposal-create',
+        'matching-receipt',
         'post-new',
         'post-edit',
         'post-detail',
         'team-edit',
     }:
         common['active'] = 'teams'
+    navigation_aliases = {
+        'register': 'home',
+        'resource': 'resources',
+        'project-detail': 'gallery',
+        'support-reply': 'support',
+        'review': 'submissions',
+        'intake': 'submissions',
+        'content-new': 'content',
+        'content-edit': 'content',
+        'judge-new': 'staff',
+        'task-new': 'tasks',
+        'task-edit': 'tasks',
+        'score': 'judge-live' if common.get('follow_live') else 'judging',
+    }
+    common['navigation_active'] = navigation_aliases.get(common['active'], common['active'])
     return render(request, f'hackathon/{template}.html', common)
 
 
 def report_validation(request, error):
     for message in error.messages:
         messages.error(request, message)
+
+
+def legacy_workspace(request, suffix=''):
+    target = reverse('hackathon:home', kwargs={'hackathon_slug': 'tongzhou26'}) + suffix
+    if query := request.META.get('QUERY_STRING'):
+        target += '?' + query
+    response = HttpResponsePermanentRedirect(target, preserve_request=request.method not in {'GET', 'HEAD'})
+    response['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @require_GET
@@ -147,13 +187,20 @@ def landing_context(request):
     h = request.hackathon
     participant = request.participant
     team = participant.team if participant else None
-    project = Project.objects.filter(team=team).first() if team else None
+    project = Project.objects.filter(hackathon=h, team=team).first() if team else None
     required = Resource.objects.filter(hackathon=h, required=True)
     read_count = (
         ResourceRead.objects.filter(resource__in=required, user=request.user).count()
         if request.user.is_authenticated
         else 0
     )
+    required_count = required.count()
+    unread = None
+    if request.user.is_authenticated:
+        unread = required.exclude(
+            pk__in=ResourceRead.objects.filter(hackathon=h, user=request.user).values('resource_id')
+        ).first()
+    current_task = next_task(h, participant, project, unread, timezone.now())
     checklist = [
         {
             'title': '完善参赛信息',
@@ -163,14 +210,14 @@ def landing_context(request):
         },
         {
             'title': '找到你的队友',
-            'detail': f'每队最多 {h.team_size} 人，也可以独立参赛',
+            'detail': f'每队最多 {h.team_size} 人，参赛人数以活动规则为准',
             'done': bool(team),
             'url': url(h, 'teams'),
         },
         {
             'title': '读完参赛必读',
-            'detail': f'已完成 {read_count} / {required.count()} 篇',
-            'done': required.exists() and read_count == required.count(),
+            'detail': f'已完成 {read_count} / {required_count} 篇',
+            'done': read_count == required_count,
             'url': url(h, 'resources'),
         },
         {
@@ -184,6 +231,11 @@ def landing_context(request):
         'team': team,
         'project': project,
         'journey_url': url(h, 'project' if participant else 'register'),
+        'current_task': current_task,
+        'completed_steps': [item for item in checklist if item['done']],
+        'pending_steps': [item for item in checklist if not item['done']],
+        'required_count': required_count,
+        'read_count': read_count,
         'checklist': checklist,
         'progress': sum(item['done'] for item in checklist) * 25,
         'tracks': Track.objects.filter(hackathon=h),
@@ -267,6 +319,9 @@ def teams(request):
             | Q(bio__icontains=query)
             | Q(keywords__icontains=query)
         )
+    keyword_categories = KEYWORD_CATEGORIES
+    if keyword and keyword not in KEYWORDS:
+        keyword_categories += (('自定义关键词', (keyword,)),)
     applications = []
     if own and own.captain_id == request.participant.pk:
         applications = JoinRequest.objects.filter(team=own, state='pending').select_related('participant')
@@ -281,8 +336,12 @@ def teams(request):
         selected_track=track,
         tracks=Track.objects.filter(hackathon=h),
         seekers=seekers.order_by('-updated')[:60],
-        keywords=KEYWORDS,
+        keyword_categories=keyword_categories,
         selected_keyword=keyword,
+        seeker_examples=SEEKER_EXAMPLES,
+        community_examples=COMMUNITY_EXAMPLES,
+        pool_examples=POOL_EXAMPLES,
+        seeker_profile_url=url(h, 'register'),
         **square_context(h, request.participant, request.GET),
     )
 
