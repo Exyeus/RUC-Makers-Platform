@@ -1,6 +1,6 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
-  <section class="page-heading"><div><div class="eyebrow">MAKER CAMP</div><h1>{{ title }}</h1><p>{{ subtitle }}</p></div></section>
+  <section class="page-heading"><div><div class="eyebrow">HACKATHON</div><h1>{{ title }}</h1><p>{{ subtitle }}</p></div></section>
   <form method="post" class="panel form-panel">
     {% csrf_token %}
     <input type="hidden" name="idempotency_key" value="{{ request_key }}">

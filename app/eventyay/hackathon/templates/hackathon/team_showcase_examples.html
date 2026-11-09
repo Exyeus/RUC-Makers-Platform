@@ -1,0 +1,38 @@
+<details class="showcase-guide" open>
+  <summary>
+    <span>{{ guide_title }}</span>
+    <span class="showcase-guide-count">{{ examples|length }} 种写法</span>
+    <svg class="showcase-chevron" aria-hidden="true"><use href="#i-arrow" /></svg>
+  </summary>
+  <p class="showcase-guide-note">示例仅供参考，发布时请填写自己的真实情况。</p>
+  <div class="showcase-example-grid">
+    {% for example in examples %}
+      <article class="showcase-example">
+        <div class="showcase-example-meta">
+          <span class="showcase-example-icon"><svg aria-hidden="true"><use href="#i-{{ example_icon }}" /></svg></span>
+          <span class="showcase-example-category">{{ example.label }}</span>
+          <span class="showcase-example-label">写法示例</span>
+        </div>
+        <h3>{{ example.title }}</h3>
+        {% if example.tags %}
+          <div class="keyword-tags">
+            {% for tag in example.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+          </div>
+        {% endif %}
+        <p>{{ example.body }}</p>
+        <p class="showcase-example-invitation">{{ example.invitation }}</p>
+        <div class="showcase-example-footer">
+          <details class="showcase-writing-tip">
+            <summary>怎么写 <svg class="showcase-chevron" aria-hidden="true"><use href="#i-arrow" /></svg></summary>
+            <p>{{ example.tip }}</p>
+          </details>
+          {% if example.kind %}
+            <a class="showcase-example-action" href="{% url 'hackathon:post-new' hackathon.slug %}?kind={{ example.kind }}">{{ example.action }} <span aria-hidden="true">↗</span></a>
+          {% else %}
+            <a class="showcase-example-action" href="{{ seeker_profile_url }}">{{ example.action }} <span aria-hidden="true">↗</span></a>
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</details>

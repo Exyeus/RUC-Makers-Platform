@@ -19,6 +19,7 @@ from eventyay.hackathon.models import (
     Idea,
     MatchingProfile,
     Participant,
+    Resource,
     ScheduleItem,
 )
 from tests.hackathon.test_workflows import endpoint
@@ -53,9 +54,10 @@ def test_camp_navigation_and_calendar(client, hackathon, participant, user):
     assert response.status_code == 200
     navigation = [item[0] for item in response.context['navigation']]
     assert 'register' not in navigation
-    assert 'announcements' not in navigation
+    assert 'announcements' in navigation
     assert 'matching' not in navigation
-    assert {'teams', 'bonus'} <= set(navigation)
+    assert 'teams' in navigation
+    assert 'bonus' not in navigation
     body = response.content.decode()
     assert 'aria-label="个人资料"' in body
     assert 'aria-label="通知公告"' in body
@@ -170,7 +172,7 @@ def test_absence_grid_validates_event_hours_and_persists(client, hackathon, part
 def test_absence_hours_visible_to_organizer_and_export_only(client, hackathon, participant, organizer_user):
     # Day 0 has no hours when the event starts late in the day (e.g. 23:xx local),
     # so take the first hour from the first day that actually has one.
-    hour = next(choices[0][0] for _, choices in attendance_hours(hackathon) if choices)
+    hour = next(value for _, hours in attendance_hours(hackathon) for value, _ in hours)
     participant.unavailable_slots = [int(hour)]
     participant.availability = ''
     participant.save()
@@ -388,12 +390,18 @@ def test_cross_event_post_and_bonus_are_inaccessible(client, hackathon, particip
     assert not BonusClaim.objects.exists()
 
 
-def test_setup_defaults_to_two_day_camp(hackathon):
+def test_setup_uses_hackathon_branding_with_existing_two_day_schedule(hackathon):
     output = StringIO()
     call_command(
         'setup_hackathon', organizer=hackathon.event.organizer.slug, slug='camp-new', event='camp-new', stdout=output
     )
     created = Hackathon.objects.get(slug='camp-new')
     assert created.program == 'maker_camp'
-    assert '黑客松' not in created.name
+    assert created.name == '人大通州黑客松'
+    assert '创客营' not in created.description
+    assert '黑客松' in created.description
+    with scope(event=created.event):
+        titles = list(Resource.objects.filter(hackathon=created).values_list('title', flat=True))
+    assert '第一次参加黑客松？从这里开始' in titles
+    assert not any('创客营' in title for title in titles)
     assert (created.event.date_to.date() - created.event.date_from.date()).days == 1

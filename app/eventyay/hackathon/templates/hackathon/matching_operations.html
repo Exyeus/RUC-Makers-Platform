@@ -1,6 +1,6 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
-  <section class="page-heading"><div><div class="eyebrow">MAKER CAMP · OPERATIONS</div><h1>让每一份参与意愿，有人回应。</h1><p>当前政策版本 {{ hackathon.matching_policy_version }}。集中撮合只生成建议，正式入队仍需本人逐一确认。</p></div></section>
+  <section class="page-heading"><div><div class="eyebrow">HACKATHON · OPERATIONS</div><h1>让每一份参与意愿，有人回应。</h1><p>当前政策版本 {{ hackathon.matching_policy_version }}。集中撮合只生成建议，正式入队仍需本人逐一确认。</p></div></section>
   <form method="post" class="panel form-panel">
     {% csrf_token %}<input type="hidden" name="operation" value="configure"><input type="hidden" name="idempotency_key" value="{{ request_key }}:configure">
     <h2>本轮政策</h2>

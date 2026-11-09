@@ -128,6 +128,24 @@
                   </form>
                 </details>
               {% endif %}
+              {% if slot.state == "live" or slot.state == "done" %}
+                <details>
+                  <summary class="text-link">
+                    重新排队 / 撤销本场
+                  </summary>
+                  <form method="post" class="inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="slot" value="{{ slot.pk }}">
+                    <label class="sr-only" for="reset-note-{{ slot.pk }}">
+                      重新排队原因
+                    </label>
+                    <input id="reset-note-{{ slot.pk }}" name="note" required maxlength="250" placeholder="填写重新排队原因，例如设备故障或时间调整">
+                    <button class="button secondary small" name="action" value="reset" data-confirm="确认将本队退回待候场并清空本场计时？">
+                      重新排队 ↺
+                    </button>
+                  </form>
+                </details>
+              {% endif %}
             </td>
           </tr>
         {% empty %}
