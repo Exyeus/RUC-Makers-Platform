@@ -410,6 +410,7 @@ class DemoSlot(EventRecord):
     position = models.PositiveIntegerField()
     state = models.CharField(max_length=12, choices=State.choices, default=State.WAITING)
     started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
     paused_remaining = models.PositiveIntegerField(null=True, blank=True)
     note = models.CharField('时段调整 / 特殊安排', max_length=250, blank=True)
 

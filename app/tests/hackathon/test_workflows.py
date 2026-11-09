@@ -16,7 +16,7 @@ from PIL import Image
 
 from eventyay.base.models import Event, User
 from eventyay.base.models import Team as OrganizerTeam
-from eventyay.hackathon import forms, services
+from eventyay.hackathon import forms, services, views
 from eventyay.hackathon.companion import Station, safe_extract, validate_manifest
 from eventyay.hackathon.models import (
     Announcement,
@@ -608,3 +608,154 @@ def test_two_ready_slots_cannot_both_be_live(hackathon, team, organizer_user):
     with pytest.raises(ValidationError, match='先结束当前'):
         services.stage_action(hackathon, organizer_user, second.slot, 'start')
     assert DemoSlot.objects.filter(state='live').count() == 1
+
+
+@pytest.mark.django_db
+def test_reset_returns_active_slot_and_frees_live(hackathon, team, organizer_user):
+    first = approved_project(hackathon, team)
+    other_team = Team.objects.create(hackathon=hackathon, captain=team.captain, name='Second team', track=team.track)
+    second = approved_project(hackathon, other_team)
+    services.generate_queue(hackathon, organizer_user)
+    services.stage_action(hackathon, organizer_user, first.slot, 'ready')
+    services.stage_action(hackathon, organizer_user, first.slot, 'start')
+    assert DemoSlot.objects.filter(state='live').count() == 1
+    services.stage_action(hackathon, organizer_user, first.slot, 'reset', '现场设备故障，需重新演示')
+    first.slot.refresh_from_db()
+    assert first.slot.state == 'waiting'
+    assert first.slot.started_at is None and first.slot.paused_remaining is None and first.slot.ended_at is None
+    assert first.slot.note == '现场设备故障，需重新演示'
+    assert DemoSlot.objects.filter(state='live').count() == 0
+    # Freeing the live slot lets the next team start.
+    services.stage_action(hackathon, organizer_user, second.slot, 'ready')
+    services.stage_action(hackathon, organizer_user, second.slot, 'start')
+    assert DemoSlot.objects.get(state='live').pk == second.slot.pk
+
+
+@pytest.mark.django_db
+def test_reset_completed_slot_reopens_at_same_position(hackathon, team, organizer_user):
+    project = approved_project(hackathon, team)
+    services.generate_queue(hackathon, organizer_user)
+    services.stage_action(hackathon, organizer_user, project.slot, 'ready')
+    services.stage_action(hackathon, organizer_user, project.slot, 'start')
+    services.stage_action(hackathon, organizer_user, project.slot, 'finish')
+    project.slot.refresh_from_db()
+    assert project.slot.state == 'done' and project.slot.ended_at is not None
+    assert project.slot.ended_at >= project.slot.started_at
+    position = project.slot.position
+    services.stage_action(hackathon, organizer_user, project.slot, 'reset', '评委要求重新演示')
+    project.slot.refresh_from_db()
+    assert project.slot.state == 'waiting'
+    assert project.slot.position == position
+    assert project.slot.ended_at is None
+
+
+@pytest.mark.django_db
+def test_reset_requires_reason_and_live_or_done_state(hackathon, team, organizer_user):
+    project = approved_project(hackathon, team)
+    services.generate_queue(hackathon, organizer_user)
+    with pytest.raises(ValidationError, match='展示中或已完成'):
+        services.stage_action(hackathon, organizer_user, project.slot, 'reset', '待候场不能撤销')
+    services.stage_action(hackathon, organizer_user, project.slot, 'ready')
+    with pytest.raises(ValidationError, match='展示中或已完成'):
+        services.stage_action(hackathon, organizer_user, project.slot, 'reset')
+    services.stage_action(hackathon, organizer_user, project.slot, 'start')
+    with pytest.raises(ValidationError, match='原因'):
+        services.stage_action(hackathon, organizer_user, project.slot, 'reset')
+    with pytest.raises(ValidationError, match='原因'):
+        services.stage_action(hackathon, organizer_user, project.slot, 'reset', '   ')
+    # A real reason succeeds and truncates over-long notes to the field limit.
+    services.stage_action(hackathon, organizer_user, project.slot, 'reset', '时间调整' * 200)
+    project.slot.refresh_from_db()
+    assert project.slot.state == 'waiting' and len(project.slot.note) == 250
+
+
+@pytest.mark.django_db
+def test_stage_action_locked_after_results_published(hackathon, team, organizer_user):
+    project = approved_project(hackathon, team)
+    services.generate_queue(hackathon, organizer_user)
+    hackathon.results_published = True
+    hackathon.save()
+    with pytest.raises(ValidationError, match='成绩已公布'):
+        services.stage_action(hackathon, organizer_user, project.slot, 'ready')
+    with pytest.raises(ValidationError, match='成绩已公布'):
+        services.stage_action(hackathon, organizer_user, project.slot, 'defer', '理由')
+    with pytest.raises(ValidationError, match='成绩已公布'):
+        services.generate_queue(hackathon, organizer_user)
+
+
+@pytest.mark.django_db
+def test_live_slot_can_be_closed_after_results_published(hackathon, team, organizer_user):
+    # Publishing while a team is on air must not strand the running clock.
+    project = approved_project(hackathon, team)
+    services.generate_queue(hackathon, organizer_user)
+    services.stage_action(hackathon, organizer_user, project.slot, 'ready')
+    services.stage_action(hackathon, organizer_user, project.slot, 'start')
+    hackathon.results_published = True
+    hackathon.save()
+    services.stage_action(hackathon, organizer_user, project.slot, 'finish')
+    project.slot.refresh_from_db()
+    assert project.slot.state == 'done'
+    # But the finished slot can no longer be reset or requeued.
+    with pytest.raises(ValidationError, match='成绩已公布'):
+        services.stage_action(hackathon, organizer_user, project.slot, 'reset', '重新演示')
+
+
+@pytest.mark.django_db
+def test_up_down_reorders_queue(hackathon, team, organizer_user):
+    base = timezone.now()
+    projects = [approved_project(hackathon, team)]
+    for index in range(1, 4):
+        extra_team = Team.objects.create(
+            hackathon=hackathon, captain=team.captain, name=f'Team {index}', track=team.track
+        )
+        projects.append(approved_project(hackathon, extra_team))
+    for index, project in enumerate(projects):
+        project.submitted_at = base + timedelta(seconds=index)
+        project.save()
+    services.generate_queue(hackathon, organizer_user)
+    def order():
+        return [slot.project_id for slot in DemoSlot.objects.order_by('position')]
+
+    assert order() == [project.pk for project in projects]
+    # Complete the team at position 3 so reordering must skip the finished slot.
+    for action in ('ready', 'start', 'finish'):
+        services.stage_action(hackathon, organizer_user, projects[2].slot, action)
+    # Moving position 4 up swaps with position 2, never with the finished slot at 3.
+    services.stage_action(hackathon, organizer_user, projects[3].slot, 'up')
+    assert order() == [projects[0].pk, projects[3].pk, projects[2].pk, projects[1].pk]
+    with pytest.raises(ValidationError, match='展示中或已完成'):
+        services.stage_action(hackathon, organizer_user, projects[2].slot, 'up')
+
+
+@pytest.mark.django_db
+def test_stage_and_station_hide_unapproved_but_keep_live_materials(client, hackathon, team, organizer_user):
+    on_air = approved_project(hackathon, team)
+    waiting_team = Team.objects.create(hackathon=hackathon, captain=team.captain, name='Waiting', track=team.track)
+    waiting = approved_project(hackathon, waiting_team)
+    services.generate_queue(hackathon, organizer_user)
+    services.stage_action(hackathon, organizer_user, on_air.slot, 'ready')
+    services.stage_action(hackathon, organizer_user, on_air.slot, 'start')
+    asset = Asset.objects.create(
+        hackathon=hackathon, project=on_air, kind='slides', file=png(), filename='deck.pdf', size=5, checksum='a' * 64
+    )
+    # A waiting team that dropped out of approval must vanish from the queue preview.
+    waiting.state = 'changes'
+    waiting.save()
+    data = views.stage_data(hackathon)
+    assert waiting.slot.pk not in {item['id'] for item in data['upcoming']}
+    assert data['current']['id'] == on_air.slot.pk
+    # The team currently on air keeps its slides even if it too loses approval.
+    on_air.state = 'changes'
+    on_air.save()
+    token = 'stage-asset-token'
+    StationToken.objects.create(
+        hackathon=hackathon,
+        digest=hashlib.sha256(token.encode()).hexdigest(),
+        created_by=organizer_user,
+        expires_at=timezone.now() + timedelta(hours=1),
+    )
+    response = client.get(endpoint(hackathon, 'station-state'), HTTP_AUTHORIZATION=f'Bearer {token}')
+    payload = response.json()
+    served = {item['id'] for item in payload['assets']}
+    assert str(asset.pk) in served
+    assert payload['current']['id'] == on_air.slot.pk

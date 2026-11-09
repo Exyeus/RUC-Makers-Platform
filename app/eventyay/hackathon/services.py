@@ -355,6 +355,8 @@ def save_score(hackathon, user, project, form):
 @transaction.atomic
 def generate_queue(hackathon, user):
     hackathon = lock_event(hackathon)
+    if hackathon.results_published:
+        raise ValidationError('成绩已公布，路演队列已锁定。')
     position = DemoSlot.objects.filter(hackathon=hackathon).aggregate(value=Max('position'))['value'] or 0
     for project in Project.objects.filter(hackathon=hackathon, state='approved', slot__isnull=True).order_by(
         'submitted_at'
@@ -380,6 +382,11 @@ def clock_state(hackathon, slot):
 def stage_action(hackathon, user, slot, action, note=''):
     hackathon = lock_event(hackathon)
     slot = DemoSlot.objects.select_related('project').get(pk=slot.pk, hackathon=hackathon)
+    # Once results are published the queue is locked, but an organizer must still be
+    # able to bring a slot that is already on air to a close (pause/resume/finish).
+    winding_down = action in {'pause', 'resume', 'finish'} and slot.state == DemoSlot.State.LIVE
+    if hackathon.results_published and not winding_down:
+        raise ValidationError('成绩已公布，路演队列已锁定。')
     if action == 'ready':
         if slot.state not in {DemoSlot.State.WAITING, DemoSlot.State.DEFERRED}:
             raise ValidationError('仅待候场或顺延的队伍可以标为就绪。')
@@ -409,6 +416,7 @@ def stage_action(hackathon, user, slot, action, note=''):
             slot.paused_remaining = None
         else:
             slot.state = DemoSlot.State.DONE
+            slot.ended_at = timezone.now()
             slot.paused_remaining = None
     elif action in {'defer', 'up', 'down'}:
         if slot.state in {DemoSlot.State.LIVE, DemoSlot.State.DONE}:
@@ -428,6 +436,16 @@ def stage_action(hackathon, user, slot, action, note=''):
             if other:
                 other.position, slot.position = slot.position, other.position
                 other.save(update_fields=['position', 'updated'])
+    elif action == 'reset':
+        if slot.state not in {DemoSlot.State.LIVE, DemoSlot.State.DONE}:
+            raise ValidationError('仅展示中或已完成的队伍可以重新排队。')
+        if not note.strip():
+            raise ValidationError('请填写重新排队的原因，例如设备故障或时间调整。')
+        slot.state = DemoSlot.State.WAITING
+        slot.started_at = None
+        slot.ended_at = None
+        slot.paused_remaining = None
+        slot.note = note[:250]
     else:
         raise ValidationError('未知路演操作。')
     slot.save()
