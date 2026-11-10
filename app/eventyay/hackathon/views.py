@@ -37,6 +37,7 @@ from eventyay.hackathon.models import (
     JoinRequest,
     Participant,
     Project,
+    Publishable,
     Resource,
     ResourceRead,
     ScheduleItem,
@@ -56,7 +57,7 @@ from eventyay.hackathon.workbench import next_task
 
 
 def url(hackathon, name, **kwargs):
-    return reverse(f'hackathon:{name}', kwargs={'hackathon_slug': hackathon.slug, **kwargs})
+    return services.event_url(hackathon, name, **kwargs)
 
 
 def page(request, template, **context):
@@ -98,6 +99,7 @@ def page(request, template, **context):
             ('scoring-rules', '算分规则', 'settings'),
             ('staff', '工作人员', 'badge'),
             ('content', '内容管理', 'book'),
+            ('publish', '发布准备', 'spark'),
             ('settings', '活动设置', 'settings'),
         ]
     if 'judge' in request.hackathon_roles:
@@ -115,7 +117,7 @@ def page(request, template, **context):
         'navigation_groups': navigation_groups,
         'staff_navigation': [(name, label, icon, url(hackathon, name)) for name, label, icon in staff_navigation],
         'active': request.resolver_match.url_name,
-        'latest_notice': Announcement.objects.filter(hackathon=hackathon, audience='all').first(),
+        'latest_notice': Announcement.published(hackathon).filter(audience='all').first(),
     }
     common.update(context)
     if common['active'] in {
@@ -140,6 +142,7 @@ def page(request, template, **context):
         'intake': 'submissions',
         'content-new': 'content',
         'content-edit': 'content',
+        'content-preview': 'content',
         'judge-new': 'staff',
         'task-new': 'tasks',
         'task-edit': 'tasks',
@@ -190,7 +193,7 @@ def landing_context(request):
     team = participant.team if participant else None
     project = Project.objects.filter(hackathon=h, team=team).first() if team else None
     status = services.project_status(project)
-    required = Resource.objects.filter(hackathon=h, required=True)
+    required = Resource.published(h).filter(required=True)
     read_count = (
         ResourceRead.objects.filter(resource__in=required, user=request.user).count()
         if request.user.is_authenticated
@@ -241,15 +244,15 @@ def landing_context(request):
         'read_count': read_count,
         'checklist': checklist,
         'progress': sum(item['done'] for item in checklist) * 25,
-        'tracks': Track.objects.filter(hackathon=h),
+        'tracks': Track.published(h),
         'participant_count': Participant.objects.filter(hackathon=h).count(),
         'team_count': Team.objects.filter(hackathon=h).count(),
         'project_count': Project.objects.filter(
             hackathon=h, state__in=[Project.State.SUBMITTED, Project.State.APPROVED]
         ).count(),
-        'notices': Announcement.objects.filter(hackathon=h, audience='all')[:3],
-        'upcoming': ScheduleItem.objects.filter(hackathon=h, ends_at__gte=timezone.now())[:3],
-        'featured_resources': Resource.objects.filter(hackathon=h)[:3],
+        'notices': Announcement.published(h).filter(audience='all')[:3],
+        'upcoming': ScheduleItem.published(h).filter(ends_at__gte=timezone.now())[:3],
+        'featured_resources': Resource.published(h)[:3],
         'calendar_days': schedule_heatmap(h),
     }
 
@@ -339,7 +342,7 @@ def teams(request):
         own_members=own.members.all() if own else [],
         query=query,
         selected_track=track,
-        tracks=Track.objects.filter(hackathon=h),
+        tracks=Track.published(h),
         seekers=seekers.order_by('-updated')[:60],
         keyword_categories=keyword_categories,
         selected_keyword=keyword,
@@ -658,7 +661,7 @@ def asset_preview(request, asset_id):
 @event_view()
 @require_GET
 def resources(request):
-    items = Resource.objects.filter(hackathon=request.hackathon)
+    items = Resource.published(request.hackathon)
     query = request.GET.get('q', '').strip()
     category = request.GET.get('category', '')
     if query:
@@ -687,7 +690,7 @@ def resources(request):
 
 @event_view()
 def resource_detail(request, resource_id):
-    item = get_object_or_404(Resource, hackathon=request.hackathon, pk=resource_id)
+    item = get_object_or_404(Resource.published(request.hackathon), pk=resource_id)
     read = request.user.is_authenticated and ResourceRead.objects.filter(resource=item, user=request.user).exists()
     if request.method == 'POST':
         if not request.user.is_authenticated:
@@ -704,7 +707,7 @@ def schedule(request):
     return page(
         request,
         'schedule',
-        items=ScheduleItem.objects.filter(hackathon=request.hackathon),
+        items=ScheduleItem.published(request.hackathon),
         calendar_days=schedule_heatmap(request.hackathon),
     )
 
@@ -712,7 +715,7 @@ def schedule(request):
 @event_view()
 @require_GET
 def announcements(request):
-    items = Announcement.objects.filter(hackathon=request.hackathon)
+    items = Announcement.published(request.hackathon)
     if not request.hackathon_organizer and not request.hackathon_roles:
         items = items.filter(audience='all')
     return page(request, 'announcements', notices=items)
@@ -910,14 +913,10 @@ def settings(request):
             current = services.lock_event(h)
             if current.matching_enabled and ({'team_size', 'team_freeze_at'} & set(form.changed_data)):
                 form.add_error(None, '组队广场开放后，人数政策请在组队撮合工作台修改；本轮冻结时间不能在此覆盖。')
-            if form.cleaned_data['results_published'] and not current.results_published:
-                rows = services.results(h)
-                if not rows or any(not row['complete'] for row in rows):
-                    form.add_error('results_published', '还有作品未完成全部有效评委评分，暂不能公布成绩。')
             if not form.errors:
                 form.save()
                 services.audit(h, request.user, '更新活动设置', detail=', '.join(form.changed_data))
-                messages.success(request, '活动设置已保存。')
+                messages.success(request, '活动设置已保存。发布开关请在「发布准备」里逐项操作。')
                 if {'starts_at', 'ends_at'} & set(form.changed_data):
                     conflicts = form.date_conflicts()
                     if conflicts:
@@ -933,27 +932,79 @@ def settings(request):
         'form',
         form=form,
         title='活动设置',
-        subtitle=f'所有时间以活动时区 {h.event.timezone} 为准。修改截止时间会记录在操作日志中。',
+        subtitle=(
+            f'所有时间以活动时区 {h.event.timezone} 为准。修改截止时间会记录在操作日志中；'
+            '开放活动、展厅、评分与公布成绩不在这一页。'
+        ),
         button='保存设置',
+        drift=services.date_drift(h),
     )
 
 
 CONTENT = {
-    'bonus': (BonusRule, forms.BonusRuleForm, '加分规则'),
-    'announcement': (Announcement, forms.AnnouncementForm, '通知'),
-    'resource': (Resource, forms.ResourceForm, '教程与指南'),
-    'schedule': (ScheduleItem, forms.ScheduleForm, '日程'),
-    'track': (Track, forms.TrackForm, '赛道'),
+    'bonus': (BonusRule, forms.BonusRuleForm, '加分规则', False),
+    'announcement': (Announcement, forms.AnnouncementForm, '通知', True),
+    'resource': (Resource, forms.ResourceForm, '教程与指南', True),
+    'schedule': (ScheduleItem, forms.ScheduleForm, '日程', True),
+    'track': (Track, forms.TrackForm, '赛道', True),
+}
+
+# 每种保存方式都是页面上的一个独立按钮：新内容默认停在草稿，不点发布就不会接触选手端。
+# 对已发布条目点「保存草稿」会当场下架，模板对这一步先要求确认。
+# (提交的 action, 落库的 state, 按钮文案, 按钮样式, 说明)
+CONTENT_ACTIONS = (
+    ('draft', 'draft', '保存草稿', 'secondary', '草稿只给主办自己看，选手端列表与直达链接都不会出现。'),
+    (
+        'publish',
+        'published',
+        '发布 / 更新公开版',
+        'primary',
+        '保存后选手立即可见；如果已有公开版，这一步会用当前内容覆盖它。',
+    ),
+    (
+        'archive',
+        'archived',
+        '归档',
+        'secondary',
+        '归档不再对选手公开，但记录与引用都会保留，队伍仍显示它原来选的赛道。',
+    ),
+)
+
+PLAIN_ACTION = (('save', '', '保存', 'primary', ''),)
+
+CONTENT_WORDS = {'draft': '存草稿', 'publish': '发布', 'archive': '归档', 'save': '更新'}
+
+CONTENT_DONE = {
+    'draft': '{label}草稿已保存，选手端还看不到。',
+    'publish': '{label}已发布，选手现在可以看到。',
+    'archive': '{label}已归档，记录保留但不再对选手公开。',
+    'save': '{label}已保存。',
+}
+
+# kind -> (公开页 url name, 该页把条目放进哪个上下文变量)
+CONTENT_PREVIEW = {
+    'announcement': ('announcements', 'notices'),
+    'resource': ('resource', 'resource'),
+    'schedule': ('schedule', 'items'),
 }
 
 
 @event_view('organizer')
 @require_GET
 def content(request):
-    groups = [
-        {'kind': kind, 'label': label, 'items': model.objects.filter(hackathon=request.hackathon)}
-        for kind, (model, form, label) in CONTENT.items()
-    ]
+    groups = []
+    for kind, (model, _form, label, live) in CONTENT.items():
+        items = model.objects.filter(hackathon=request.hackathon)
+        groups.append(
+            {
+                'kind': kind,
+                'label': label,
+                'items': items,
+                'live': live,
+                'drafts': items.filter(state=Publishable.State.DRAFT).count() if live else 0,
+                'previewable': kind in CONTENT_PREVIEW,
+            }
+        )
     return page(request, 'content', groups=groups)
 
 
@@ -961,17 +1012,96 @@ def content(request):
 def content_edit(request, kind, item_id=None):
     if kind not in CONTENT:
         raise Http404
-    model, form_class, label = CONTENT[kind]
+    model, form_class, label, live = CONTENT[kind]
     instance = get_object_or_404(model, hackathon=request.hackathon, pk=item_id) if item_id else None
     form = form_class(request.POST or None, instance=instance)
-    if request.method == 'POST' and form.is_valid():
-        item = form.save(commit=False)
-        item.hackathon = request.hackathon
-        item.save()
-        services.audit(request.hackathon, request.user, f'更新{label}', item.pk)
-        messages.success(request, f'{label}已保存。')
-        return redirect(url(request.hackathon, 'content'))
-    return page(request, 'form', form=form, title=f'编辑{label}' if instance else f'新增{label}', button='保存内容')
+    actions = CONTENT_ACTIONS if live else PLAIN_ACTION
+    if request.method == 'POST':
+        token = request.POST.get('action')
+        chosen = next((row for row in actions if row[0] == token), None)
+        if chosen is None:
+            messages.error(request, '没有收到明确的保存方式，本次未保存任何内容。')
+        elif form.is_valid():
+            item = form.save(commit=False)
+            item.hackathon = request.hackathon
+            if live:
+                item.state = chosen[1]
+                if token == 'publish':
+                    item.published_at = timezone.now()
+            item.save()
+            services.audit(request.hackathon, request.user, f'{CONTENT_WORDS[token]}{label}', item.pk)
+            messages.success(request, CONTENT_DONE[token].format(label=label))
+            return redirect(url(request.hackathon, 'content'))
+    return page(
+        request,
+        'form',
+        form=form,
+        title=f'编辑{label}' if instance else f'新增{label}',
+        actions=actions,
+        item=instance,
+        back_url=url(request.hackathon, 'content'),
+        back_label='回到内容管理',
+        state_label=instance.get_state_display() if live and instance else '',
+        published_at=instance.published_at if live and instance else None,
+        preview_url=(
+            url(request.hackathon, 'content-preview', kind=kind, item_id=instance.pk)
+            if live and instance and kind in CONTENT_PREVIEW
+            else ''
+        ),
+    )
+
+
+@event_view('organizer')
+@require_GET
+def content_preview(request, kind, item_id):
+    """The real contestant page, with this one item shown as if published: read-only, nothing is written."""
+    if kind not in CONTENT_PREVIEW:
+        raise Http404
+    model, _form, label, _live = CONTENT[kind]
+    item = get_object_or_404(model, hackathon=request.hackathon, pk=item_id)
+    h = request.hackathon
+    template, key = CONTENT_PREVIEW[kind]
+    note = (
+        f'这条{label}当前是「{item.get_state_display()}」。页面就是选手将看到的真实样式，'
+        '主办方编辑入口已隐藏；预览不保存、不发布，也不记录阅读进度。'
+    )
+    if kind == 'announcement' and item.audience != 'all':
+        note += '这条通知只发给工作人员，选手端公告列表本来不会出现它，这里只预览排版。'
+    context = {
+        'preview': True,
+        'preview_title': f'{label}预览',
+        'preview_note': note,
+        'is_organizer': False,
+        'preview_back': url(h, 'content-edit', kind=kind, item_id=item.pk),
+    }
+    if kind == 'resource':
+        context.update({'resource': item, 'read': False})
+    else:
+        context[key] = model.published(h) | model.objects.filter(pk=item.pk)
+    if kind == 'schedule':
+        context['calendar_days'] = schedule_heatmap(h)
+    return page(request, template, **context)
+
+
+@event_view('organizer')
+def publish(request):
+    """Four explicit publish actions; ordinary settings edits never reach any of them."""
+    h = request.hackathon
+    if request.method == 'POST':
+        try:
+            label, value = services.set_publish_flag(h, request.user, request.POST.get('action'))
+        except ValidationError as error:
+            report_validation(request, error)
+        else:
+            messages.success(request, f'{"已开启" if value else "已关闭"}「{label}」，立即生效。')
+            return redirect(url(h, 'publish'))
+    return page(
+        request,
+        'publish',
+        switches=services.publish_plan(h),
+        checklist=services.publish_readiness(h),
+        drafts=services.draft_content(h),
+    )
 
 
 @event_view('organizer')

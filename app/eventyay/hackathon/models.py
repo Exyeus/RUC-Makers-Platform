@@ -145,7 +145,26 @@ class EventRecord(TimestampedModel):
         abstract = True
 
 
-class Track(EventRecord):
+class Publishable(EventRecord):
+    """Organizer content only reaches contestants once it is published, never by merely saving."""
+
+    class State(models.TextChoices):
+        DRAFT = 'draft', '草稿'
+        PUBLISHED = 'published', '已发布'
+        ARCHIVED = 'archived', '已归档'
+
+    state = models.CharField('发布状态', max_length=12, choices=State.choices, default=State.DRAFT)
+    published_at = models.DateTimeField('最后发布时间', blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def published(cls, hackathon):
+        return cls.objects.filter(hackathon=hackathon, state=cls.State.PUBLISHED)
+
+
+class Track(Publishable):
     name = models.CharField('赛道', max_length=80)
     description = models.TextField('赛道介绍', blank=True)
     icon = models.CharField(max_length=20, default='code')
@@ -341,7 +360,7 @@ class UploadSession(EventRecord):
         ]
 
 
-class Resource(EventRecord):
+class Resource(Publishable):
     class Category(models.TextChoices):
         GUIDE = 'guide', '参赛指南'
         LEARN = 'learn', '开发教程'
@@ -370,7 +389,7 @@ class ResourceRead(EventRecord):
         constraints = [models.UniqueConstraint(fields=['resource', 'user'], name='hack_resource_read')]
 
 
-class Announcement(EventRecord):
+class Announcement(Publishable):
     title = models.CharField('通知标题', max_length=160)
     body = models.TextField('通知内容')
     pinned = models.BooleanField('置顶', default=False)
@@ -382,7 +401,7 @@ class Announcement(EventRecord):
         ordering = ['-pinned', '-created']
 
 
-class ScheduleItem(EventRecord):
+class ScheduleItem(Publishable):
     title = models.CharField('环节', max_length=120)
     starts_at = models.DateTimeField('开始时间')
     ends_at = models.DateTimeField('结束时间')

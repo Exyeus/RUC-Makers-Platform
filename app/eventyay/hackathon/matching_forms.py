@@ -196,4 +196,4 @@ class ProposalForm(forms.Form):
     def __init__(self, *args, hackathon, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['idea'].queryset = Idea.objects.filter(hackathon=hackathon, state='open')
-        self.fields['track'].queryset = Track.objects.filter(hackathon=hackathon)
+        self.fields['track'].queryset = Track.published(hackathon)

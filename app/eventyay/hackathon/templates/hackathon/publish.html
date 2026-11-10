@@ -1,0 +1,151 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        READY WHEN YOU ARE
+      </div>
+      <h1>
+        发出去之前，先看清发给谁。
+      </h1>
+      <p>
+        「活动公开」「作品展厅」「评委打分」「成绩公布」是四个各自独立的动作：改场地、改文案不会顺带动到它们，
+        每次点击只生效一个开关。
+      </p>
+    </div>
+    <a class="button secondary" href="{% url 'hackathon:content' hackathon.slug %}">
+      内容管理 ↗
+    </a>
+  </section>
+  <div class="two-column">
+    <div>
+      <section class="panel">
+        <div class="section-heading">
+          <h2>
+            发布开关
+          </h2>
+        </div>
+        {% for row in switches %}
+          <div class="switch-row">
+            <div>
+              <strong>
+                {{ row.label }}
+              </strong>
+              <span class="state-tag{% if row.value %} state-published{% else %} state-draft{% endif %}">
+                {% if row.value %}
+                  已开启
+                {% else %}
+                  未开启
+                {% endif %}
+              </span>
+              <p>
+                {{ row.effect }}
+              </p>
+              <small class="muted">
+                生效对象：{{ row.audience }}
+              </small>
+              {% if not row.value and row.blockers %}
+                <ul class="blockers">
+                  {% for blocker in row.blockers %}
+                    <li>
+                      {{ blocker }}
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            </div>
+            <form method="post" class="switch-action">
+              {% csrf_token %}
+              {% if row.value %}
+                <button
+                  type="submit"
+                  name="action"
+                  value="{{ row.close_action }}"
+                  class="button secondary small"
+                  data-confirm="确认关闭「{{ row.label }}」？{{ row.effect }}"
+                >
+                  关闭
+                </button>
+              {% else %}
+                <button
+                  type="submit"
+                  name="action"
+                  value="{{ row.open_action }}"
+                  class="button small"
+                  {% if row.blockers %}disabled{% else %}data-confirm="确认开启「{{ row.label }}」？{{ row.effect }}"{% endif %}
+                >
+                  开启
+                </button>
+              {% endif %}
+            </form>
+          </div>
+        {% endfor %}
+        <p class="muted small-text">
+          关闭任何开关都不会被前置条件拦住；已保存的分数、作品与内容都会保留。
+        </p>
+      </section>
+    </div>
+    <aside>
+      <section class="panel">
+        <div class="section-heading">
+          <h2>
+            发布准备清单
+          </h2>
+          <a href="{% url 'hackathon:manage' hackathon.slug %}">
+            活动总控 ↗
+          </a>
+        </div>
+        {% for row in checklist %}
+          <div class="check-row{% if row.ready %} ready{% endif %}">
+            <div>
+              <strong>
+                <span class="check-mark">
+                  {% if row.ready %}✓{% else %}!{% endif %}
+                </span>
+                {{ row.label }}
+              </strong>
+              <p class="muted">
+                {{ row.detail }}
+              </p>
+              {% if row.items %}
+                <ul class="check-items">
+                  {% for item in row.items %}
+                    <li>
+                      {{ item.label }}{{ item.detail }}
+                      {% if item.url %}
+                        <a href="{{ item.url }}">
+                          {{ item.url_label }} ↗
+                        </a>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            </div>
+            <a href="{{ row.url }}">
+              去处理 ↗
+            </a>
+          </div>
+        {% endfor %}
+      </section>
+      <section class="panel">
+        <h2>
+          待发布草稿
+        </h2>
+        <div class="link-list">
+          {% for row in drafts %}
+            <a href="{% url 'hackathon:content' hackathon.slug %}">
+              {{ row.label }}
+              <span>
+                {{ row.count }} 条
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+        <p class="muted small-text">
+          草稿不会因开关开启而公开，需要在内容管理里逐条点「发布 / 更新公开版」。
+        </p>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

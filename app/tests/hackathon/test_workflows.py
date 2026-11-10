@@ -3,6 +3,7 @@ import io
 import zipfile
 from datetime import datetime, timedelta
 from unittest.mock import Mock
+from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -402,7 +403,9 @@ def test_tenant_isolation(client, hackathon, team, user):
         freeze_at=hackathon.freeze_at,
     )
     with scope(event=other_event):
-        resource = Resource.objects.create(hackathon=other, title='Secret other resource', category='guide')
+        resource = Resource.objects.create(
+            hackathon=other, title='Secret other resource', category='guide', state='published'
+        )
     assert client.get(endpoint(hackathon, 'resource', resource_id=resource.pk)).status_code == 404
     client.force_login(user)
     assert (
@@ -427,7 +430,9 @@ def test_event_organizer_permission_not_generic_staff(hackathon, user):
 
 @pytest.mark.django_db
 def test_staff_announcements_are_private(client, hackathon, user):
-    Announcement.objects.create(hackathon=hackathon, title='INTERNAL NOTE', body='private', audience='staff')
+    Announcement.objects.create(
+        hackathon=hackathon, title='INTERNAL NOTE', body='private', audience='staff', state='published'
+    )
     assert b'INTERNAL NOTE' not in client.get(endpoint(hackathon, 'announcements')).content
     StaffAssignment.objects.create(hackathon=hackathon, user=user, role='volunteer')
     client.force_login(user)
@@ -437,7 +442,7 @@ def test_staff_announcements_are_private(client, hackathon, user):
 @pytest.mark.django_db
 def test_read_progress_is_per_user(client, hackathon, user):
     resource = Resource.objects.create(
-        hackathon=hackathon, title='Read this', body='Learn', required=True, category='guide'
+        hackathon=hackathon, title='Read this', body='Learn', required=True, category='guide', state='published'
     )
     client.force_login(user)
     assert client.post(endpoint(hackathon, 'resource', resource_id=resource.pk)).status_code == 302
@@ -632,22 +637,47 @@ def test_organizer_intake_requires_reason_and_respects_freeze(client, hackathon,
 
 
 @pytest.mark.django_db
-def test_settings_require_complete_scores_before_publication(client, hackathon, team, organizer_user):
+def test_publish_requires_complete_scores_before_publication(client, hackathon, team, organizer_user):
     approved_project(hackathon, team)
     client.force_login(organizer_user)
-    data = model_to_dict(hackathon)
-    data.update(
-        {
-            'results_published': True,
-            'starts_at': hackathon.event.date_from.isoformat(),
-            'ends_at': hackathon.event.date_to.isoformat(),
-        }
-    )
-    response = client.post(endpoint(hackathon, 'settings'), data)
+    response = client.post(endpoint(hackathon, 'publish'), {'action': 'publish-results'})
     assert response.status_code == 200
-    assert '全部有效评委' in response.content.decode()
+    assert '还有作品未完成全部有效评委评分，暂不能公布成绩。' in response.content.decode()
     hackathon.refresh_from_db()
     assert not hackathon.results_published
+    assert not AuditEntry.objects.filter(action__contains='公布成绩').exists()
+
+
+@pytest.mark.django_db
+def test_settings_edits_never_flip_publish_switches(client, hackathon, organizer_user):
+    event = hackathon.event
+    local = ZoneInfo(event.timezone)
+    event.date_from = timezone.localtime(event.date_from, local).replace(second=0, microsecond=0)
+    event.date_to = timezone.localtime(event.date_to, local).replace(second=0, microsecond=0)
+    event.save()
+    client.force_login(organizer_user)
+    data = model_to_dict(hackathon, fields=forms.SettingsForm.Meta.fields)
+    data.update(
+        {
+            'tagline': '只改文案，不动发布开关',
+            'starts_at': event.date_from.strftime('%Y-%m-%dT%H:%M'),
+            'ends_at': event.date_to.strftime('%Y-%m-%dT%H:%M'),
+            'is_public': False,
+            'gallery_open': True,
+            'judging_open': False,
+            'results_published': True,
+        }
+    )
+    assert client.post(endpoint(hackathon, 'settings'), data).status_code == 302
+    hackathon.refresh_from_db()
+    assert hackathon.tagline == '只改文案，不动发布开关'
+    assert (hackathon.is_public, hackathon.gallery_open, hackathon.judging_open, hackathon.results_published) == (
+        True,
+        False,
+        True,
+        False,
+    )
+    assert 'results_published' not in forms.SettingsForm(instance=hackathon).fields
 
 
 @pytest.mark.django_db

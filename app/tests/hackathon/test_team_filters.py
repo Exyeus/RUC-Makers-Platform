@@ -12,7 +12,7 @@ pytestmark = pytest.mark.django_db
 def test_combined_filters_preserve_selections_and_target_results(client, hackathon, team, participant):
     team.name = '协作队伍'
     team.save()
-    other_track = Track.objects.create(hackathon=hackathon, name='另一赛道')
+    other_track = Track.objects.create(hackathon=hackathon, name='另一赛道', state='published')
     Team.objects.create(hackathon=hackathon, captain=participant, track=other_track, name='协作另一队')
     people = []
     for index, (keyword, public) in enumerate([('Python', True), ('Rust', True), ('Python', False)]):

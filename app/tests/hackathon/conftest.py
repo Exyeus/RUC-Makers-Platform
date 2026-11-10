@@ -66,7 +66,7 @@ def participant(hackathon, user):
 
 @pytest.fixture
 def team(hackathon, participant):
-    track = Track.objects.create(hackathon=hackathon, name='开放创新')
+    track = Track.objects.create(hackathon=hackathon, name='开放创新', state='published')
     team = Team.objects.create(hackathon=hackathon, captain=participant, name='Test Team', track=track)
     participant.team = team
     participant.save()

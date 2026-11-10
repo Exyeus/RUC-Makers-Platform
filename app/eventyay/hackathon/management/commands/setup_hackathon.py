@@ -8,7 +8,7 @@ from django_scopes import scope
 
 from eventyay.base.models import Event, Organizer
 from eventyay.base.models import Team as OrganizerTeam
-from eventyay.hackathon.models import Announcement, Hackathon, Resource, ScheduleItem, Track
+from eventyay.hackathon.models import Announcement, Hackathon, Publishable, Resource, ScheduleItem, Track
 from eventyay.hackathon.seed import RESOURCES
 
 
@@ -84,14 +84,26 @@ class Command(BaseCommand):
                 freeze_at=end - timedelta(hours=5),
                 is_public=publish,
             )
+            # Seeded text is only public when the workspace itself is opened; otherwise it waits as a draft.
+            seeded = (
+                {'state': Publishable.State.PUBLISHED, 'published_at': timezone.now()}
+                if publish
+                else {'state': Publishable.State.DRAFT}
+            )
             Track.objects.bulk_create(
                 [
                     Track(
                         hackathon=h,
                         name='AI 与日常生活',
                         description='让技术走进真实场景，用一个小工具，改变一点点日常。',
+                        **seeded,
                     ),
-                    Track(hackathon=h, name='开放创新', description='打破题目的边界，把你一直想做的事情，真正做出来。'),
+                    Track(
+                        hackathon=h,
+                        name='开放创新',
+                        description='打破题目的边界，把你一直想做的事情，真正做出来。',
+                        **seeded,
+                    ),
                 ]
             )
             for position, resource in enumerate(RESOURCES):
@@ -103,7 +115,7 @@ class Command(BaseCommand):
                         else value
                         for key, value in resource.items()
                     }
-                Resource.objects.create(hackathon=h, position=position, **content)
+                Resource.objects.create(hackathon=h, position=position, **content, **seeded)
             Announcement.objects.create(
                 hackathon=h,
                 title=f'欢迎来到{name}工作台',
@@ -111,12 +123,14 @@ class Command(BaseCommand):
                 body='所有报名、组队、教程、材料提交和现场安排都会在这里集中更新。'
                 '请先完成参赛信息，登记特殊时段，再认识你的队友。'
                 '本活动当前为筹备状态，页面中的日期、地点、赛道与规则需由组委会在活动设置和内容管理中确认后正式发布。',
+                **seeded,
             )
             Announcement.objects.create(
                 hackathon=h,
                 title='先读指南，给最后一天留一点从容',
                 body='学习中心已提供 Git、AI 辅助开发、电子海报、实机演示与志愿者指南。'
                 '建议提前保存一次作品草稿并测试附件上传，路演前在现场设备完整演练。',
+                **seeded,
             )
             schedule = [
                 (0, 18, 0, 60, '签到与开场', '见面', '认识彼此，介绍赛道、规则、支持入口和岗位负责人。'),
@@ -148,10 +162,21 @@ class Command(BaseCommand):
                     location='场地待确认',
                     description=description,
                     kind=kind,
+                    **seeded,
                 )
         if copy_organizers_from:
             self.grant_organizer_access(copy_organizers_from, h)
-        self.stdout.write(self.style.SUCCESS(f'Created /hackathon/{slug}/ — edit dates and venue before announcing.'))
+        if publish:
+            self.stdout.write(
+                self.style.SUCCESS(f'Created /hackathon/{slug}/ — edit dates and venue before announcing.')
+            )
+        else:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Created /hackathon/{slug}/; every seeded text is a draft. Publish it in 内容管理, '
+                    'or open the workspace with --publish to keep this seed public.'
+                )
+            )
 
     def grant_organizer_access(self, source_slug, hackathon):
         source = Hackathon.objects.select_related('event').filter(slug=source_slug).first()
