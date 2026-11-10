@@ -92,6 +92,7 @@ def test_hour_calendar_uses_event_timezone_and_all_overlapping_items(hackathon):
         starts_at=due - timedelta(minutes=45),
         ends_at=due + timedelta(hours=1),
         location='创客教室',
+        state='published',
     )
     days = schedule_heatmap(hackathon)
     local = timezone.localtime(due, timezone.get_fixed_timezone(480))

@@ -6,7 +6,6 @@ import pytest
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import close_old_connections
-from django.forms.models import model_to_dict
 from django.utils import timezone
 from django_scopes import scope
 
@@ -289,9 +288,9 @@ def test_insufficient_trimmed_scores_cannot_be_published(client, hackathon, orga
         final=True,
     )
     client.force_login(organizer_user)
-    data = model_to_dict(hackathon, fields=forms.SettingsForm.Meta.fields)
-    response = client.post(endpoint(hackathon, 'settings'), {**data, 'results_published': True})
+    response = client.post(endpoint(hackathon, 'publish'), {'action': 'publish-results'})
     assert response.status_code == 200
+    assert '未完成全部有效评委评分' in response.content.decode()
     hackathon.refresh_from_db()
     assert not hackathon.results_published
 

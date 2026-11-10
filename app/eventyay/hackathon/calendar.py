@@ -53,7 +53,7 @@ def absence_summary(hackathon, hours, notes: str = '') -> str:
 
 def schedule_heatmap(hackathon) -> list[dict]:
     zone = ZoneInfo(hackathon.event.timezone)
-    items = list(ScheduleItem.objects.filter(hackathon=hackathon))
+    items = list(ScheduleItem.published(hackathon))
     deadlines = [
         (hackathon.registration_deadline, '报名截止'),
         (hackathon.team_freeze_at, '队伍冻结'),
