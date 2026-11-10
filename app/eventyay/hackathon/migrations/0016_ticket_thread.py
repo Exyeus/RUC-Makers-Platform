@@ -24,7 +24,7 @@ def move_replies_into_thread(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('hackathon', '0014_project_state_reason'),
+        ('hackathon', '0015_content_publish_state'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
