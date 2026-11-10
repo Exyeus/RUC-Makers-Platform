@@ -26,6 +26,18 @@
       </a>
     {% endfor %}
   </nav>
+  {% if state == 'changes' %}
+    <nav class="tabs" aria-label="需要补充的原因">
+      <a class="{% if not reason %}selected{% endif %}" href="?state={{ state }}">
+        全部
+      </a>
+      {% for value, label in reasons %}
+        <a class="{% if value == reason %}selected{% endif %}" href="?state={{ state }}&reason={{ value }}">
+          {{ label }}
+        </a>
+      {% endfor %}
+    </nav>
+  {% endif %}
   <div class="panel table-panel">
     <table>
       <thead>
@@ -69,9 +81,17 @@
             <td>
               <span class="tag state-{{ project.state }}">
                 {{ project.get_state_display }}
+                {% if project.state == 'changes' %}
+                  ·
+                  {{ project.get_state_reason_display|default:'未标注原因' }}
+                {% endif %}
               </span>
               <small>
-                {{ project.submitted_at|date:'m.d H:i'|default:'尚未提交' }}
+                {% if project.submitted_at %}
+                  首次 {{ project.submitted_at|date:'m.d H:i' }}
+                {% else %}
+                  尚未正式提交
+                {% endif %}
               </small>
             </td>
             <td>

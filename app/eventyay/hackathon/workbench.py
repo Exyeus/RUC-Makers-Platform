@@ -15,6 +15,7 @@ class Task:
     detail: str
     label: str
     url: str
+    route: str
 
 
 def next_task(
@@ -23,7 +24,14 @@ def next_task(
     project: Project | None,
     unread: Resource | None,
     now: datetime,
+    status: dict,
 ) -> Task:
+    """Pick the one action the participant should take next.
+
+    ``status`` is :func:`eventyay.hackathon.services.project_status`; the workbench
+    and the project page must describe the same current version with the same words.
+    """
+
     def task(key, title, detail, label, route, **kwargs):
         return Task(
             key,
@@ -31,6 +39,7 @@ def next_task(
             detail,
             label,
             reverse(f'hackathon:{route}', kwargs={'hackathon_slug': hackathon.slug, **kwargs}),
+            route,
         )
 
     if hackathon.results_published:
@@ -38,7 +47,7 @@ def next_task(
             'results', '查看活动结果', '成绩与评语已公布，作品与提交记录继续保留。', '查看结果与作品', 'results'
         )
     if now >= hackathon.submission_deadline:
-        if project and project.state == Project.State.QUEUED:
+        if status['key'] == 'queued':
             return task(
                 'queued',
                 '核对排队提交状态',
@@ -81,7 +90,7 @@ def next_task(
         return task(
             'team', '找到你的队友', '去组队广场认识伙伴，或按活动规则创建自己的队伍。', '寻找或创建队伍', 'teams'
         )
-    if project and project.state == Project.State.QUEUED:
+    if status['key'] == 'queued':
         return task(
             'queued',
             '等待材料上传完成',
@@ -89,15 +98,31 @@ def next_task(
             '查看上传与回执',
             'project',
         )
-    if project and project.state == Project.State.CHANGES:
+    if status['key'] == 'upload_stalled':
         return task(
-            'changes',
+            'upload_stalled',
+            '排队提交已中止',
+            status['detail'],
+            '重新上传并提交',
+            'project',
+        )
+    if status['key'] == 'resubmit':
+        return task(
+            'resubmit',
+            '把最新修改正式提交',
+            status['detail'],
+            '核对缺项并再次提交',
+            'project',
+        )
+    if status['key'] in {'review', 'changes'}:
+        return task(
+            status['key'],
             '检查并补充作品材料',
-            '作品需要补充。请查看最新检查意见与作品页当前可执行的操作。',
+            status['detail'],
             '查看检查意见',
             'project',
         )
-    if project and project.submitted_at:
+    if status['done']:
         return task(
             'submitted',
             '作品已提交，核对回执',

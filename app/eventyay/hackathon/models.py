@@ -249,6 +249,13 @@ class Project(EventRecord):
         CHANGES = 'changes', '需要补充'
         APPROVED = 'approved', '已通过'
 
+    class StateReason(models.TextChoices):
+        """Why a project sits in `changes`; the state alone cannot tell the three apart."""
+
+        EDITED = 'edited', '已改未重交'
+        UPLOAD = 'upload', '上传未完成'
+        REVIEW = 'review', '主办方要求补充'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     team = models.OneToOneField(Team, on_delete=models.CASCADE, related_name='project')
     title = models.CharField('作品名称', max_length=120)
@@ -261,6 +268,7 @@ class Project(EventRecord):
     checklist = models.BooleanField('已完成提交自查与演示测试', default=False)
     public_consent = models.BooleanField('同意在作品展厅与历届归档公开介绍和链接', default=False)
     state = models.CharField(max_length=12, choices=State.choices, default=State.DRAFT)
+    state_reason = models.CharField('状态原因', max_length=12, choices=StateReason.choices, blank=True, default='')
     submitted_at = models.DateTimeField(null=True, blank=True)
     submission_intent_at = models.DateTimeField(null=True, blank=True)
     submission_client_clicked_at = models.DateTimeField(null=True, blank=True)
