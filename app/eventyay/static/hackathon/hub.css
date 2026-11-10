@@ -1684,6 +1684,19 @@ input[type='checkbox'] {
   display: block;
   margin-top: 6px;
 }
+.judge-task-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 22px;
+}
+.judge-task-search label {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: #7e6c89;
+}
 .schedule-list {
   max-width: 950px;
 }

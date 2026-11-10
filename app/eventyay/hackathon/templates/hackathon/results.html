@@ -27,6 +27,82 @@
     {% endif %}
   </section>
   {% if rule_description %}<p class="panel">{{ rule_description }}</p>{% endif %}
+  {% if progress %}
+    <section class="panel table-panel judge-progress">
+      <div class="section-heading">
+        <h2>
+          评委进度与缺评明细
+        </h2>
+        <p class="muted">
+          仅主办方可见 · 应评 {{ summary.expected }} 份 · 已确认 {{ summary.confirmed }} 份 · 草稿未确认 {{ summary.drafts }} 份。
+        </p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>
+              评委
+            </th>
+            <th>
+              应评
+            </th>
+            <th>
+              已确认
+            </th>
+            <th>
+              草稿
+            </th>
+            <th>
+              尚缺作品
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in progress %}
+            <tr>
+              <td>
+                <strong>
+                  {{ row.user.fullname|default:row.user.email }}
+                </strong>
+                <small>
+                  {{ row.user.email }}
+                </small>
+              </td>
+              <td>
+                {{ row.expected }}
+              </td>
+              <td>
+                {{ row.confirmed }}
+              </td>
+              <td>
+                {{ row.drafts }}
+              </td>
+              <td>
+                {% if row.complete %}
+                  <span class="tag mint">
+                    已齐
+                  </span>
+                {% else %}
+                  {% for item in row.outstanding %}
+                    {{ item.project.team.name }}
+                    {% if item.draft %}
+                      （有草稿）
+                    {% endif %}
+                    {% if not forloop.last %}
+                      ·
+                    {% endif %}
+                  {% endfor %}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="muted">
+        应评数已扣除本人所属队伍的回避；停用或标记为垃圾的账户不再计入名单。全部应评确认后才会解除公布限制。
+      </p>
+    </section>
+  {% endif %}
   {% if unpublished %}
     <div class="empty panel">
       <span class="empty-symbol">
@@ -90,7 +166,7 @@
                   {{ row.average|default_if_none:'—' }}
                 </strong>
                 <small>采用 {{ row.counted }} 份{% if row.trimmed %} · 去极值 {{ row.trimmed }} 份{% endif %}</small>
-                {% if row.count and not row.counted %}<small class="warning-text">有效人数不足，无法去极值</small>{% endif %}
+                {% if row.thin_panel %}<small class="warning-text">有效评分不足去极窗口，已改用全部有效评分取平均</small>{% endif %}
                 {% if not row.complete %}
                   <small class="warning-text">
                     待完成 · 暂不排名

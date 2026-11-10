@@ -12,7 +12,7 @@ from django.utils.deconstruct import deconstructible
 from django_scopes import ScopedManager
 
 from eventyay.base.models.mixins import TimestampedModel
-from eventyay.hackathon.scoring import weighted_total
+from eventyay.hackathon.scoring import CRITERIA, weighted_total
 
 
 def invitation_code():
@@ -424,10 +424,18 @@ class DemoSlot(EventRecord):
 class Score(EventRecord):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='scores')
     judge = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-    innovation = models.PositiveSmallIntegerField('创新性 · 30%', validators=[MaxValueValidator(10)])
-    implementation = models.PositiveSmallIntegerField('完成度与实机演示 · 40%', validators=[MaxValueValidator(10)])
-    impact = models.PositiveSmallIntegerField('实际价值 · 20%', validators=[MaxValueValidator(10)])
-    presentation = models.PositiveSmallIntegerField('表达 · 10%', validators=[MaxValueValidator(10)])
+    innovation = models.PositiveSmallIntegerField(
+        '创新性 · 30%', validators=[MaxValueValidator(10)], null=True, blank=True
+    )
+    implementation = models.PositiveSmallIntegerField(
+        '完成度与实机演示 · 40%', validators=[MaxValueValidator(10)], null=True, blank=True
+    )
+    impact = models.PositiveSmallIntegerField(
+        '实际价值 · 20%', validators=[MaxValueValidator(10)], null=True, blank=True
+    )
+    presentation = models.PositiveSmallIntegerField(
+        '表达 · 10%', validators=[MaxValueValidator(10)], null=True, blank=True
+    )
     breakthrough = models.BooleanField('提名最佳突破（每位评委最多 3 项）', default=False)
     creativity = models.BooleanField('提名最佳创意（每位评委最多 3 项）', default=False)
     feedback = models.TextField('给团队的改进建议（公布成绩后可见）', max_length=3000, blank=True)
@@ -442,6 +450,14 @@ class Score(EventRecord):
                 name='hack_score_range',
             ),
         ]
+
+    @property
+    def filled(self):
+        return sum(getattr(self, name) is not None for name, _, _ in CRITERIA)
+
+    @property
+    def is_complete(self):
+        return self.filled == len(CRITERIA)
 
     @property
     def total(self):

@@ -30,6 +30,12 @@ def current_presentation(request):
     }
 
 
+def task_state(score):
+    if score and score.final:
+        return 'confirmed'
+    return 'draft' if score else 'pending'
+
+
 def judging_context(request):
     h = request.hackathon
     projects = (
@@ -42,20 +48,56 @@ def judging_context(request):
     scores = {item.project_id: item for item in Score.objects.filter(hackathon=h, judge=request.user)}
     for item in scores.values():
         item.hackathon = h
+    entries = [
+        {'project': item, 'score': scores.get(item.pk), 'state': task_state(scores.get(item.pk))} for item in projects
+    ]
+    confirmed = [entry['score'] for entry in entries if entry['state'] == 'confirmed']
     return {
-        'entries': [{'project': item, 'score': scores.get(item.pk)} for item in projects],
+        'entries': entries,
         'current': current_presentation(request),
         'rule_description': rule_description(h),
-        'confirmed': sum(item.final for item in scores.values()),
-        'breakthrough': sum(item.final and item.breakthrough for item in scores.values()),
-        'creativity': sum(item.final and item.creativity for item in scores.values()),
+        'total': len(entries),
+        'pending': sum(entry['state'] == 'pending' for entry in entries),
+        'drafts': sum(entry['state'] == 'draft' for entry in entries),
+        'confirmed': len(confirmed),
+        'next_task': next((entry for entry in entries if entry['state'] != 'confirmed'), None),
+        'breakthrough': sum(score.breakthrough for score in confirmed),
+        'creativity': sum(score.creativity for score in confirmed),
     }
+
+
+TASK_FILTERS = (('pending', '待评'), ('draft', '草稿'), ('confirmed', '已确认'))
 
 
 @event_view('judge')
 @require_GET
 def judging(request):
-    return page(request, 'judging', **judging_context(request))
+    context = judging_context(request)
+    status = request.GET.get('status') or ''
+    track = request.GET.get('track') or ''
+    query = (request.GET.get('q') or '').strip().lower()
+    tracks = {}
+    entries = []
+    for entry in context.pop('entries'):
+        project = entry['project']
+        if project.team.track_id:
+            tracks[project.team.track_id] = project.team.track.name
+        if status and entry['state'] != status:
+            continue
+        if track and str(project.team.track_id) != track:
+            continue
+        if query and query not in f'{project.title} {project.team.name} {project.code}'.lower():
+            continue
+        entries.append(entry)
+    return page(
+        request,
+        'judging',
+        entries=entries,
+        tracks=tracks,
+        filters={'status': status, 'track': track, 'q': request.GET.get('q') or ''},
+        task_filters=TASK_FILTERS,
+        **context,
+    )
 
 
 @event_view('judge')
@@ -89,24 +131,51 @@ def score(request, project_id):
     )
     if request.participant and request.participant.team_id == item.team_id:
         raise PermissionDenied
-    existing = Score.objects.filter(project=item, judge=request.user).first()
-    form = forms.ScoreForm(request.POST if request.method == 'POST' else None, instance=existing, hackathon=h)
-    follow_live = request.GET.get('follow') == '1'
-    if request.method == 'POST' and form.is_valid():
-        try:
-            services.save_score(h, request.user, item, form)
-        except ValidationError as error:
-            form.add_error(None, error)
-        else:
-            messages.success(
-                request,
-                f'「{item.team.name}」评分已保存。'
-                + ('已确认，计入统计。' if form.cleaned_data['final'] else '当前为草稿，尚不计入统计。'),
-            )
-            return redirect(url(h, 'judge-live') if follow_live else url(h, 'score', project_id=item.pk))
     context = judging_context(request)
-    projects = [entry['project'] for entry in context['entries']]
+    entries = context['entries']
+    projects = [entry['project'] for entry in entries]
     position = next(index for index, project in enumerate(projects) if project.pk == item.pk)
+    context['next_task'] = next((entry for entry in entries[position + 1 :] if entry['state'] != 'confirmed'), None)
+    existing = Score.objects.filter(project=item, judge=request.user).first()
+    follow_live = request.GET.get('follow') == '1'
+    action = request.POST.get('action') if request.method == 'POST' else None
+    confirm = action == 'final'
+    form = forms.ScoreForm(
+        request.POST if request.method == 'POST' else None, instance=existing, hackathon=h, confirm=confirm
+    )
+    confirmed_entries = [entry for entry in entries if entry['state'] == 'confirmed']
+    for nomination in ('breakthrough', 'creativity'):
+        teams = [
+            f'{entry["project"].team.name}（本队）' if entry['project'].pk == item.pk else entry['project'].team.name
+            for entry in confirmed_entries
+            if getattr(entry['score'], nomination)
+        ]
+        form.fields[nomination].help_text = (
+            f'本人已确认提名 {len(teams)}/3：{"、".join(teams)}' if teams else '本人尚未提名，每位评委每项最多 3 个。'
+        )
+    if request.method == 'POST':
+        if action not in {'final', 'draft'}:
+            # Without a button the intent is unknown; silently saving as a draft would drop a
+            # confirmed score out of the statistics.
+            form.add_error(None, '请用「确认评分并继续」或「保存草稿」按钮提交，本次输入未保存。')
+        elif form.is_valid():
+            try:
+                services.save_score(h, request.user, item, form, confirm=confirm)
+            except ValidationError as error:
+                form.add_error(None, error)
+            else:
+                messages.success(
+                    request,
+                    f'「{item.team.name}」' + ('评分已确认，计入统计。' if confirm else '草稿已保存，尚未计分。'),
+                )
+                if follow_live:
+                    return redirect(url(h, 'judge-live'))
+                if confirm:
+                    task = context['next_task']
+                    return redirect(
+                        url(h, 'score', project_id=task['project'].pk) if task else url(h, 'judging')
+                    )
+                return redirect(url(h, 'score', project_id=item.pk))
     return page(
         request,
         'score',
@@ -114,6 +183,7 @@ def score(request, project_id):
         project=item,
         assets=item.assets.all(),
         follow_live=follow_live,
+        scoring_open=h.judging_open and not h.results_published,
         previous=projects[position - 1] if position else None,
         following=projects[position + 1] if position + 1 < len(projects) else None,
         **context,

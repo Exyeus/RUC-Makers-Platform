@@ -60,11 +60,11 @@ def project_data(**changes):
     return data
 
 
-def approved_project(h, team, **kwargs):
-    data = project_data()
+def approved_project(h, team, **changes):
+    data = project_data(**changes)
     data.pop('version')
     return Project.objects.create(
-        hackathon=h, team=team, state='approved', submitted_at=timezone.now(), equipment_checked=True, **data, **kwargs
+        hackathon=h, team=team, state='approved', submitted_at=timezone.now(), equipment_checked=True, **data
     )
 
 
@@ -351,21 +351,21 @@ def test_read_progress_is_per_user(client, hackathon, user):
 @pytest.mark.django_db
 def test_judging_requires_assigned_role_and_no_own_team(hackathon, team, user):
     project = approved_project(hackathon, team)
-    data = {'innovation': 9, 'implementation': 8, 'impact': 7, 'presentation': 6, 'final': True}
-    form = forms.ScoreForm(data)
+    data = {'innovation': 9, 'implementation': 8, 'impact': 7, 'presentation': 6}
+    form = forms.ScoreForm(data, confirm=True)
     assert form.is_valid()
     with pytest.raises(PermissionDenied):
-        services.save_score(hackathon, user, project, form)
+        services.save_score(hackathon, user, project, form, confirm=True)
     StaffAssignment.objects.create(hackathon=hackathon, user=user, role='judge')
     with pytest.raises(ValidationError, match='自己的队伍'):
-        services.save_score(hackathon, user, project, form)
+        services.save_score(hackathon, user, project, form, confirm=True)
 
 
 @pytest.mark.django_db
 def test_score_range_weighting_nomination_quota_and_publication(hackathon, team):
     judge = User.objects.create_user(email='judge@example.org')
     StaffAssignment.objects.create(hackathon=hackathon, user=judge, role='judge')
-    data = {'innovation': 9, 'implementation': 8, 'impact': 7, 'presentation': 6, 'final': True, 'creativity': True}
+    data = {'innovation': 9, 'implementation': 8, 'impact': 7, 'presentation': 6, 'creativity': True}
     projects = []
     for index in range(4):
         new_team = Team.objects.create(
@@ -373,22 +373,23 @@ def test_score_range_weighting_nomination_quota_and_publication(hackathon, team)
         )
         projects.append(approved_project(hackathon, new_team))
     for project in projects[:3]:
-        form = forms.ScoreForm(data)
+        form = forms.ScoreForm(data, confirm=True)
         assert form.is_valid()
-        score = services.save_score(hackathon, judge, project, form)
+        score = services.save_score(hackathon, judge, project, form, confirm=True)
         assert score.total == 79
-    form = forms.ScoreForm(data)
+    form = forms.ScoreForm(data, confirm=True)
     assert form.is_valid()
     with pytest.raises(ValidationError, match='最多'):
-        services.save_score(hackathon, judge, projects[3], form)
-    assert not forms.ScoreForm({**data, 'innovation': 11}).is_valid()
+        services.save_score(hackathon, judge, projects[3], form, confirm=True)
+    assert not forms.ScoreForm({**data, 'innovation': 11}, confirm=True).is_valid()
+    assert not forms.ScoreForm({k: v for k, v in data.items() if k != 'implementation'}, confirm=True).is_valid()
     rows = services.results(hackathon)
     assert rows[0]['average'] == 79 and rows[0]['rank'] == rows[1]['rank'] == 1
     assert not rows[-1]['complete']
     hackathon.results_published = True
     hackathon.save()
     with pytest.raises(ValidationError, match='锁定'):
-        services.save_score(hackathon, judge, projects[0], form)
+        services.save_score(hackathon, judge, projects[0], form, confirm=True)
 
 
 @pytest.mark.django_db
