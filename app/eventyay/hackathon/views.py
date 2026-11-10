@@ -14,6 +14,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, F, Q
 from django.http import Http404, HttpResponse, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_safe
@@ -188,6 +189,7 @@ def landing_context(request):
     participant = request.participant
     team = participant.team if participant else None
     project = Project.objects.filter(hackathon=h, team=team).first() if team else None
+    status = services.project_status(project)
     required = Resource.objects.filter(hackathon=h, required=True)
     read_count = (
         ResourceRead.objects.filter(resource__in=required, user=request.user).count()
@@ -200,7 +202,7 @@ def landing_context(request):
         unread = required.exclude(
             pk__in=ResourceRead.objects.filter(hackathon=h, user=request.user).values('resource_id')
         ).first()
-    current_task = next_task(h, participant, project, unread, timezone.now())
+    current_task = next_task(h, participant, project, unread, timezone.now(), status)
     checklist = [
         {
             'title': '完善参赛信息',
@@ -222,14 +224,15 @@ def landing_context(request):
         },
         {
             'title': '提交你的作品',
-            'detail': 'Demo、仓库、电子海报与备用录屏',
-            'done': bool(project and project.submitted_at),
+            'detail': status['detail'],
+            'done': status['done'],
             'url': url(h, 'project'),
         },
     ]
     return {
         'team': team,
         'project': project,
+        'project_status': status,
         'journey_url': url(h, 'project' if participant else 'register'),
         'current_task': current_task,
         'completed_steps': [item for item in checklist if item['done']],
@@ -241,7 +244,9 @@ def landing_context(request):
         'tracks': Track.objects.filter(hackathon=h),
         'participant_count': Participant.objects.filter(hackathon=h).count(),
         'team_count': Team.objects.filter(hackathon=h).count(),
-        'project_count': Project.objects.filter(hackathon=h, submitted_at__isnull=False).count(),
+        'project_count': Project.objects.filter(
+            hackathon=h, state__in=[Project.State.SUBMITTED, Project.State.APPROVED]
+        ).count(),
         'notices': Announcement.objects.filter(hackathon=h, audience='all')[:3],
         'upcoming': ScheduleItem.objects.filter(hackathon=h, ends_at__gte=timezone.now())[:3],
         'featured_resources': Resource.objects.filter(hackathon=h)[:3],
@@ -447,7 +452,7 @@ def project(request):
         else None
     )
     if not participant or not participant.team_id:
-        return page(request, 'project', project=None, needs_team=True)
+        return page(request, 'project', project=None, project_status=services.project_status(None), needs_team=True)
     captain = participant.team.captain_id == participant.pk
     form = forms.ProjectForm(request.POST or None, instance=own)
     if request.method == 'POST':
@@ -471,13 +476,19 @@ def project(request):
                 )
                 return redirect(url(h, 'project'))
         if request.headers.get('Accept') == 'application/json':
+            fields = {
+                name: str(errors[0]) for name, errors in form.errors.items() if name != '__all__' and len(errors)
+            }
+            headline = ' '.join(str(message) for message in form.errors.get('__all__', []))
             return JsonResponse(
-                {'error': ' '.join(str(message) for errors in form.errors.values() for message in errors)}, status=400
+                {'error': headline or '部分信息未通过校验，请查看表单中标出的字段。', 'fields': fields},
+                status=400,
             )
     return page(
         request,
         'project',
         project=own,
+        project_status=services.project_status(own),
         form=form,
         captain=captain,
         asset_form=forms.AssetForm(),
@@ -494,12 +505,10 @@ def project(request):
 
 def project_state_data(project):
     tasks = list(project.uploads.filter(state='uploading'))
-    blocked = project.state == 'queued' and any(
-        task.expires_at <= timezone.now() or project.hackathon.freeze_at <= timezone.now() for task in tasks
-    )
+    status = services.project_status(project, uploads=tasks)
     data = {
         'state': project.state,
-        'label': '排队提交已过期，请联系技术人员' if blocked else project.get_state_display(),
+        'label': status['label'],
         'revision': project.revision,
         'receipt_id': str(project.submission_receipt) if project.submission_receipt else None,
         'received_at': project.submission_intent_at.isoformat() if project.submission_intent_at else None,
@@ -512,6 +521,21 @@ def project_state_data(project):
         'manifest_sha256': project.submission_manifest_hash,
     }
     data['receipt'] = signing.dumps(data, salt='hackathon.submission-receipt', compress=True)
+    # Status copy is for the live badge only; the signed receipt payload above stays frozen.
+    data['status_key'] = status['key']
+    data['status_detail'] = status['detail']
+    data['status_action'] = status['action']
+    data['status_tone'] = status['tone']
+    data['materials'] = [
+        {
+            'kind': asset.get_kind_display(),
+            'filename': asset.filename,
+            'size_display': filesizeformat(asset.size),
+            'download_url': url(project.hackathon, 'download', asset_id=asset.pk),
+        }
+        for asset in project.assets.all()
+    ]
+    data['gaps'] = services.submission_errors(project)
     return data
 
 
@@ -542,7 +566,8 @@ def cancel_submission_queue(request):
     item = get_object_or_404(Project.objects.select_for_update(), team=request.participant.team)
     if item.state == 'queued':
         item.state = Project.State.CHANGES
-        item.save(update_fields=['state', 'updated'])
+        item.state_reason = Project.StateReason.UPLOAD
+        item.save(update_fields=['state', 'state_reason', 'updated'])
         services.audit(request.hackathon, request.user, '取消排队提交', item.code, str(item.submission_receipt))
     return JsonResponse(project_state_data(item))
 
@@ -727,15 +752,30 @@ def manage(request):
     )
     for person in special:
         person.attendance_summary = absence_summary(h, person.unavailable_slots, person.availability)
+    projects = Project.objects.filter(hackathon=h)
+    submissions_url = url(h, 'submissions')
+    changes_url = f'{submissions_url}?state={Project.State.CHANGES}'
+    attention = [('排队上传中', projects.filter(state=Project.State.QUEUED), f'{submissions_url}?state=queued')]
+    for label, reason in (
+        ('改了没重交', Project.StateReason.EDITED),
+        ('上传中止未提交', Project.StateReason.UPLOAD),
+        ('主办方要求补充', Project.StateReason.REVIEW),
+    ):
+        bucket = projects.filter(state=Project.State.CHANGES, state_reason=reason)
+        attention.append((label, bucket, f'{changes_url}&reason={reason}'))
+    attention = [(label, bucket.count(), link) for label, bucket, link in attention]
     return page(
         request,
         'manage',
         participant_count=Participant.objects.filter(hackathon=h).count(),
         checked_in=Participant.objects.filter(hackathon=h, checked_in=True).count(),
         team_count=Team.objects.filter(hackathon=h).count(),
-        submitted=Project.objects.filter(hackathon=h, submitted_at__isnull=False).count(),
-        pending=Project.objects.filter(hackathon=h, state='submitted').count(),
-        missing=Team.objects.filter(hackathon=h).filter(Q(project__isnull=True) | Q(project__state='draft')),
+        submitted=projects.filter(state__in=[Project.State.SUBMITTED, Project.State.APPROVED]).count(),
+        pending=projects.filter(state='submitted').count(),
+        missing=Team.objects.filter(hackathon=h).filter(
+            Q(project__isnull=True) | Q(project__submitted_at__isnull=True)
+        ),
+        attention=attention,
         special=special,
         tickets=SupportTicket.objects.filter(hackathon=h).exclude(state='resolved').count(),
         log=AuditEntry.objects.filter(hackathon=h).select_related('actor')[:12],
@@ -779,7 +819,18 @@ def submissions(request):
     state = request.GET.get('state', '')
     if state:
         items = items.filter(state=state)
-    return page(request, 'submissions', projects=items, states=Project.State.choices, state=state)
+    reason = request.GET.get('reason', '')
+    if reason:
+        items = items.filter(state_reason=reason)
+    return page(
+        request,
+        'submissions',
+        projects=items,
+        states=Project.State.choices,
+        state=state,
+        reasons=Project.StateReason.choices,
+        reason=reason,
+    )
 
 
 @event_view('organizer')
@@ -802,7 +853,10 @@ def review(request, project_id):
             if not form.errors:
                 for field in form.Meta.fields:
                     setattr(current_project, field, form.cleaned_data[field])
-                current_project.save(update_fields=[*form.Meta.fields, 'updated'])
+                current_project.state_reason = (
+                    Project.StateReason.REVIEW if current_project.state == Project.State.CHANGES else ''
+                )
+                current_project.save(update_fields=[*form.Meta.fields, 'state_reason', 'updated'])
                 if current_project.state != 'approved' or not current_project.equipment_checked:
                     DemoSlot.objects.filter(project=current_project, state='ready').update(state='waiting')
                 services.audit(h, request.user, '作品检查', item.code, item.review_note)
@@ -1290,7 +1344,20 @@ def export(request, kind):
             )
     elif kind == 'projects':
         writer.writerow(
-            ['project_id', 'team_id', '作品', '队伍', '赛道', '状态', 'Demo', '仓库', '备用', '提交时间', '检查意见']
+            [
+                'project_id',
+                'team_id',
+                '作品',
+                '队伍',
+                '赛道',
+                '状态',
+                '状态原因',
+                'Demo',
+                '仓库',
+                '备用',
+                '首次提交时间',
+                '检查意见',
+            ]
         )
         for p in Project.objects.filter(hackathon=h).select_related('team__track'):
             writer.writerow(
@@ -1301,6 +1368,7 @@ def export(request, kind):
                     p.team.name,
                     p.team.track.name,
                     p.get_state_display(),
+                    p.get_state_reason_display(),
                     p.demo_url,
                     p.repository_url,
                     p.backup_url,

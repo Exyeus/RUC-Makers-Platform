@@ -219,6 +219,84 @@ def test_complete_submission_flow(client, hackathon, team, user):
 
 
 @pytest.mark.django_db
+def test_edit_after_submission_stops_claiming_the_current_version(client, hackathon, team, user):
+    client.force_login(user)
+    assert client.post(endpoint(hackathon, 'project'), project_data()).status_code == 302
+    project = Project.objects.get(team=team)
+    client.post(endpoint(hackathon, 'upload'), {'kind': 'poster', 'file': png()})
+    assert client.post(endpoint(hackathon, 'project'), project_data(version=2, action='submit')).status_code == 302
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('submitted', '')
+    assert services.project_status(project)['key'] == 'submitted'
+    assert client.post(endpoint(hackathon, 'project'), project_data(title='改个标题', version=3)).status_code == 302
+    project.refresh_from_db()
+    # 提交记录还在，但参评的已不是当前版本。
+    assert (project.state, project.state_reason) == ('changes', 'edited')
+    assert project.submitted_at is not None
+    assert services.project_status(project)['key'] == 'resubmit'
+    client.post(endpoint(hackathon, 'upload'), {'kind': 'poster', 'file': png()})
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('changes', 'edited')
+    revision = project.revision
+    assert client.post(
+        endpoint(hackathon, 'project'), project_data(title='改个标题', version=revision, action='submit')
+    ).status_code == 302
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('submitted', '')
+    assert services.project_status(project)['key'] == 'submitted'
+
+
+@pytest.mark.django_db
+def test_status_json_reports_the_material_list_and_the_remaining_gaps(client, hackathon, team, user):
+    client.force_login(user)
+    assert client.post(endpoint(hackathon, 'project'), project_data()).status_code == 302
+    gaps = client.get(endpoint(hackathon, 'project-status')).json()['gaps']
+    assert any('电子项目海报' in item for item in gaps)
+    assert client.post(endpoint(hackathon, 'upload'), {'kind': 'poster', 'file': png()}).status_code == 302
+    asset = Asset.objects.get(project__team=team)
+    live = client.get(endpoint(hackathon, 'project-status')).json()
+    assert live['gaps'] == []
+    (material,) = live['materials']
+    assert material['kind'] == '项目海报'
+    assert material['filename'] == asset.filename
+    assert material['download_url'] == endpoint(hackathon, 'download', asset_id=asset.pk)
+    assert material['size_display']
+
+
+@pytest.mark.django_db
+def test_ajax_errors_split_field_messages_from_the_headline(client, hackathon, team, user):
+    client.force_login(user)
+    invalid = client.post(endpoint(hackathon, 'project'), project_data(title=''), HTTP_ACCEPT='application/json')
+    assert invalid.status_code == 400
+    assert invalid.json()['fields']['title']
+    assert invalid.json()['error']
+    missing = client.post(endpoint(hackathon, 'project'), project_data(action='submit'), HTTP_ACCEPT='application/json')
+    assert missing.status_code == 400
+    assert '电子项目海报' in missing.json()['error']
+    assert missing.json()['fields'] == {}
+    assert not Project.objects.exists()
+    saved = client.post(endpoint(hackathon, 'project'), project_data(), HTTP_ACCEPT='application/json')
+    assert saved.status_code == 200
+    assert saved.json()['state'] == 'draft'
+
+
+@pytest.mark.django_db
+def test_organizer_review_records_why_the_project_needs_work(client, hackathon, team, organizer_user):
+    project = approved_project(hackathon, team)
+    client.force_login(organizer_user)
+    data = {'state': 'changes', 'review_note': '缺少实机演示录屏', 'equipment_checked': 'on', 'award': ''}
+    assert client.post(endpoint(hackathon, 'review', project_id=project.pk), data).status_code == 302
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('changes', 'review')
+    status = services.project_status(project)
+    assert (status['key'], status['detail']) == ('review', '缺少实机演示录屏')
+    data['state'] = 'submitted'
+    assert client.post(endpoint(hackathon, 'review', project_id=project.pk), data).status_code == 302
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('submitted', '')
+
+
+@pytest.mark.django_db
 def test_incomplete_project_cannot_submit(client, hackathon, team, user):
     client.force_login(user)
     response = client.post(endpoint(hackathon, 'project'), project_data(action='submit'))

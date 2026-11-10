@@ -34,7 +34,7 @@
     <div class="metric">
       <div>
         <span>
-          队伍 / 已提交
+          队伍 / 当前有正式版本
         </span>
         <strong>
           {{ team_count }}
@@ -74,6 +74,29 @@
   </section>
   <div class="two-column">
     <div>
+      <section class="panel">
+        <div class="section-heading">
+          <h2>
+            提交状态分布
+          </h2>
+          <a href="{% url 'hackathon:submissions' hackathon.slug %}">
+            全部作品 ↗
+          </a>
+        </div>
+        {% for label, count, link in attention %}
+          <div class="list-row">
+            <strong>
+              {{ label }}
+            </strong>
+            <span class="tag {% if count %}orange{% endif %}">
+              {{ count }}
+            </span>
+            <a class="tag" href="{{ link }}">
+              查看 ↗
+            </a>
+          </div>
+        {% endfor %}
+      </section>
       <section class="panel">
         <div class="section-heading">
           <h2>

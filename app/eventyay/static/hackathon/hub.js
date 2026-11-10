@@ -26,13 +26,27 @@ document
   });
 document.querySelectorAll('[data-dirty-form]').forEach((form) => {
   let dirty = false;
+  let saving = false;
+  let editsDuringSave = 0;
   form.addEventListener('input', () => {
+    if (saving) editsDuringSave += 1;
     dirty = true;
   });
   form.addEventListener('submit', (event) => {
     queueMicrotask(() => {
       if (!event.defaultPrevented) dirty = false;
     });
+  });
+  // fetch-based owners (upload.js) preventDefault, so they report the outcome instead:
+  // a save that raced with new typing must not silence the warning.
+  form.addEventListener('hackathon:saving', () => {
+    saving = true;
+    editsDuringSave = 0;
+    dirty = true;
+  });
+  form.addEventListener('hackathon:saved', (event) => {
+    saving = false;
+    if (event.detail?.saved && !editsDuringSave) dirty = false;
   });
   window.addEventListener('beforeunload', (event) => {
     if (dirty) {

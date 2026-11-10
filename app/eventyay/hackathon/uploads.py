@@ -257,7 +257,8 @@ def install_asset(hackathon, user, project, kind, original, size, checksum, stor
     project.equipment_checked = False
     if project.state not in (Project.State.DRAFT, Project.State.QUEUED):
         project.state = Project.State.CHANGES
-    project.save(update_fields=['revision', 'equipment_checked', 'state', 'updated'])
+        project.state_reason = Project.StateReason.EDITED
+    project.save(update_fields=['revision', 'equipment_checked', 'state', 'state_reason', 'updated'])
     DemoSlot.objects.filter(project=project, state='ready').update(state='waiting')
     audit(hackathon, user, '上传作品材料', project.code, f'{asset.get_kind_display()} · {checksum} · {original}')
     return asset

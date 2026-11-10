@@ -142,6 +142,117 @@ def test_deadline_overrides_reading_and_submission_actions(client, hackathon, te
     assert '准备作品材料' not in soup.select_one('.ruc-button--primary').text
 
 
+@pytest.mark.parametrize(
+    'reason,key,label',
+    [
+        ('', 'changes', '需要补充'),
+        ('edited', 'resubmit', '有修改尚未正式提交'),
+        ('upload', 'upload_stalled', '上传未完成'),
+        ('review', 'review', '主办方要求补充'),
+    ],
+)
+def test_every_changes_project_explains_itself(client, hackathon, team, user, reason, key, label):
+    Project.objects.create(
+        hackathon=hackathon,
+        team=team,
+        title='同一个状态',
+        state='changes',
+        state_reason=reason,
+        submitted_at=timezone.now(),
+        review_note='请补充实机演示录屏',
+    )
+    response, soup = overview(client, hackathon, user)
+    status = response.context['project_status']
+    assert (status['key'], status['label']) == (key, label)
+    assert status['done'] is False
+    assert response.context['current_task'].key == key
+    card = soup.select_one('#project-title').parent
+    assert label in card.select_one('.ruc-pill').text
+    assert status['detail'] in card.text
+    assert '同一个状态' in card.text
+
+
+def test_project_page_banner_badge_and_json_agree(client, hackathon, team, user):
+    Project.objects.create(
+        hackathon=hackathon,
+        team=team,
+        title='改了没重交',
+        state='changes',
+        state_reason='edited',
+        submitted_at=timezone.now(),
+    )
+    client.force_login(user)
+    response = client.get(endpoint(hackathon, 'project'))
+    assert response.status_code == 200
+    soup = BeautifulSoup(response.content, 'html.parser')
+    banner = soup.select_one('[data-status-banner]')
+    assert banner['data-status-key'] == 'resubmit'
+    assert '有修改尚未正式提交' in banner.text
+    assert '参评的仍是上一次正式提交的版本' in banner.text
+    assert '有修改尚未正式提交' in soup.select_one('[data-project-badge]').text
+    assert '有修改尚未正式提交' in soup.select_one('[data-submission-state]').text
+    live = client.get(endpoint(hackathon, 'project-status')).json()
+    assert (live['label'], live['status_key'], live['status_tone']) == ('有修改尚未正式提交', 'resubmit', 'warning')
+    assert live['status_detail'] in banner.text
+
+
+def test_home_counts_only_currently_submitted_projects(client, hackathon, team, user):
+    Project.objects.create(
+        hackathon=hackathon,
+        team=team,
+        title='改过未重交',
+        state='changes',
+        state_reason='edited',
+        submitted_at=timezone.now(),
+    )
+    response, soup = overview(client, hackathon, user)
+    assert response.context['project_count'] == 0
+    assert '0 个当前已正式提交的作品' in soup.select_one('.ruc-activity-strip').text
+
+
+def test_manage_counts_versions_and_buckets_reasons(client, hackathon, team, organizer_user):
+    Project.objects.create(
+        hackathon=hackathon,
+        team=team,
+        title='改了没重交',
+        state='changes',
+        state_reason='edited',
+        submitted_at=timezone.now(),
+    )
+    client.force_login(organizer_user)
+    response = client.get(endpoint(hackathon, 'manage'))
+    assert response.status_code == 200
+    # 有过一次正式提交，不等于当前版本已提交；但这支队伍不该出现在“尚未提交”里。
+    assert response.context['submitted'] == 0
+    assert list(response.context['missing']) == []
+    assert dict((label, count) for label, count, _ in response.context['attention'])['改了没重交'] == 1
+    soup = BeautifulSoup(response.content, 'html.parser')
+    assert '改了没重交' in soup.text
+    assert '目前没有未提交的队伍' in soup.text
+
+
+def test_submissions_filter_and_label_the_reason(client, hackathon, team, organizer_user):
+    Project.objects.create(
+        hackathon=hackathon,
+        team=team,
+        title='被要求补充',
+        state='changes',
+        state_reason='review',
+        submitted_at=timezone.now(),
+    )
+    client.force_login(organizer_user)
+    response = client.get(endpoint(hackathon, 'submissions'), {'state': 'changes', 'reason': 'review'})
+    assert response.status_code == 200
+    assert [item.title for item in response.context['projects']] == ['被要求补充']
+    soup = BeautifulSoup(response.content, 'html.parser')
+    tag_text = ' '.join(soup.select_one('tbody .tag.state-changes').text.split())
+    assert tag_text == '需要补充 · 主办方要求补充'
+    first_submission = ' '.join(soup.select_one('tbody .state-changes + small').text.split())
+    assert first_submission.startswith('首次 ')
+    filtered = client.get(endpoint(hackathon, 'submissions'), {'state': 'changes', 'reason': 'edited'})
+    assert list(filtered.context['projects']) == []
+
+
 @pytest.mark.parametrize('phase,key', [('registration', 'registration-closed'), ('team', 'team-closed')])
 def test_closed_registration_and_frozen_team(client, hackathon, participant, user, phase, key):
     if phase == 'registration':
