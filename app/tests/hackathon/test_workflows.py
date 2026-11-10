@@ -1,7 +1,7 @@
 import hashlib
 import io
 import zipfile
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
@@ -29,6 +29,7 @@ from eventyay.hackathon.models import (
     Project,
     Resource,
     ResourceRead,
+    ScheduleItem,
     Score,
     StaffAssignment,
     StationToken,
@@ -72,6 +73,24 @@ def png():
     image = io.BytesIO()
     Image.new('RGB', (40, 40), '#778899').save(image, format='PNG')
     return SimpleUploadedFile('poster.png', image.getvalue(), content_type='image/png')
+
+
+def settings_payload(hackathon, **changes):
+    """Settings POST data shaped like a browser datetime-local submission."""
+    form = forms.SettingsForm(instance=hackathon)
+    payload = {}
+    with timezone.override(hackathon.event.timezone):
+        for name, field in form.fields.items():
+            value = form.get_initial_for_field(field, name)
+            if isinstance(value, datetime):
+                value = timezone.localtime(value).strftime('%Y-%m-%dT%H:%M')
+            payload[name] = value
+    payload.update(changes)
+    return payload
+
+
+def local_moment(value):
+    return timezone.localtime(value).strftime('%Y-%m-%d %H:%M')
 
 
 @pytest.mark.django_db
@@ -551,6 +570,79 @@ def test_settings_require_complete_scores_before_publication(client, hackathon, 
     assert '全部有效评委' in response.content.decode()
     hackathon.refresh_from_db()
     assert not hackathon.results_published
+
+
+@pytest.mark.django_db
+def test_settings_saves_both_event_dates(client, hackathon, organizer_user):
+    client.force_login(organizer_user)
+    response = client.post(
+        endpoint(hackathon, 'settings'),
+        settings_payload(hackathon, starts_at='2026-12-01T09:00', ends_at='2026-12-03T18:00'),
+    )
+    assert response.status_code == 302
+    hackathon.refresh_from_db()
+    hackathon.event.refresh_from_db()
+    with timezone.override(hackathon.event.timezone):
+        assert local_moment(hackathon.event.date_from) == '2026-12-01 09:00'
+        assert local_moment(hackathon.event.date_to) == '2026-12-03 18:00'
+    assert AuditEntry.objects.filter(actor=organizer_user, detail__contains='starts_at').exists()
+
+
+@pytest.mark.django_db
+def test_settings_saves_a_single_changed_date(client, hackathon, organizer_user):
+    event = hackathon.event
+    with timezone.override(event.timezone):
+        # datetime-local inputs only carry minutes; start from whole minutes so the
+        # fields this request leaves alone round-trip unchanged.
+        event.date_from = timezone.localtime(event.date_from).replace(second=0, microsecond=0)
+        event.date_to = timezone.localtime(event.date_to).replace(second=0, microsecond=0)
+        event.save(update_fields=['date_from', 'date_to'])
+        new_start = event.date_from + timedelta(days=1)
+        original_end = event.date_to
+    client.force_login(organizer_user)
+    response = client.post(
+        endpoint(hackathon, 'settings'), settings_payload(hackathon, starts_at=new_start.strftime('%Y-%m-%dT%H:%M'))
+    )
+    assert response.status_code == 302
+    hackathon.event.refresh_from_db()
+    with timezone.override(event.timezone):
+        assert local_moment(hackathon.event.date_from) == local_moment(new_start)
+    assert hackathon.event.date_to == original_end
+
+
+@pytest.mark.django_db
+def test_settings_rejects_inverted_dates_without_partial_save(client, hackathon, organizer_user):
+    original_name, original_start = hackathon.name, hackathon.event.date_from
+    client.force_login(organizer_user)
+    response = client.post(
+        endpoint(hackathon, 'settings'),
+        settings_payload(hackathon, name='改名后的活动', starts_at='2026-12-05T09:00', ends_at='2026-12-01T18:00'),
+    )
+    assert response.status_code == 200
+    assert '活动结束必须晚于开始' in response.content.decode()
+    hackathon.refresh_from_db()
+    hackathon.event.refresh_from_db()
+    assert hackathon.name == original_name
+    assert hackathon.event.date_from == original_start
+
+
+@pytest.mark.django_db
+def test_settings_reports_items_outside_the_new_window(client, hackathon, organizer_user):
+    ScheduleItem.objects.create(
+        hackathon=hackathon,
+        title='创客路演',
+        starts_at=timezone.now() + timedelta(days=30),
+        ends_at=timezone.now() + timedelta(days=30, hours=2),
+    )
+    client.force_login(organizer_user)
+    client.post(
+        endpoint(hackathon, 'settings'),
+        settings_payload(hackathon, starts_at='2026-12-01T09:00', ends_at='2026-12-03T18:00'),
+    )
+    body = client.get(endpoint(hackathon, 'settings'), follow=True).content.decode()
+    assert '活动窗口不一致' in body
+    assert '作品提交截止' in body
+    assert '创客路演' in body
 
 
 @pytest.mark.django_db

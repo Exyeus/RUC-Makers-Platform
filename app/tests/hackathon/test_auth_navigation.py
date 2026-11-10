@@ -6,7 +6,7 @@ from django.test import Client
 from django.urls import reverse
 
 from eventyay.base.models import Team as OrganizerTeam
-from eventyay.hackathon.models import StudentAccount
+from eventyay.hackathon.models import StaffAssignment, StudentAccount
 from tests.hackathon.test_workflows import endpoint
 
 
@@ -18,6 +18,89 @@ PASSWORD = 'Navigation!Password2026'
 def auth_cache(settings):
     settings.CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
     cache.clear()
+
+
+@pytest.fixture
+def private_hackathon(hackathon):
+    hackathon.is_public = False
+    hackathon.tagline = '只有内部人知道的标语'
+    hackathon.description = '未公开活动介绍'
+    hackathon.venue = '未公开场地'
+    hackathon.contact = '未公开联系方式'
+    hackathon.save()
+    return hackathon
+
+
+def add_event_organizer(hackathon, user):
+    team = OrganizerTeam.objects.create(
+        organizer=hackathon.event.organizer,
+        name='Camp organizers',
+        can_change_event_settings=True,
+        all_events=False,
+    )
+    team.members.add(user)
+    team.limit_events.add(hackathon.event)
+    return team
+
+
+def test_private_event_organizer_can_log_in_from_the_direct_entry(client, private_hackathon, user):
+    add_event_organizer(private_hackathon, user)
+    location = endpoint(private_hackathon, 'organizer-login')
+    response = client.get(location)
+    assert response.status_code == 200
+    assert 'hackathon/private_auth.html' in [template.name for template in response.templates]
+    body = response.content.decode()
+    for secret in (
+        private_hackathon.name,
+        private_hackathon.tagline,
+        private_hackathon.description,
+        private_hackathon.venue,
+        private_hackathon.contact,
+    ):
+        assert secret not in body
+    response = client.post(location, {'email': user.email, 'password': 'a-strong-test-password'})
+    assert response.status_code == 302
+    assert response.url == endpoint(private_hackathon, 'manage')
+    assert client.get(response.url).status_code == 200
+
+
+def test_private_event_judge_can_log_in_from_the_direct_entry(client, private_hackathon, user):
+    StaffAssignment.objects.create(hackathon=private_hackathon, user=user, role='judge')
+    location = endpoint(private_hackathon, 'judge-login')
+    assert client.get(location).status_code == 200
+    response = client.post(location, {'email': user.email, 'password': 'a-strong-test-password'})
+    assert response.status_code == 302
+    assert response.url == endpoint(private_hackathon, 'judge-live')
+
+
+def test_private_event_rejects_a_stranger_at_the_login_shell(client, private_hackathon, user):
+    location = endpoint(private_hackathon, 'organizer-login')
+    assert client.get(location).status_code == 200
+    response = client.post(location, {'email': user.email, 'password': 'a-strong-test-password'})
+    assert response.status_code == 302
+    assert '_auth_user_id' in client.session
+    assert client.get(endpoint(private_hackathon, 'manage')).status_code == 404
+    assert client.get(endpoint(private_hackathon, 'home')).status_code == 404
+
+
+def test_private_event_authenticated_stranger_cannot_open_the_shell(client, private_hackathon, user):
+    client.force_login(user)
+    assert client.get(endpoint(private_hackathon, 'organizer-login')).status_code == 404
+
+
+@pytest.mark.parametrize('name', ['home', 'schedule', 'manage', 'submissions', 'project'])
+def test_private_event_content_stays_hidden_from_anonymous(client, private_hackathon, name):
+    response = client.get(endpoint(private_hackathon, name))
+    assert response.status_code == 404
+    assert private_hackathon.name not in response.content.decode()
+
+
+def test_public_event_organizer_login_still_uses_the_hub(client, hackathon):
+    response = client.get(endpoint(hackathon, 'organizer-login'))
+    assert response.status_code == 200
+    templates = [template.name for template in response.templates]
+    assert 'hackathon/organizer_auth.html' in templates
+    assert 'hackathon/private_auth.html' not in templates
 
 
 def test_organizer_login_uses_hub_and_opens_management(client, hackathon, organizer_user):

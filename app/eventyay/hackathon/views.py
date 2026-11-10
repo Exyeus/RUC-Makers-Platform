@@ -861,9 +861,18 @@ def settings(request):
                 if not rows or any(not row['complete'] for row in rows):
                     form.add_error('results_published', '还有作品未完成全部有效评委评分，暂不能公布成绩。')
             if not form.errors:
-                form.save(commit=False).save(update_fields=form.changed_data)
+                form.save()
                 services.audit(h, request.user, '更新活动设置', detail=', '.join(form.changed_data))
                 messages.success(request, '活动设置已保存。')
+                if {'starts_at', 'ends_at'} & set(form.changed_data):
+                    conflicts = form.date_conflicts()
+                    if conflicts:
+                        messages.warning(
+                            request,
+                            '活动起止时间已更新，以下事项与新的活动窗口不一致，请确认是否需要一并调整：'
+                            + '；'.join(conflicts)
+                            + '。',
+                        )
                 return redirect(url(h, 'settings'))
     return page(
         request,
