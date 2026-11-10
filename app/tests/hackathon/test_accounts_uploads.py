@@ -281,6 +281,60 @@ def test_bound_email_receives_reset_link_and_new_password_logs_in(client, hackat
     assert str(client.session['_auth_user_id']) == str(account.user_id)
 
 
+def test_reset_mail_failure_does_not_start_the_waiting_window(client, hackathon, participant):
+    participant.user.email = 'flaky@example.com'
+    participant.user.set_password(PASSWORD)
+    participant.user.save()
+    account = StudentAccount.objects.create(student_id='20260001', user=participant.user)
+    location = endpoint(hackathon, 'student-password-reset-request')
+
+    with patch('eventyay.hackathon.accounts.send_mail', side_effect=ConnectionError('smtp unavailable')):
+        response = client.post(location, {'student_id': '20260001'})
+    assert response.status_code == 200
+    assert '现在可以直接重试' in response.content.decode()
+    account.user.refresh_from_db()
+    assert account.user.pw_reset_token is None
+    assert account.user.pw_reset_time is None
+
+    response = client.post(location, {'student_id': '20260001'})
+    assert response.status_code == 302
+    account.user.refresh_from_db()
+    assert account.user.pw_reset_token
+    assert [message.to for message in mail.outbox] == [['flaky@example.com']]
+
+
+def test_email_less_student_gets_an_actionable_recovery(client, hackathon, participant):
+    hackathon.contact = '组委会企业微信 makers-help'
+    hackathon.save()
+    participant.user.email = None
+    participant.user.save()
+    account = StudentAccount.objects.create(student_id='20260001', user=participant.user)
+    response = client.post(endpoint(hackathon, 'student-password-reset-request'), {'student_id': '20260001'})
+    assert response.status_code == 302
+    body = client.get(endpoint(hackathon, 'home')).content.decode()
+    assert '组委会企业微信 makers-help' in body
+    assert '不会仅凭学号' in body
+    assert '添加邮箱' not in body
+    account.user.refresh_from_db()
+    assert account.user.pw_reset_time is None
+    assert mail.outbox == []
+
+
+def test_password_recovery_pages_link_back_to_login(client, hackathon, participant):
+    login_link = 'href="' + endpoint(hackathon, 'home') + '#join"'
+    response = client.get(endpoint(hackathon, 'student-password-reset-request'))
+    assert response.status_code == 200
+    assert login_link in response.content.decode()
+
+    participant.user.email = 'roundtrip@example.com'
+    participant.user.save()
+    StudentAccount.objects.create(student_id='20260001', user=participant.user)
+    client.post(endpoint(hackathon, 'student-password-reset-request'), {'student_id': '20260001'})
+    participant.user.refresh_from_db()
+    confirm = endpoint(hackathon, 'student-password-reset-confirm') + '?token=' + participant.user.pw_reset_token
+    assert login_link in client.get(confirm).content.decode()
+
+
 def test_duplicate_student_and_inactive_login(client, hackathon, user):
     StudentAccount.objects.create(student_id='20260001', user=user)
     response = client.post(
