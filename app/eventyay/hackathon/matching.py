@@ -341,7 +341,7 @@ def create_proposal(h, actor, member_ids, idea_id, track_id, name, agreement, ta
     if not name.strip() or len(name) > 80 or not agreement.strip() or len(agreement) > 2000:
         raise MatchingError('INVALID_AGREEMENT', '请填写队名及完整合作约定。', 422)
     idea = Idea.objects.filter(hackathon=h, pk=idea_id).first()
-    track = Track.objects.filter(hackathon=h, pk=track_id).first()
+    track = Track.published(h).filter(pk=track_id).first()
     if not idea or not track:
         raise MatchingError('NOT_AVAILABLE', 'Idea 或赛道不可用。', 404)
     snapshot = snapshot_roster(h, members, idea, team)

@@ -138,6 +138,19 @@
         </div>
       </header>
       <main id="main" tabindex="-1">
+        {% if preview %}
+          <div class="preview-flag" role="status">
+            <strong>
+              预览模式 · {{ preview_title }}
+            </strong>
+            <span>
+              {{ preview_note }}
+            </span>
+            <a class="button secondary small" href="{{ preview_back }}">
+              返回编辑 ↩
+            </a>
+          </div>
+        {% endif %}
         {% for message in messages %}
           <div class="message {{ message.tags }}" role="status">
             {{ message }}

@@ -34,6 +34,7 @@ def overview(client, hackathon, user):
 
 
 def required_resource(hackathon, **kwargs):
+    kwargs.setdefault('state', 'published')
     return Resource.objects.create(
         hackathon=hackathon,
         category='guide',
@@ -171,10 +172,14 @@ def test_empty_content_long_titles_and_real_links(client, hackathon, team, user)
     assert '暂无通知' in soup.text
     assert '暂无后续日程' in soup.text
     title = '很长的真实通知标题 <script>alert(1)</script>' * 3
-    Announcement.objects.create(hackathon=hackathon, title=title, body='可信通知内容', pinned=True)
+    Announcement.objects.create(hackathon=hackathon, title=title, body='可信通知内容', pinned=True, state='published')
     now = timezone.now()
     ScheduleItem.objects.create(
-        hackathon=hackathon, title='下一项活动', starts_at=now, ends_at=now + timedelta(hours=1)
+        hackathon=hackathon,
+        title='下一项活动',
+        starts_at=now,
+        ends_at=now + timedelta(hours=1),
+        state='published',
     )
     response, soup = overview(client, hackathon, user)
     assert soup.select_one('.ruc-notice h3').text == title
@@ -227,7 +232,7 @@ def test_role_workspaces_remain_available(client, hackathon, user, role, route):
 def test_populated_public_information_retains_content_and_escaping(client, hackathon, user, route):
     title = '活动安排与材料说明' * 8
     content = '请阅读安排\n<script>alert("notice")</script>'
-    Announcement.objects.create(hackathon=hackathon, title=title, body=content, pinned=True)
+    Announcement.objects.create(hackathon=hackathon, title=title, body=content, pinned=True, state='published')
     ScheduleItem.objects.create(
         hackathon=hackathon,
         title=title,
@@ -235,6 +240,7 @@ def test_populated_public_information_retains_content_and_escaping(client, hacka
         starts_at=timezone.now() - timedelta(minutes=5),
         ends_at=timezone.now() + timedelta(hours=1),
         location='教学楼共享空间',
+        state='published',
     )
     client.force_login(user)
     response = client.get(endpoint(hackathon, route))

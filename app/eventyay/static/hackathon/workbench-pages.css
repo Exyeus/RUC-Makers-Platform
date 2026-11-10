@@ -319,3 +319,38 @@ body.ruc-app.display-mode .stage-board { border: 0; }
   .ruc-app .showcase-example { padding: 1rem; }
   .ruc-app .showcase-guide > summary { flex-wrap: wrap; }
 }
+/* Organizer content lifecycle, publish switches and read-only preview. */
+.ruc-app :is(.state-tag, .check-mark) { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; border: 1px solid var(--ruc-border); border-radius: 999px; color: var(--ruc-muted); font-size: 0.75rem; font-weight: 600; line-height: 1.6; white-space: nowrap; }
+.ruc-app .state-draft { border-color: #6b5a3a; background: #262031; color: var(--ruc-warning); }
+.ruc-app .state-published { border-color: #3a6b58; background: #16251f; color: var(--ruc-success); }
+.ruc-app .state-archived { background: var(--ruc-surface-hover); color: var(--ruc-muted); }
+.ruc-app .list-row .state-tag { margin-left: 0.5rem; vertical-align: middle; }
+.ruc-app .row-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: flex-end; margin-left: auto; color: var(--ruc-accent); font-size: 0.8125rem; }
+.ruc-app .row-actions a { color: var(--ruc-accent); }
+.ruc-app :is(.small-text) { margin: 0.5rem 0 0; color: var(--ruc-muted); font-size: 0.8125rem; line-height: 1.7; }
+.ruc-app .action-help { display: grid; gap: 0.25rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--ruc-border); }
+.ruc-app .action-help strong { color: var(--ruc-secondary); font-weight: 600; }
+.ruc-app .drift-note { margin: 1rem 0; padding: 1rem; border: 1px solid #5c4a2c; border-radius: 0.75rem; background: #211d16; }
+.ruc-app :is(.drift-note h3) { margin: 0 0 0.25rem; font-size: 1rem; }
+.ruc-app .drift-note ul { margin: 0.75rem 0 0; padding-left: 1.25rem; display: grid; gap: 0.5rem; color: var(--ruc-secondary); font-size: 0.875rem; }
+.ruc-app .drift-note a { color: var(--ruc-accent); }
+.ruc-app .preview-flag { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 1.5rem; padding: 0.875rem 1rem; border: 1px solid #4d4470; border-radius: 0.75rem; background: #1d1a2b; color: #ddd3ff; font-size: 0.875rem; line-height: 1.6; }
+.ruc-app .preview-flag strong { font-size: 0.9375rem; }
+.ruc-app .preview-flag span { flex: 1 1 20rem; min-width: 0; color: var(--ruc-secondary); }
+.ruc-app .switch-row { display: flex; align-items: flex-start; gap: 1rem; padding: 1.125rem 0; border-bottom: 1px solid var(--ruc-border); }
+.ruc-app .switch-row:last-of-type { border-bottom: 0; }
+.ruc-app .switch-row > div { flex: 1; min-width: 0; display: grid; gap: 0.375rem; }
+.ruc-app .switch-row p { margin: 0; color: var(--ruc-secondary); }
+.ruc-app .switch-row small { color: var(--ruc-muted); }
+.ruc-app .switch-action { flex-shrink: 0; }
+.ruc-app .blockers { margin: 0.25rem 0 0; padding-left: 1.125rem; color: var(--ruc-warning); font-size: 0.8125rem; display: grid; gap: 0.25rem; }
+.ruc-app .check-row { display: flex; align-items: flex-start; gap: 1rem; padding: 0.875rem 0; border-bottom: 1px solid var(--ruc-border); }
+.ruc-app .check-row:last-child { border-bottom: 0; }
+.ruc-app .check-row > div { flex: 1; min-width: 0; display: grid; gap: 0.25rem; }
+.ruc-app .check-row a { flex-shrink: 0; color: var(--ruc-accent); font-size: 0.8125rem; }
+.ruc-app .check-row.ready .check-mark { border-color: #3a6b58; color: var(--ruc-success); }
+.ruc-app .check-items { margin: 0.25rem 0 0; padding-left: 1.125rem; display: grid; gap: 0.25rem; color: var(--ruc-muted); font-size: 0.8125rem; }
+@media (max-width: 767px) {
+  .ruc-app :is(.switch-row, .check-row) { align-items: stretch; flex-direction: column; }
+  .ruc-app .preview-flag { position: static; }
+}

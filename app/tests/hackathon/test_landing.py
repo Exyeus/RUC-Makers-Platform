@@ -14,7 +14,7 @@ def test_visitor_landing_uses_event_content(client, hackathon):
     hackathon.description = '本届活动的实际介绍。'
     hackathon.venue = '本届活动的实际场地'
     hackathon.save()
-    Track.objects.create(hackathon=hackathon, name='本届赛道', description='本届赛道介绍')
+    Track.objects.create(hackathon=hackathon, name='本届赛道', description='本届赛道介绍', state='published')
 
     response = client.get(endpoint(hackathon, 'home'))
 

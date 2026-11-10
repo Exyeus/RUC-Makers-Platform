@@ -7,10 +7,12 @@ from datetime import timedelta
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Max
+from django.urls import reverse
 from django.utils import timezone
 
 from eventyay.hackathon.calendar import available_half_hours
 from eventyay.hackathon.models import (
+    Announcement,
     AuditEntry,
     DemoSlot,
     Hackathon,
@@ -19,9 +21,12 @@ from eventyay.hackathon.models import (
     Participant,
     Project,
     RecommendationRun,
+    Resource,
+    ScheduleItem,
     Score,
     StaffAssignment,
     Team,
+    Track,
     UploadSession,
 )
 from eventyay.hackathon.permissions import is_organizer
@@ -452,12 +457,17 @@ def stage_action(hackathon, user, slot, action, note=''):
     audit(hackathon, user, f'路演：{action}', slot.project.code, note)
 
 
-def results(hackathon):
-    judges = set(
+def active_judge_ids(hackathon):
+    """Judges the scoring actually counts: assigned to this event, still active, not marked as spam."""
+    return set(
         StaffAssignment.objects.filter(
             hackathon=hackathon, role='judge', user__is_active=True, user__is_spam=False
         ).values_list('user_id', flat=True)
     )
+
+
+def results(hackathon):
+    judges = active_judge_ids(hackathon)
     conflicts = {}
     for participant in Participant.objects.filter(hackathon=hackathon, user_id__in=judges, team__isnull=False):
         conflicts.setdefault(participant.team_id, set()).add(participant.user_id)
@@ -491,3 +501,241 @@ def results(hackathon):
                 rank = index
             row['rank'], last_score = rank, row['average']
     return rows
+
+
+def event_url(hackathon, name, **kwargs):
+    return reverse(f'hackathon:{name}', kwargs={'hackathon_slug': hackathon.slug, **kwargs})
+
+
+PUBLISH_ACTIONS = {
+    'open-event': ('is_public', True),
+    'hide-event': ('is_public', False),
+    'open-gallery': ('gallery_open', True),
+    'close-gallery': ('gallery_open', False),
+    'open-judging': ('judging_open', True),
+    'close-judging': ('judging_open', False),
+    'publish-results': ('results_published', True),
+    'unpublish-results': ('results_published', False),
+}
+
+PUBLISH_SWITCHES = (
+    ('is_public', '活动公开', 'open-event', 'hide-event', '所有访客与已登录选手',
+     '活动页、日程、通知和教程对所有人可读；关闭后只有主办与工作人员能进。'),
+    ('gallery_open', '作品展厅', 'open-gallery', 'close-gallery', '所有访客',
+     '公开已通过审核且本人同意展示的作品；未勾选同意展示的作品仍然不可见。'),
+    ('judging_open', '评委打分', 'open-judging', 'close-judging', '评委',
+     '评委可进入打分页；关闭后打分页只读，已保存的分数全部保留。'),
+    ('results_published', '成绩公布', 'publish-results', 'unpublish-results',
+     '所有访客与全部评委', '公开名次、平均分与评语；公布后评分、作品审核与路演调度即被锁定。'),
+)
+
+PUBLISH_LABELS = {item[0]: item[1] for item in PUBLISH_SWITCHES}
+
+DEADLINE_ORDER = (
+    ('registration_deadline', '报名截止', True),
+    ('team_freeze_at', '队伍冻结', True),
+    ('soft_deadline', '建议提交时间', False),
+    ('submission_deadline', '作品提交截止', False),
+    ('freeze_at', '材料最终冻结', False),
+)
+
+
+def publish_blockers(current, field, opening, rows=None):
+    """Conditions that must hold before a switch may take effect; closing a switch is never blocked."""
+    if not opening:
+        return []
+    if field == 'is_public':
+        blockers = []
+        if not Track.published(current).exists():
+            blockers.append('还没有已发布的赛道，公开活动后选手看不到任何赛题。')
+        if current.event.date_from and current.event.date_to and current.event.date_to <= current.event.date_from:
+            blockers.append('活动结束时间必须晚于开始时间，请先修正活动设置里的日期。')
+        return blockers
+    if field == 'gallery_open':
+        if not Project.objects.filter(hackathon=current, state='approved', public_consent=True).exists():
+            return ['还没有同意公开且已通过审核的作品，展厅开放后只是空页面。']
+        return []
+    if field == 'judging_open':
+        blockers = []
+        if not active_judge_ids(current):
+            blockers.append('还没有可用评委（账户已停用或标为垃圾的不计入），请先到工作人员页添加评审角色。')
+        if not Project.objects.filter(hackathon=current, state='approved').exists():
+            blockers.append('还没有通过审核的作品，评委进场后无队可评。')
+        return blockers
+    if field == 'results_published':
+        rows = results(current) if rows is None else rows
+        if not rows:
+            return ['还没有进入评审的作品，暂无成绩可公布。']
+        if any(not row['complete'] for row in rows):
+            return ['还有作品未完成全部有效评委评分，暂不能公布成绩。']
+    return []
+
+
+def set_publish_flag(hackathon, user, action):
+    """One switch per explicit action; ordinary settings saves never reach this code."""
+    if action not in PUBLISH_ACTIONS:
+        raise ValidationError('未知的发布操作，本次未改变任何开关。')
+    field, value = PUBLISH_ACTIONS[action]
+    with transaction.atomic():
+        current = lock_event(hackathon)
+        blockers = publish_blockers(current, field, value)
+        if blockers:
+            raise ValidationError(blockers)
+        setattr(current, field, value)
+        current.save(update_fields=[field])
+        label = PUBLISH_LABELS[field]
+        audit(current, user, f'{"开启" if value else "关闭"}{label}', detail=label)
+    return label, value
+
+
+def publish_plan(hackathon):
+    rows = results(hackathon)
+    return [
+        {
+            'field': field,
+            'label': label,
+            'audience': audience,
+            'effect': effect,
+            'value': getattr(hackathon, field),
+            'open_action': open_action,
+            'close_action': close_action,
+            'blockers': publish_blockers(hackathon, field, True, rows=rows),
+        }
+        for field, label, open_action, close_action, audience, effect in PUBLISH_SWITCHES
+    ]
+
+
+def draft_content(hackathon):
+    """Unpublished organizer content, so a publish click is not made blind."""
+    return [
+        {'kind': kind, 'label': label, 'count': model.objects.filter(hackathon=hackathon, state='draft').count()}
+        for kind, label, model in (
+            ('announcement', '通知', Announcement),
+            ('resource', '教程与指南', Resource),
+            ('schedule', '日程', ScheduleItem),
+            ('track', '赛道', Track),
+        )
+    ]
+
+
+def date_drift(hackathon):
+    """Dates that no longer line up after the event window moves; never shifted automatically."""
+    start, end = hackathon.event.date_from, hackathon.event.date_to
+    drift = []
+    previous_label, previous = '', None
+    settings_url = event_url(hackathon, 'settings')
+    for name, label, may_precede_start in DEADLINE_ORDER:
+        value = getattr(hackathon, name)
+        if value is None:
+            continue
+        if previous and value < previous:
+            drift.append(
+                {
+                    'label': label,
+                    'detail': f'早于「{previous_label}」，选手会先遇到后面的截止。',
+                    'url': settings_url,
+                    'url_label': '改活动时间',
+                }
+            )
+        elif end and value > end:
+            drift.append(
+                {'label': label, 'detail': '晚于活动结束时间。', 'url': settings_url, 'url_label': '改活动时间'}
+            )
+        elif start and not may_precede_start and value < start:
+            drift.append(
+                {'label': label, 'detail': '早于活动开始时间。', 'url': settings_url, 'url_label': '改活动时间'}
+            )
+        if previous is None or value > previous:
+            # 报告「早于谁」时要指真正压着它的那一项，而不是上一行。
+            previous, previous_label = value, label
+    for item in ScheduleItem.objects.filter(hackathon=hackathon, state=ScheduleItem.State.PUBLISHED):
+        if (start and item.ends_at < start) or (end and item.starts_at > end):
+            drift.append(
+                {
+                    'label': f'日程「{item.title}」',
+                    'detail': '落在新的活动区间之外。',
+                    'url': event_url(hackathon, 'content-edit', kind='schedule', item_id=item.pk),
+                    'url_label': '改这条日程',
+                }
+            )
+    return drift
+
+
+def publish_readiness(hackathon):
+    h = hackathon
+    missing_info = [label for label, value in (
+        ('活动名称', h.name), ('一句话介绍', h.tagline), ('简介', h.description), ('场地', h.venue)
+    ) if not (value or '').strip()]
+    published_tracks = Track.published(h).count()
+    draft_tracks = Track.objects.filter(hackathon=h, state=Track.State.DRAFT).count()
+    required_guides = Resource.published(h).filter(required=True).count()
+    judges = len(active_judge_ids(h))
+    rows = results(h)
+    unfinished = [row for row in rows if not row['complete']]
+    ranked = [row for row in rows if row['complete']]
+    drafts = sum(item['count'] for item in draft_content(h))
+    drift = date_drift(h)
+    track_detail = (
+        f'已发布 {published_tracks} 个赛道' + (f'，另有 {draft_tracks} 个草稿未发布。' if draft_tracks else '。')
+        if published_tracks
+        else '还没有已发布赛道，选手无法选择方向。'
+    )
+    return [
+        {
+            'label': '基本信息',
+            'ready': not missing_info,
+            'detail': '已填写名称、介绍、简介与场地。' if not missing_info else '尚未填写：' + '、'.join(missing_info),
+            'url': event_url(h, 'settings'),
+        },
+        {
+            'label': '时间与截止',
+            'ready': not drift,
+            'detail': (
+                '活动起止与各项截止、日程互相一致。'
+                if not drift
+                else f'{len(drift)} 项与新的活动区间不一致，请逐条处理。'
+            ),
+            'items': drift,
+            'url': event_url(h, 'settings'),
+        },
+        {
+            'label': '赛道',
+            'ready': bool(published_tracks),
+            'detail': track_detail,
+            'url': event_url(h, 'content'),
+        },
+        {
+            'label': '必读材料',
+            'ready': bool(required_guides),
+            'detail': (
+                f'已发布 {required_guides} 篇必读教程/指南。' if required_guides else '还没有标记为必读且已发布的教程。'
+            ),
+            'url': event_url(h, 'content'),
+        },
+        {
+            'label': '评委名单',
+            'ready': bool(judges),
+            'detail': f'已配置 {judges} 位可用评委。' if judges else '还没有可用评委，开放评分会被前置条件拦住。',
+            'url': event_url(h, 'staff'),
+        },
+        {
+            'label': '成绩完整性',
+            'ready': not unfinished,
+            'detail': (
+                f'{len(ranked)} 份作品已收齐有效评分，公布时公开名次与评语。'
+                if not unfinished
+                else f'{len(unfinished)} 份作品尚未收齐有效评委评分，公布成绩会被拦住。'
+            ),
+            'items': [
+                {'label': row['project'].title, 'detail': f' · 已收 {row["count"]}/{row["expected"]} 位'}
+                for row in unfinished[:6]
+            ],
+            'url': event_url(h, 'results'),
+        },
+        {
+            'label': '内容草稿',
+            'ready': not drafts,
+            'detail': f'还有 {drafts} 条内容仍是草稿，发布后不会公开。' if drafts else '没有待发布的草稿内容。',
+            'url': event_url(h, 'content'),
+        },
+    ]

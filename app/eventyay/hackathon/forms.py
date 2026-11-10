@@ -287,7 +287,11 @@ class TeamForm(forms.ModelForm):
     def __init__(self, *args, hackathon, **kwargs):
         super().__init__(*args, **kwargs)
         self.hackathon = hackathon
-        self.fields['track'].queryset = Track.objects.filter(hackathon=hackathon)
+        tracks = Track.published(hackathon)
+        if self.instance.pk:
+            # 队伍已经报过的赛道即使随后被下架，也要能继续显示与保留，不能被静默改赛道。
+            tracks = tracks | Track.objects.filter(hackathon=hackathon, pk=self.instance.track_id)
+        self.fields['track'].queryset = tracks
         self.fields['version'].initial = self.instance.roster_version if self.instance.created else 1
 
     def clean_name(self):
@@ -484,6 +488,8 @@ class IntakeAssetForm(AssetForm):
 
 
 class SettingsForm(forms.ModelForm):
+    """Editorial settings only: the four publish switches live in 发布准备 and never save from here."""
+
     starts_at = forms.DateTimeField(
         label='活动开始', widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M')
     )
@@ -491,10 +497,20 @@ class SettingsForm(forms.ModelForm):
         label='活动结束', widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M')
     )
 
+    DEADLINE_HELP = {
+        'registration_deadline': '过了这个时间就不能再报名，已报名的选手不受影响。',
+        'team_freeze_at': '队伍名单在此定格：之后不能新建队伍、换队长，也不能再邀人入队。',
+        'soft_deadline': '只是给选手的建议节点，页面会提示，不会因此关闭提交。',
+        'submission_deadline': '作品提交通道在此关闭；如需补交，请在作品检查页用补录并写明原因。',
+        'freeze_at': '所有材料最终定格，评委看到的附件与演示说明不再变化。',
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['starts_at'].initial = self.instance.event.date_from
         self.fields['ends_at'].initial = self.instance.event.date_to
+        for name, help_text in self.DEADLINE_HELP.items():
+            self.fields[name].help_text = help_text
 
     def clean(self):
         data = super().clean()
@@ -527,10 +543,6 @@ class SettingsForm(forms.ModelForm):
             'team_size',
             'demo_seconds',
             'transition_seconds',
-            'is_public',
-            'gallery_open',
-            'judging_open',
-            'results_published',
         ]
         widgets = {
             name: forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M')
