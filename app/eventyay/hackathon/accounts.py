@@ -1,5 +1,6 @@
 import datetime as dt
 import hashlib
+import logging
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -30,6 +31,9 @@ from eventyay.hackathon.models import Participant, StaffAssignment, StudentAccou
 from eventyay.hackathon.permissions import event_view, is_organizer
 from eventyay.hackathon.views import landing_context, page, url
 from eventyay.multidomain.middlewares import get_cookie_domain
+
+
+logger = logging.getLogger(__name__)
 
 
 def login_limited(request, identifier_field='student_id'):
@@ -97,13 +101,15 @@ def finish_login(request, user, keep_logged_in=False, destination=None):
 
 
 @sensitive_post_parameters('password')
-@event_view()
+@event_view(auth_shell=True)
 @require_http_methods(['GET', 'POST'])
 def organizer_login(request, judge=False):
     context = {
         'judge_login': judge,
         'login_url': url(request.hackathon, 'judge-login' if judge else 'organizer-login'),
     }
+    # A private event renders the content-free shell until the session proves this edition's access.
+    shell = 'private_auth' if request.hackathon_shell else 'organizer_auth'
     if request.user.is_authenticated:
         if judge and 'judge' in request.hackathon_roles:
             return redirect(url(request.hackathon, 'judge-live'))
@@ -112,14 +118,14 @@ def organizer_login(request, judge=False):
                 return redirect(workspace_destination(request, request.user))
         return page(
             request,
-            'organizer_auth',
+            shell,
             switch_account=True,
             workspace_url=workspace_destination(request, request.user),
             **context,
         )
     backend = get_auth_backends().get('native')
     if backend is None:
-        return page(request, 'organizer_auth', unavailable=True, **context)
+        return page(request, shell, unavailable=True, **context)
     backend.url = backend.authentication_url(request)
     form = OrganizerLoginForm(backend=backend, request=request, data=request.POST if request.method == 'POST' else None)
     status = 200
@@ -142,7 +148,7 @@ def organizer_login(request, judge=False):
                     form.cleaned_data.get('keep_logged_in', False),
                     destination=url(request.hackathon, 'judge-live') if judge else None,
                 )
-    response = page(request, 'organizer_auth', form=form, **context)
+    response = page(request, shell, form=form, **context)
     response.status_code = status
     return response
 
@@ -261,19 +267,20 @@ def student_password_reset_request(request):
             if user and user.email:
                 # User has email on file, send reset link
                 one_day_ago = dt.datetime.now(dt.UTC) - dt.timedelta(hours=24)
-                if not (user.pw_reset_time and one_day_ago < user.pw_reset_time < dt.datetime.now(dt.UTC)):
+                if user.pw_reset_time and one_day_ago < user.pw_reset_time < dt.datetime.now(dt.UTC):
+                    messages.info(request, '24 小时内已请求过重置，请检查邮箱或稍后再试。')
+                else:
                     # Generate reset token
-                    user.pw_reset_token = get_random_string(32)
-                    user.pw_reset_time = dt.datetime.now(dt.UTC)
-                    user.save(update_fields=['pw_reset_token', 'pw_reset_time'])
+                    token = get_random_string(32)
 
                     # Build reset URL
                     reset_url = request.build_absolute_uri(
                         url(request.hackathon, 'student-password-reset-confirm')
-                        + f'?token={user.pw_reset_token}'
+                        + f'?token={token}'
                     )
 
-                    # Send email
+                    # Send email first: the 24-hour window only starts once the mail is out,
+                    # so a delivery failure cannot lock the student out of retrying.
                     try:
                         send_mail(
                             subject='黑客松密码重置',
@@ -288,22 +295,31 @@ def student_password_reset_request(request):
                             recipient_list=[user.email],
                             fail_silently=False,
                         )
-                        messages.success(request, '密码重置链接已发送到你的注册邮箱，请查收。')
                     except Exception:
-                        messages.error(request, '发送邮件失败，请稍后重试或联系组织者。')
-                        return page(request, 'student_password_reset_request', form=form, title='忘记密码')
+                        logger.exception('Password reset mail could not be delivered')
+                        messages.error(request, '发送邮件失败，本次请求未生效，现在可以直接重试。')
+                        return page(
+                            request,
+                            'student_password_reset_request',
+                            form=form,
+                            title='忘记密码',
+                            login_url=login_entry_url(request),
+                        )
 
+                    user.pw_reset_token = token
+                    user.pw_reset_time = dt.datetime.now(dt.UTC)
+                    user.save(update_fields=['pw_reset_token', 'pw_reset_time'])
                     user.log_action('eventyay.hackathon.student.password.reset.request')
-                else:
-                    messages.info(request, '24 小时内已请求过重置，请检查邮箱或稍后再试。')
+                    messages.success(request, '密码重置链接已发送到你的注册邮箱，请查收。')
                 return redirect(login_entry_url(request))
             elif user:
                 # User exists but has no email
                 contact_info = request.hackathon.contact or '请在现场咨询工作人员'
                 messages.warning(
                     request,
-                    f'该学号未绑定邮箱，无法自动重置。请联系组织者协助，'
-                    f'或先在个人设置中添加邮箱。组委会联系方式：{contact_info}'
+                    f'该学号未绑定邮箱，无法自助重置。请联系组委会人工办理：{contact_info}。'
+                    '办理时请提供学号与注册姓名；为保护账户，组委会核对身份后才会重置密码，'
+                    '不会仅凭学号直接改密。'
                 )
             else:
                 # User not found - don't reveal this for security
@@ -313,7 +329,9 @@ def student_password_reset_request(request):
                 )
             return redirect(login_entry_url(request))
 
-    return page(request, 'student_password_reset_request', form=form, title='忘记密码')
+    return page(
+        request, 'student_password_reset_request', form=form, title='忘记密码', login_url=login_entry_url(request)
+    )
 
 
 @sensitive_post_parameters('password')
@@ -352,4 +370,11 @@ def student_password_reset_confirm(request):
             user.log_action('eventyay.hackathon.student.password.reset.complete')
             return redirect(login_entry_url(request))
 
-    return page(request, 'student_password_reset_confirm', form=form, title='重置密码', token=token)
+    return page(
+        request,
+        'student_password_reset_confirm',
+        form=form,
+        title='重置密码',
+        token=token,
+        login_url=login_entry_url(request),
+    )
