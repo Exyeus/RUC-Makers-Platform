@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 
 from eventyay.base.forms.auth import LoginForm
@@ -520,12 +521,44 @@ class SettingsForm(forms.ModelForm):
         return data
 
     def save(self, commit=True):
-        instance = super().save(commit=commit)
+        instance = super().save(commit=False)
+        event = instance.event
+        event_fields = []
+        for form_field, event_field in (('starts_at', 'date_from'), ('ends_at', 'date_to')):
+            value = self.cleaned_data[form_field]
+            if value != getattr(event, event_field):
+                setattr(event, event_field, value)
+                event_fields.append(event_field)
         if commit:
-            instance.event.date_from = self.cleaned_data['starts_at']
-            instance.event.date_to = self.cleaned_data['ends_at']
-            instance.event.save(update_fields=['date_from', 'date_to'])
+            model_fields = {field.name for field in Hackathon._meta.concrete_fields}
+            updates = [name for name in self.changed_data if name in model_fields]
+            if updates:
+                instance.save(update_fields=[*updates, 'updated'])
+            if event_fields:
+                event.save(update_fields=event_fields)
         return instance
+
+    def date_conflicts(self):
+        """Deadlines and schedule rows sitting outside the window this form just saved."""
+        start, end = self.cleaned_data['starts_at'], self.cleaned_data['ends_at']
+        deadlines = (
+            ('报名截止', self.instance.registration_deadline),
+            ('队伍冻结', self.instance.team_freeze_at),
+            ('建议提交', self.instance.soft_deadline),
+            ('作品提交截止', self.instance.submission_deadline),
+            ('材料最终冻结', self.instance.freeze_at),
+        )
+        conflicts = [
+            f'{label} {timezone.localtime(value):%m-%d %H:%M}'
+            for label, value in deadlines
+            if value and not start <= value <= end
+        ]
+        conflicts += [
+            f'日程「{item.title}」{timezone.localtime(item.starts_at):%m-%d %H:%M}'
+            for item in ScheduleItem.objects.filter(hackathon=self.instance)
+            if item.ends_at < start or item.starts_at > end
+        ]
+        return conflicts
 
     class Meta:
         model = Hackathon

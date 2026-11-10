@@ -103,6 +103,8 @@
 .ruc-app .ruc-pill--accent { color: var(--ruc-accent); background: #2c2540; border-color: #655484; }
 .ruc-app .ruc-pill--success { color: var(--ruc-success); background: #1d332f; border-color: #3e6658; }
 .ruc-app .ruc-pill--warning { color: var(--ruc-warning); background: #362c20; border-color: #6c5431; }
+.ruc-app .ruc-pill--error { color: #ffc3d1; background: #432331; border-color: #b66b83; }
+.ruc-app .ruc-pill--info { color: #bfe0ff; background: #1b2c3d; border-color: #4b7099; }
 
 /* One primary action per workbench. Filled lavender uses dark text. */
 .ruc-app .ruc-task-panel {

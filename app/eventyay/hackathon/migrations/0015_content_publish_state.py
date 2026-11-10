@@ -31,7 +31,7 @@ def publishable_fields(model_name):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('hackathon', '0013_demoslot_ended_at'),
+        ('hackathon', '0014_project_state_reason'),
     ]
 
     operations = [operation for name in PUBLISHABLE for operation in publishable_fields(name)]

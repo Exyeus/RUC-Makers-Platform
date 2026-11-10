@@ -22,8 +22,32 @@ async function request(url, options = {}) {
     throw new UploadError('登录已过期或服务暂时不可用。请重新登录后选择原文件继续。', response.status, retryAfter);
   }
   const data = await response.json();
-  if (!response.ok) throw new UploadError(data.error || `请求失败（${response.status}）`, response.status, retryAfter);
+  if (!response.ok) {
+    const error = new UploadError(data.error || `请求失败（${response.status}）`, response.status, retryAfter);
+    error.fields = data.fields;
+    throw error;
+  }
   return data;
+}
+
+function clearFieldErrors(scope) {
+  scope.querySelectorAll('[data-field-error-ajax]').forEach(node => node.remove());
+}
+
+// A rejected save names the widgets, so the message can sit under the field instead of only in the status line.
+function showFieldErrors(scope, fields) {
+  for (const [name, message] of Object.entries(fields || {})) {
+    let control = scope.elements[name];
+    if (control && !control.closest) control = control[0];
+    const wrap = control?.closest('.form-field');
+    if (!wrap) continue;
+    const box = document.createElement('div');
+    box.className = 'field-error';
+    box.setAttribute('role', 'alert');
+    box.dataset.fieldErrorAjax = '';
+    box.textContent = message;
+    wrap.append(box);
+  }
 }
 
 function newId() {
@@ -58,9 +82,65 @@ function describeTask(task) {
   return `${task.filename} · ${stateLabels[task.state] || task.state} · 已接收 ${(task.offset / 1048576).toFixed(1)} / ${(task.size / 1048576).toFixed(1)} MiB · 服务器登记 ${task.received_at} · 续传至 ${task.expires_at}${task.last_error ? ` · ${task.last_error}` : ''}`;
 }
 
+function svgIcon(name) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#${name}`);
+  svg.append(use);
+  return svg;
+}
+
+// Uploaded files land in the sidebar without a reload; every string is user-supplied, so rows are built, not parsed.
+function renderMaterials(list, materials) {
+  if (!list || !Array.isArray(materials)) return;
+  list.textContent = '';
+  if (!materials.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = '还没有上传材料。';
+    list.append(empty);
+    return;
+  }
+  for (const item of materials) {
+    const link = document.createElement('a');
+    link.href = item.download_url;
+    const copy = document.createElement('span');
+    const kind = document.createElement('strong');
+    kind.textContent = item.kind;
+    const detail = document.createElement('small');
+    detail.textContent = `${item.filename} · ${item.size_display}`;
+    copy.append(kind, detail);
+    const arrow = document.createElement('span');
+    arrow.textContent = '↓';
+    link.append(svgIcon('i-folder'), copy, arrow);
+    list.append(link);
+  }
+}
+
+function renderGaps(box, gaps) {
+  if (!box || !Array.isArray(gaps)) return;
+  const list = box.querySelector('ul');
+  list.textContent = '';
+  for (const error of gaps) {
+    const row = document.createElement('li');
+    row.textContent = error;
+    list.append(row);
+  }
+  box.hidden = !gaps.length;
+}
+
 function renderProject(data) {
   const badge = document.querySelector('[data-project-badge]');
   if (badge) { badge.textContent = `${data.label} · v${data.revision}`; badge.className = `tag state-${data.state}`; }
+  renderMaterials(document.querySelector('[data-asset-list]'), data.materials);
+  renderGaps(document.querySelector('[data-submission-errors]'), data.gaps);
+  const banner = document.querySelector('[data-status-banner]');
+  if (banner) {
+    banner.className = `message ${data.status_tone}`;
+    banner.dataset.statusKey = data.status_key;
+    banner.querySelector('strong').textContent = data.label;
+    banner.querySelector('p').textContent = data.status_detail;
+  }
   const target = projectStatus?.querySelector('[data-submission-state]');
   if (target) target.textContent = `${data.label}${data.received_at ? ` · 服务器登记 ${data.received_at} · 凭证 ${data.receipt_id}` : ''}`;
   const cancel = projectStatus?.querySelector('[data-cancel-queue]');
@@ -102,7 +182,9 @@ projectForm?.addEventListener('submit', async event => {
   const output = projectForm.querySelector('[data-project-status]');
   const buttons = projectForm.querySelectorAll('button[name=action]');
   buttons.forEach(button => { button.disabled = true; });
+  clearFieldErrors(projectForm);
   let queued = false;
+  projectForm.dispatchEvent(new CustomEvent('hackathon:saving'));
   try {
     // Register the selected file first so this submission cannot omit an in-flight intent.
     if (registration) await registration;
@@ -111,12 +193,20 @@ projectForm?.addEventListener('submit', async event => {
     queued = data.state === 'queued';
     renderProject(data);
     if (projectForm.elements.version) projectForm.elements.version.value = data.revision;
-    output.textContent = queued ? '服务器已登记排队提交。请保持页面打开，材料上传完成后自动正式提交。' : '已保存，请在上方核对提交状态。';
+    projectForm.dispatchEvent(new CustomEvent('hackathon:saved', { detail: { saved: true } }));
+    output.textContent = queued
+      ? '服务器已登记排队提交。请保持页面打开，材料上传完成后自动正式提交。'
+      : `服务器已保存：${data.label}。请在上方核对提交状态。`;
     remember(`hackathon-submit-click:${location.pathname}`, JSON.stringify({ clickedAt, ...data }));
     if (!form) location.reload();
   } catch (error) {
     console.error('Could not register hackathon submission', error);
-    output.textContent = `${error.message} 尚未确认登记成功，请查询状态或联系技术人员。`;
+    projectForm.dispatchEvent(new CustomEvent('hackathon:saved', { detail: { saved: false } }));
+    showFieldErrors(projectForm, error.fields);
+    // A field-level rejection means nothing was written; a missing answer means the outcome is unknown.
+    output.textContent = error.fields
+      ? `${error.message} 页面内容已保留，修正后可直接重新提交。`
+      : `${error.message} 尚未确认登记成功，请查询状态或联系技术人员。`;
   } finally {
     if (!queued) buttons.forEach(button => { button.disabled = false; });
   }

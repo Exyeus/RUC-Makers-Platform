@@ -195,6 +195,108 @@ def submission_errors(project, pending_kinds=()):
     return errors
 
 
+def project_status(project, uploads=None):
+    """What “have we submitted” means right now, for every role and view.
+
+    ``submitted_at`` only ever records the first formal submission, so it cannot
+    answer that question for the current version; ``state`` plus ``state_reason`` can.
+    """
+    if project is None:
+        return {
+            'key': 'missing',
+            'label': '尚未创建作品',
+            'detail': '先填写作品信息并保存草稿，即可上传海报与演示材料。',
+            'action': '开始填写作品',
+            'done': False,
+            'tone': 'neutral',
+        }
+    state = project.state
+    if state == Project.State.QUEUED:
+        tasks = project.uploads.filter(state='uploading') if uploads is None else uploads
+        stalled = any(
+            task.expires_at <= timezone.now() for task in tasks
+        ) or project.hackathon.freeze_at <= timezone.now()
+        if stalled:
+            return {
+                'key': 'upload_stalled',
+                'label': '排队提交已过期',
+                'detail': '登记后仍有材料未在续传期限内完成，本次排队登记已中止。请重新上传并再次正式提交。',
+                'action': '继续上传材料',
+                'done': False,
+                'tone': 'error',
+            }
+        return {
+            'key': 'queued',
+            'label': project.get_state_display(),
+            'detail': '服务器已登记本次提交意图；材料全部上传并通过校验后才会正式提交。',
+            'action': '查看上传进度',
+            'done': False,
+            'tone': 'info',
+        }
+    if state == Project.State.CHANGES:
+        if project.state_reason == Project.StateReason.EDITED:
+            return {
+                'key': 'resubmit',
+                'label': '有修改尚未正式提交',
+                'detail': '当前版本还没有再次正式提交；参评的仍是上一次正式提交的版本。',
+                'action': '提交修改',
+                'done': False,
+                'tone': 'warning',
+            }
+        if project.state_reason == Project.StateReason.UPLOAD:
+            return {
+                'key': 'upload_stalled',
+                'label': '上传未完成',
+                'detail': '排队登记已因上传取消或超时而中止，当前版本尚未正式提交。请补齐材料后再次正式提交。',
+                'action': '继续上传材料',
+                'done': False,
+                'tone': 'error',
+            }
+        if project.state_reason == Project.StateReason.REVIEW:
+            return {
+                'key': 'review',
+                'label': '主办方要求补充',
+                'detail': project.review_note.strip() or '请查看作品页的检查意见，逐项补齐后再次正式提交。',
+                'action': '定位缺项并补充',
+                'done': False,
+                'tone': 'warning',
+            }
+        return {
+            'key': 'changes',
+            'label': project.get_state_display(),
+            'detail': '作品被标为需要补充。请查看检查意见；若你刚保存过修改或替换过材料，也需要再次正式提交。',
+            'action': '查看检查意见',
+            'done': False,
+            'tone': 'warning',
+        }
+    if state == Project.State.SUBMITTED:
+        return {
+            'key': 'submitted',
+            'label': '当前版本已正式提交',
+            'detail': '当前版本已正式提交，等待主办方检查；检查通过不代表作品已获展示授权。',
+            'action': '查看提交凭证',
+            'done': True,
+            'tone': 'success',
+        }
+    if state == Project.State.APPROVED:
+        return {
+            'key': 'approved',
+            'label': '当前提交版本已通过检查',
+            'detail': '当前提交版本已通过检查，可留意路演安排。',
+            'action': '查看路演安排',
+            'done': True,
+            'tone': 'success',
+        }
+    return {
+        'key': 'draft',
+        'label': project.get_state_display(),
+        'detail': '草稿已保存，尚未正式提交。由队长点击“正式提交 / 排队登记”后才会进入评审。',
+        'action': '补齐材料并正式提交',
+        'done': False,
+        'tone': 'neutral',
+    }
+
+
 def require_project_editable(project, allow_queued=False):
     if project and project.state == Project.State.QUEUED and not allow_queued:
         raise ValidationError('作品已登记排队提交，信息与材料清单已锁定。请等待上传完成；需要修改时先取消排队提交。')
@@ -262,10 +364,12 @@ def save_project(hackathon, participant, form, submit=False, organizer=None, rea
             json.dumps(project.submission_manifest, sort_keys=True, ensure_ascii=False).encode()
         ).hexdigest()
         project.state = Project.State.QUEUED if pending else Project.State.SUBMITTED
+        project.state_reason = ''
         if not pending:
             project.submitted_at = project.submitted_at or timezone.now()
     elif current and current.state != Project.State.DRAFT:
         project.state = Project.State.CHANGES
+        project.state_reason = Project.StateReason.EDITED
     project.revision = (current.revision if current else 0) + 1
     project.equipment_checked = False
     project.save()
@@ -293,8 +397,9 @@ def complete_queued_project(project, user):
     if submission_errors(project):
         return
     project.state = Project.State.SUBMITTED
+    project.state_reason = ''
     project.submitted_at = project.submitted_at or timezone.now()
-    project.save(update_fields=['state', 'submitted_at', 'updated'])
+    project.save(update_fields=['state', 'state_reason', 'submitted_at', 'updated'])
     audit(project.hackathon, user, '排队材料到齐，正式提交', project.code, str(project.submission_receipt))
 
 
@@ -304,7 +409,8 @@ def invalidate_queued_project(session):
     project = Project.objects.select_for_update().get(pk=session.project_id)
     if project.state == Project.State.QUEUED:
         project.state = Project.State.CHANGES
-        project.save(update_fields=['state', 'updated'])
+        project.state_reason = Project.StateReason.UPLOAD
+        project.save(update_fields=['state', 'state_reason', 'updated'])
         audit(session.hackathon, session.user, '排队提交中止', project.code, str(project.submission_receipt))
 
 

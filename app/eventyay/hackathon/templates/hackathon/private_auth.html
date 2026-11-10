@@ -1,0 +1,47 @@
+{% load static turnstile_tags %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#070919">
+    <meta name="robots" content="noindex">
+    <title>{% if judge_login %}评委登录{% else %}主办方登录{% endif %} · 未公开活动</title>
+    <link rel="icon" href="{% static 'hackathon/brand/favicon.svg' %}" type="image/svg+xml">
+    <link rel="stylesheet" href="{% static 'hackathon/landing.css' %}">
+    <link rel="stylesheet" href="{% static 'hackathon/brand.css' %}">
+  </head>
+  <body class="entry-page">
+    <a class="skip-link" href="#main">跳转至主要内容</a>
+    <main id="main" tabindex="-1">
+      {% for message in messages %}
+        <div class="message {{ message.tags }}" role="status">{{ message }}</div>
+      {% endfor %}
+      <section class="glass-card auth-card" id="join" aria-labelledby="login-title">
+        <div class="auth-heading">
+          <h1 id="login-title">{% if judge_login %}评委登录{% else %}主办方 / 邮箱登录{% endif %}</h1>
+        </div>
+        <p class="auth-intro">
+          这是一个尚未公开的活动，活动内容在完成登录后才会显示。
+          登录成功时，系统按你在本届的权限进入对应工作台；没有获得本届授权的工作即使登录，也不会看到活动内容。
+        </p>
+        {% if unavailable %}
+          <section class="auth-panel"><p>当前未启用邮箱密码登录，请联系活动主办方。</p></section>
+        {% else %}
+          <form method="post" class="auth-panel" data-once-form>
+            {% csrf_token %}
+            {% include 'hackathon/form_fields.html' %}
+            {% turnstile_widget 'login' %}
+            {% turnstile_script 'login' %}
+            <div class="auth-actions">
+              <button type="submit" class="button">登录工作台</button>
+            </div>
+            <p class="muted">
+              使用主办方分配的邮箱账户和本站密码登录。忘记密码时可从活动主页的找回入口重新申请。
+            </p>
+          </form>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>
