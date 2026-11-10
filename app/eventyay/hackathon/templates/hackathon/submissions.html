@@ -116,7 +116,7 @@
               {% endif %}
             </td>
             <td>
-              <a class="button secondary small" href="{% url 'hackathon:review' hackathon.slug project.pk %}">
+              <a class="button secondary small" href="{% url 'hackathon:review' hackathon.slug project.pk %}?state={{ state }}&reason={{ reason }}">
                 检查 ↗
               </a>
             </td>

@@ -665,10 +665,15 @@ class SupportForm(forms.ModelForm):
         fields = ['category', 'subject', 'body']
 
 
-class ReplyForm(forms.ModelForm):
-    class Meta:
-        model = SupportTicket
-        fields = ['state', 'reply']
+class ReplyForm(forms.Form):
+    """一次处理 = 追加一条说明 + 明确接下来等谁，旧说明继续留在线程里。"""
+
+    state = forms.ChoiceField(label='接下来', choices=SupportTicket.State.choices)
+    body = forms.CharField(label='本轮说明', max_length=5000, widget=forms.Textarea(attrs={'rows': 4}))
+
+
+class TicketNoteForm(forms.Form):
+    body = forms.CharField(label='补充说明', max_length=5000, widget=forms.Textarea(attrs={'rows': 3}))
 
 
 class ReviewForm(forms.ModelForm):

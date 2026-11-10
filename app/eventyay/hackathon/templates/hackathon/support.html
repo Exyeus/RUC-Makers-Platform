@@ -28,6 +28,18 @@
           我的工单
         {% endif %}
       </h2>
+      {% if is_organizer %}
+        <nav class="tabs" aria-label="工单状态">
+          <a class="{% if not state %}selected{% endif %}" href="?">
+            全部
+          </a>
+          {% for value, label in states %}
+            <a class="{% if value == state %}selected{% endif %}" href="?state={{ value }}">
+              {{ label }}
+            </a>
+          {% endfor %}
+        </nav>
+      {% endif %}
       {% for ticket in tickets %}
         <article class="panel">
           <div class="section-heading">
@@ -44,30 +56,51 @@
           <h3>
             {{ ticket.subject }}
           </h3>
-          <p>
-            {{ ticket.body|linebreaksbr }}
-          </p>
-          <small class="muted">
-            {{ ticket.created|date:'m.d H:i' }}
-            {% if is_organizer %}
-              ·
-              {{ ticket.user.email }}
-            {% endif %}
-          </small>
-          {% if ticket.reply %}
-            <div class="ticket-reply">
+          {% if is_organizer %}
+            <p>
               <strong>
-                组委会回复
+                {{ ticket.identity }}
               </strong>
-              <p>
-                {{ ticket.reply|linebreaksbr }}
-              </p>
-            </div>
+              <small class="muted">
+                开单于
+                {{ ticket.created|date:'m.d H:i' }}
+                ·
+                邮箱
+                {{ ticket.user.email|default:'未绑定' }}
+              </small>
+            </p>
+          {% endif %}
+          {% include 'hackathon/ticket_thread.html' %}
+          {% if ticket.handler %}
+            <small class="muted">
+              最近处理人：
+              {{ ticket.handler.fullname|default:ticket.handler.email }}
+            </small>
           {% endif %}
           {% if is_organizer %}
-            <a href="{% url 'hackathon:support-reply' hackathon.slug ticket.pk %}">
-              处理工单 ↗
-            </a>
+            <div class="actions">
+              <a href="{% url 'hackathon:support-reply' hackathon.slug ticket.pk %}?state={{ state }}">
+                处理工单 ↗
+              </a>
+              {% if ticket.work_reference %}
+                <a href="{{ ticket.work_reference.1 }}">
+                  {{ ticket.work_reference.0 }} ↗
+                </a>
+              {% endif %}
+            </div>
+          {% elif ticket.user_id == user.pk %}
+            <form method="post" class="inline-form">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="append">
+              <input type="hidden" name="ticket" value="{{ ticket.pk }}">
+              <label class="sr-only" for="note-{{ ticket.pk }}">
+                补充说明
+              </label>
+              <textarea id="note-{{ ticket.pk }}" name="body" rows="3" required placeholder="补充发生时间、截图里的提示，或者确认已按说明处理"></textarea>
+              <button class="button secondary small">
+                追加说明
+              </button>
+            </form>
           {% endif %}
         </article>
       {% empty %}
@@ -83,6 +116,7 @@
     </section>
     <form method="post" class="panel">
       {% csrf_token %}
+      <input type="hidden" name="action" value="new">
       <h2>
         提交一个问题
       </h2>

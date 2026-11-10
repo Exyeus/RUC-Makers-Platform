@@ -1,0 +1,58 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow">
+        TICKET #
+        {{ ticket.pk }}
+        ·
+        {{ ticket.get_category_display }}
+      </div>
+      <h1>
+        {{ ticket.subject }}
+      </h1>
+      <p>
+        <strong>
+          {{ ticket.identity }}
+        </strong>
+        ·
+        {{ ticket.get_state_display }}
+        ·
+        开单于
+        {{ ticket.created|date:'m.d H:i' }}
+      </p>
+    </div>
+    <div class="actions">
+      <a class="button secondary" href="{% url 'hackathon:support' hackathon.slug %}?state={{ filter_state }}">
+        返回这份筛选 ↗
+      </a>
+      {% if ticket.work_reference %}
+        <a class="button secondary" href="{{ ticket.work_reference.1 }}">
+          {{ ticket.work_reference.0 }} ↗
+        </a>
+      {% endif %}
+    </div>
+  </section>
+  <div class="two-column">
+    <section class="panel">
+      <h2>
+        沟通记录
+      </h2>
+      {% include 'hackathon/ticket_thread.html' %}
+    </section>
+    <form method="post" class="panel">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reply">
+      <h2>
+        回复并交接
+      </h2>
+      <p class="muted">
+        这条说明会追加在记录末尾，此前的每一轮都保留。选「待选手补充」会进入对方工作台的下一步。
+      </p>
+      {% include 'hackathon/form_fields.html' %}
+      <button class="button">
+        发送这条回复 ↗
+      </button>
+    </form>
+  </div>
+{% endblock %}
