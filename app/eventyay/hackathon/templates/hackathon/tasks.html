@@ -6,7 +6,7 @@
         SMALL ACTIONS, GREAT EVENTS
       </div>
       <h1>
-        每一份协作，都很重要。
+        志愿者工作台
       </h1>
       <p>
         查看岗位、操作步骤和备份负责人。开始与完成任务后，留下服务记录。
@@ -20,8 +20,7 @@
   </section>
   <div class="message">
     <a href="{% url 'hackathon:resources' hackathon.slug %}?category=volunteer">
-      上岗前，先读志愿者工作手册 ↗
-    </a>
+      上岗前，先读志愿者工作手册    </a>
   </div>
   <div class="card-grid">
     {% for task in tasks %}
@@ -86,8 +85,7 @@
           </form>
           {% if is_organizer %}
             <a href="{% url 'hackathon:task-edit' hackathon.slug task.pk %}">
-              编辑 / 核准 ↗
-            </a>
+              编辑 / 核准            </a>
           {% endif %}
         </div>
       </article>

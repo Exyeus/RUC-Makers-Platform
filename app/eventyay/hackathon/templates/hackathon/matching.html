@@ -1,7 +1,7 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
   <section class="page-heading">
-    <div><div class="eyebrow">PEOPLE × IDEA × TEAM</div><h1>让想法，遇见一起实现的人。</h1><p>发起项目、加入项目、先探索或单人参赛。名单冻结：{{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}。</p></div>
+    <div><div class="eyebrow">PEOPLE × IDEA × TEAM</div><h1>匹配推荐与组队进度</h1><p>发起项目、加入项目、先探索或单人参赛。名单冻结：{{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}。</p></div>
     <a class="button secondary" href="{% url 'hackathon:matching-profile' hackathon.slug %}">我的匹配资料</a>
   </section>
   <p><a href="{% url 'hackathon:teams' hackathon.slug %}">← 返回组队广场 · 交流与作品池</a></p>
@@ -30,7 +30,7 @@
     </div>
   </section>
   <section id="ideas" aria-labelledby="ideas-heading">
-    <div class="section-heading outside"><h2 id="ideas-heading">作品池 · 找项目</h2><a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布我的 Idea ↗</a></div>
+    <div class="section-heading outside"><h2 id="ideas-heading">作品池 · 找项目</h2><a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布我的 Idea</a></div>
     <div class="card-grid">
       {% for idea in ideas %}
         <article class="panel" id="idea-{{ idea.pk }}"><span class="tag lavender">{{ idea.get_mode_display }}</span><h3>{{ idea.title }}</h3><p><strong>问题：</strong>{{ idea.problem }}</p><p><strong>服务谁：</strong>{{ idea.audience }}</p><p><strong>构想：</strong>{{ idea.solution }}</p>

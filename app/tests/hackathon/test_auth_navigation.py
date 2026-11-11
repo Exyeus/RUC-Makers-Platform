@@ -137,8 +137,9 @@ def test_event_organizer_login_keeps_management_navigation(client, hackathon, us
     assert client.get(response.url).status_code == 200
     response = client.get(endpoint(hackathon, 'home'))
     assert response.context['is_organizer']
-    assert 'manage' in [item[0] for item in response.context['staff_navigation']]
+    assert '主办' in [item['label'] for item in response.context['identities']]
     assert 'aria-label="主办方后台"' in response.content.decode()
+    assert client.get(endpoint(hackathon, 'manage')).status_code == 200
     assert client.get(endpoint(hackathon, 'organizer-login')).url == endpoint(hackathon, 'manage')
 
 

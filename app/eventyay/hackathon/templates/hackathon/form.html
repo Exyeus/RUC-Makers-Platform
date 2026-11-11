@@ -33,8 +33,7 @@
     {% endif %}
     {% if preview_url %}
       <a class="button secondary small" href="{{ preview_url }}">
-        预览选手页面 ↗
-      </a>
+        预览选手页面      </a>
     {% endif %}
   </section>
   <form method="post" class="panel form-panel" data-dirty-form data-once-form>
@@ -56,8 +55,7 @@
               </strong>
               {{ row.detail }}
               <a href="{{ row.url }}">
-                {{ row.url_label }} ↗
-              </a>
+                {{ row.url_label }}              </a>
             </li>
           {% endfor %}
         </ul>
@@ -77,17 +75,13 @@
           {% endif %}
         >
           {{ action_label }}
-          <span>
-            ↗
-          </span>
+
         </button>
       {% endfor %}
       {% if not actions %}
         <button type="submit" class="button">
           {{ button|default:'保存' }}
-          <span>
-            ↗
-          </span>
+
         </button>
       {% endif %}
       <a class="button secondary" href="{% if back_url %}{{ back_url }}{% else %}{% url 'hackathon:home' hackathon.slug %}{% endif %}">

@@ -6,7 +6,7 @@
         ONE SOURCE OF TRUTH
       </div>
       <h1>
-        每个人，都有自己的坐标。
+        报名与签到
       </h1>
       <p>
         稳定的选手编号与队伍编号贯穿报名、提交、评审和证书。签到与撤销是两个动作，处理后仍停留在当前搜索结果。
@@ -77,8 +77,7 @@
               </small>
               {% if person.team %}
                 <a href="{% url 'hackathon:intake' hackathon.slug person.team.pk %}">
-                  异常补录 ↗
-                </a>
+                  异常补录                </a>
               {% endif %}
             </td>
             <td>

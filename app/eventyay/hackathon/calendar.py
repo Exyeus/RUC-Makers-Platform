@@ -51,16 +51,49 @@ def absence_summary(hackathon, hours, notes: str = '') -> str:
     return '；'.join(labels)
 
 
-def schedule_heatmap(hackathon) -> list[dict]:
-    zone = ZoneInfo(hackathon.event.timezone)
-    items = list(ScheduleItem.published(hackathon))
-    deadlines = [
+def deadline_moments(hackathon) -> list[tuple[datetime, str]]:
+    return [
         (hackathon.registration_deadline, '报名截止'),
         (hackathon.team_freeze_at, '队伍冻结'),
         (hackathon.soft_deadline, '建议提交'),
         (hackathon.submission_deadline, '作品提交截止'),
         (hackathon.freeze_at, '材料最终冻结'),
     ]
+
+
+def schedule_timeline(hackathon) -> list[dict]:
+    """The hour grid's items and deadlines as one readable time-ordered list."""
+    zone = ZoneInfo(hackathon.event.timezone)
+    entries = [
+        {
+            'starts_at': item.starts_at.astimezone(zone),
+            'ends_at': item.ends_at.astimezone(zone),
+            'title': item.title,
+            'kind': '活动',
+            'location': item.location,
+            'level': 'event',
+        }
+        for item in ScheduleItem.published(hackathon)
+    ]
+    entries += [
+        {
+            'starts_at': at.astimezone(zone),
+            'ends_at': None,
+            'title': label,
+            'kind': '截止',
+            'location': '',
+            'level': 'deadline',
+        }
+        for at, label in deadline_moments(hackathon)
+    ]
+    entries.sort(key=lambda entry: (entry['starts_at'], entry['ends_at'] or entry['starts_at']))
+    return entries
+
+
+def schedule_heatmap(hackathon) -> list[dict]:
+    zone = ZoneInfo(hackathon.event.timezone)
+    items = list(ScheduleItem.published(hackathon))
+    deadlines = deadline_moments(hackathon)
     days = {hackathon.event.date_from.astimezone(zone).date()}
     end = (hackathon.event.date_to or hackathon.event.date_from).astimezone(zone).date()
     # Keep long-running camps compact; include every scheduled day and deadline.

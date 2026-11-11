@@ -1,5 +1,5 @@
 <nav class="mobile-nav" aria-label="常用功能">
-  {% if is_organizer %}
+  {% if working_identity_key == 'organizer' %}
     <a href="{% url 'hackathon:manage' hackathon.slug %}" {% if active == 'manage' %}aria-current="page"{% endif %}>
       <svg aria-hidden="true"><use href="#i-grid" /></svg><span>总控</span>
     </a>
@@ -12,12 +12,12 @@
     <a href="{% url 'hackathon:results' hackathon.slug %}" {% if active == 'results' %}aria-current="page"{% endif %}>
       <svg aria-hidden="true"><use href="#i-chart" /></svg><span>成绩</span>
     </a>
-  {% elif is_judge %}
+  {% elif working_identity_key == 'judge' %}
     <a href="{% url 'hackathon:judge-live' hackathon.slug %}" {% if active == 'judge-live' or follow_live %}aria-current="page"{% endif %}>
-      <svg aria-hidden="true"><use href="#i-play" /></svg><span>现场打分</span>
+      <svg aria-hidden="true"><use href="#i-play" /></svg><span>路演</span>
     </a>
     <a href="{% url 'hackathon:judging' hackathon.slug %}" {% if active == 'judging' or active == 'score' and not follow_live %}aria-current="page"{% endif %}>
-      <svg aria-hidden="true"><use href="#i-chart" /></svg><span>全部评审</span>
+      <svg aria-hidden="true"><use href="#i-chart" /></svg><span>评审</span>
     </a>
     <a href="{% url 'hackathon:schedule' hackathon.slug %}" {% if active == 'schedule' %}aria-current="page"{% endif %}>
       <svg aria-hidden="true"><use href="#i-calendar" /></svg><span>日程</span>
@@ -25,9 +25,9 @@
     <a href="{% url 'hackathon:resources' hackathon.slug %}" {% if active == 'resources' or active == 'resource' %}aria-current="page"{% endif %}>
       <svg aria-hidden="true"><use href="#i-book" /></svg><span>指南</span>
     </a>
-  {% elif is_staff_member %}
+  {% elif working_identity_key == 'volunteer' %}
     <a href="{% url 'hackathon:tasks' hackathon.slug %}" {% if active == 'tasks' %}aria-current="page"{% endif %}>
-      <svg aria-hidden="true"><use href="#i-badge" /></svg><span>我的任务</span>
+      <svg aria-hidden="true"><use href="#i-badge" /></svg><span>任务</span>
     </a>
     <a href="{% url 'hackathon:schedule' hackathon.slug %}" {% if active == 'schedule' %}aria-current="page"{% endif %}>
       <svg aria-hidden="true"><use href="#i-calendar" /></svg><span>日程</span>

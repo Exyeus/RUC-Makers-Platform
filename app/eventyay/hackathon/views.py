@@ -23,7 +23,7 @@ from django_scopes import scope
 
 from eventyay.hackathon import forms, services
 from eventyay.hackathon.archive import zip_preview
-from eventyay.hackathon.calendar import absence_summary, schedule_heatmap
+from eventyay.hackathon.calendar import absence_summary, schedule_heatmap, schedule_timeline
 from eventyay.hackathon.community import square_context
 from eventyay.hackathon.constants import KEYWORD_CATEGORIES, KEYWORDS
 from eventyay.hackathon.downloads import asset_response, stream_file
@@ -87,52 +87,127 @@ def submissions_return(hackathon, post):
     return f'{target}?{urlencode(params)}' if params else target
 
 
+ORGANIZER_ROUTES = {
+    'manage', 'participants', 'submissions', 'manage-stage', 'publish', 'content', 'staff', 'settings',
+    'scoring-rules', 'matching-operations',
+}
+JUDGE_ROUTES = {'judging', 'judge-live', 'score'}
+VOLUNTEER_ROUTES = {'tasks'}
+
+
+def working_identity(request, active):
+    """Which workbench the current page belongs to, for an account holding several roles."""
+    if not request.user.is_authenticated:
+        return None
+    organizer = request.hackathon_organizer
+    judge = 'judge' in request.hackathon_roles
+    if active in ORGANIZER_ROUTES and organizer:
+        return 'organizer'
+    if active in JUDGE_ROUTES and judge:
+        return 'judge'
+    if active in VOLUNTEER_ROUTES and (organizer or 'volunteer' in request.hackathon_roles):
+        return 'volunteer'
+    if active == 'results':
+        return 'organizer' if organizer else 'judge' if judge else 'participant'
+    return 'participant'
+
+
+def workspace_navigation(request, hackathon, identity):
+    """Sidebar for the working identity: about six primary entries, the rest below.
+
+    Every page that identity can open keeps an entry somewhere in the sidebar, so no
+    view loses its `aria-current` marker; only the prominence changes.
+    """
+    activity = [('schedule', '活动日程', 'calendar'), ('announcements', '通知公告', 'bell')]
+    reference = [('resources', '学习与指南', 'book'), ('gallery', '作品展厅', 'spark')]
+    help_entry = ('support', '帮助与支持', 'help')
+    judge_entries = [('judging', '评委工作台', 'chart'), ('judge-live', '当前路演', 'play')]
+    results_entry = ('results', '评审与成绩', 'chart')
+    if identity == 'organizer':
+        groups = [
+            ('我的待办', [
+                ('manage', '活动总控', 'grid'),
+                ('participants', '报名与签到', 'users'),
+                ('submissions', '作品检查', 'folder'),
+                ('manage-stage', '路演调度', 'play'),
+                results_entry,
+                ('publish', '发布准备', 'spark'),
+            ]),
+            ('配置与成员', [
+                ('content', '内容管理', 'book'),
+                ('staff', '成员与权限', 'badge'),
+                ('settings', '活动设置', 'settings'),
+                ('scoring-rules', '算分规则', 'settings'),
+                ('matching-operations', '组队撮合', 'users'),
+            ]),
+        ]
+        elsewhere = [('tasks', '志愿者工作台', 'badge'), help_entry, ('home', '参赛总览', 'grid'), *activity]
+        if 'judge' in request.hackathon_roles:
+            elsewhere = judge_entries + elsewhere
+        groups.append(('协作与活动页面', elsewhere))
+    elif identity == 'judge':
+        groups = [
+            ('我的评审', [*judge_entries, results_entry]),
+            ('活动与帮助', [*activity, help_entry]),
+            ('参考', [*reference, ('home', '参赛总览', 'grid')]),
+        ]
+    elif identity == 'volunteer':
+        groups = [
+            ('我的工作', [('tasks', '志愿者工作台', 'badge'), *activity, help_entry]),
+            ('参考', [*reference, ('home', '参赛总览', 'grid')]),
+        ]
+    elif identity == 'participant':
+        groups = [
+            ('我的参赛', [
+                ('home', '参赛总览', 'grid'),
+                ('teams', '我的队伍', 'users'),
+                ('project', '我的作品', 'folder'),
+            ]),
+            ('活动与帮助', [*activity, help_entry]),
+            ('学习与展示', [*reference, ('stage', '路演现场', 'play'), results_entry]),
+        ]
+    else:
+        groups = [
+            ('活动', [('home', '活动主页', 'grid'), *activity, *reference, results_entry]),
+            ('入口', [
+                ('stage', '路演现场', 'play'),
+                ('teams', '组队广场', 'users'),
+                help_entry,
+                ('judge-login', '评委入口', 'chart'),
+            ]),
+        ]
+    return [
+        (label, [(name, title, icon, url(hackathon, name)) for name, title, icon in items])
+        for label, items in groups
+    ]
+
+
+def working_identities(request, hackathon, identity):
+    """The identities this account actually holds, for an explicit context switcher.
+
+    Switching only changes which workbench the person is looking at; `event_view`
+    still decides every permission on the destination page.
+    """
+    if not request.user.is_authenticated:
+        return []
+    identities = [('participant', '选手', 'home')]
+    if 'judge' in request.hackathon_roles:
+        identities.append(('judge', '评委', 'judging'))
+    if request.hackathon_organizer or 'volunteer' in request.hackathon_roles:
+        identities.append(('volunteer', '志愿者', 'tasks'))
+    if request.hackathon_organizer:
+        identities.append(('organizer', '主办', 'manage'))
+    if len(identities) < 2:
+        return []
+    return [
+        {'key': key, 'label': label, 'url': url(hackathon, route), 'current': key == identity}
+        for key, label, route in identities
+    ]
+
+
 def page(request, template, **context):
     hackathon = request.hackathon
     participant = request.participant
-    navigation_groups = [
-        ('参赛工作台', [
-            ('home', '参赛总览', 'grid'),
-            ('teams', '我的队伍与组队', 'users'),
-            ('project', '我的作品', 'folder'),
-        ]),
-        ('活动安排', [
-            ('schedule', '活动日程', 'calendar'),
-            ('announcements', '通知公告', 'bell'),
-            ('stage', '路演现场', 'play'),
-        ]),
-        ('学习与展示', [
-            ('resources', '学习与指南', 'book'),
-            ('gallery', '作品展厅', 'spark'),
-        ]),
-        ('帮助与入口', [
-            ('support', '帮助与支持', 'help'),
-            ('judge-login', '评委入口', 'chart'),
-        ]),
-    ]
-    navigation_groups = [
-        (label, [(name, title, icon, url(hackathon, name)) for name, title, icon in items])
-        for label, items in navigation_groups
-    ]
-    staff_navigation = []
-    if request.hackathon_organizer:
-        staff_navigation = [
-            ('manage', '活动总控', 'grid'),
-            ('participants', '选手与队伍', 'users'),
-            ('matching-operations', '组队撮合', 'users'),
-            ('submissions', '作品检查', 'folder'),
-            ('manage-stage', '路演调度', 'play'),
-            ('results', '评审与成绩', 'chart'),
-            ('scoring-rules', '算分规则', 'settings'),
-            ('staff', '工作人员', 'badge'),
-            ('content', '内容管理', 'book'),
-            ('publish', '发布准备', 'spark'),
-            ('settings', '活动设置', 'settings'),
-        ]
-    if 'judge' in request.hackathon_roles:
-        staff_navigation.extend([('judge-live', '现场打分', 'play'), ('judging', '全部评审', 'chart')])
-    if request.hackathon_organizer or 'volunteer' in request.hackathon_roles:
-        staff_navigation.append(('tasks', '志愿者工作台', 'badge'))
     common = {
         'hackathon': hackathon,
         'participant': participant,
@@ -140,9 +215,6 @@ def page(request, template, **context):
         'is_staff_member': request.hackathon_organizer or bool(request.hackathon_roles),
         'is_judge': 'judge' in request.hackathon_roles,
         'now': timezone.now(),
-        'navigation': [item for label, items in navigation_groups for item in items],
-        'navigation_groups': navigation_groups,
-        'staff_navigation': [(name, label, icon, url(hackathon, name)) for name, label, icon in staff_navigation],
         'active': request.resolver_match.url_name,
         'latest_notice': Announcement.published(hackathon).filter(audience='all').first(),
     }
@@ -176,6 +248,17 @@ def page(request, template, **context):
         'score': 'judge-live' if common.get('follow_live') else 'judging',
     }
     common['navigation_active'] = navigation_aliases.get(common['active'], common['active'])
+    identity = working_identity(request, common['navigation_active'])
+    navigation_groups = workspace_navigation(request, hackathon, identity)
+    common['navigation'] = [item for label, items in navigation_groups for item in items]
+    common['navigation_groups'] = navigation_groups
+    common['identities'] = working_identities(request, hackathon, identity)
+    common['working_identity_key'] = identity
+    common['working_identity'] = next((item['label'] for item in common['identities'] if item['current']), None)
+    if not common.get('page_title'):
+        common['page_title'] = next(
+            (item[1] for item in common['navigation'] if item[0] == common['navigation_active']), None
+        )
     return render(request, f'hackathon/{template}.html', common)
 
 
@@ -291,6 +374,7 @@ def landing_context(request):
         'upcoming': ScheduleItem.published(h).filter(ends_at__gte=timezone.now())[:3],
         'featured_resources': Resource.published(h)[:3],
         'calendar_days': schedule_heatmap(h),
+        'calendar_timeline': schedule_timeline(h),
     }
 
 

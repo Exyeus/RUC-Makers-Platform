@@ -6,15 +6,14 @@
         BUILT WITH CURIOSITY
       </div>
       <h1>
-        好想法，有了真实的样子。
+        作品展厅
       </h1>
       <p>
         发现本届作品，也让每一次创造留下痕迹。
       </p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:results' hackathon.slug %}">
-      评审结果 ↗
-    </a>
+      评审结果    </a>
   </section>
   {% if not hackathon.gallery_open %}
     <div class="message">
@@ -54,8 +53,7 @@
             {{ project.team.name }}
           </span>
           <span>
-            探索作品 ↗
-          </span>
+            探索作品          </span>
         </div>
       </a>
     {% empty %}
@@ -82,7 +80,6 @@
       {% for edition in editions %}
         <a class="button secondary" href="{% url 'hackathon:gallery' edition.slug %}">
           {{ edition.name }}
-          ↗
         </a>
       {% endfor %}
     </div>

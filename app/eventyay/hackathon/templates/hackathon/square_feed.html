@@ -19,7 +19,7 @@
           <div class="card-bottom">
             <span>{{ post.author.name }}</span>
             <a href="{% url 'hackathon:post-detail' hackathon.slug post.pk %}">
-              {% if post.is_open %}回应 / 一起试试 ↗{% else %}查看交流 ↗{% endif %}
+              {% if post.is_open %}回应 / 一起试试{% else %}查看交流{% endif %}
             </a>
           </div>
         </article>
@@ -50,7 +50,7 @@
           <span class="tag lavender">{{ post.get_kind_display }}</span>
           <h3>{{ post.title }}</h3>
           <p>{{ post.body|truncatechars:160 }}</p>
-          <a class="showcase-entry-link" href="{% url 'hackathon:post-detail' hackathon.slug post.pk %}">查看作品与交流 ↗</a>
+          <a class="showcase-entry-link" href="{% url 'hackathon:post-detail' hackathon.slug post.pk %}">查看作品与交流</a>
         </article>
       {% endfor %}
       {% for idea in pool_ideas %}
@@ -60,7 +60,7 @@
           <p>{{ idea.problem|truncatechars:160 }}</p>
           <p>{{ idea.solution|truncatechars:160 }}</p>
           {% if hackathon.matching_enabled %}
-            <a class="showcase-entry-link" href="{% url 'hackathon:matching' hackathon.slug %}#idea-{{ idea.pk }}">了解作品与合作方式 ↗</a>
+            <a class="showcase-entry-link" href="{% url 'hackathon:matching' hackathon.slug %}#idea-{{ idea.pk }}">了解作品与合作方式</a>
           {% endif %}
         </article>
       {% endfor %}
