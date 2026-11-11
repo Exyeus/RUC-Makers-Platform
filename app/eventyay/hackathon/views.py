@@ -238,7 +238,7 @@ def landing_context(request):
         )
         .order_by('-updated')
         .first()
-        if request.user.is_authenticated
+        if request.user.is_authenticated and not h.results_published
         else None
     )
     current_task = next_task(h, participant, project, unread, timezone.now(), status, waiting_ticket)
@@ -274,6 +274,7 @@ def landing_context(request):
         'project_status': status,
         'journey_url': url(h, 'project' if participant else 'register'),
         'current_task': current_task,
+        'waiting_ticket': waiting_ticket,
         'completed_steps': [item for item in checklist if item['done']],
         'pending_steps': [item for item in checklist if not item['done']],
         'required_count': required_count,
@@ -816,7 +817,8 @@ def manage(request):
         ),
         attention=attention,
         special=special,
-        tickets=SupportTicket.objects.filter(hackathon=h).exclude(state='resolved').count(),
+        tickets=SupportTicket.objects.filter(hackathon=h, state=SupportTicket.State.OPEN).count(),
+        waiting_tickets=SupportTicket.objects.filter(hackathon=h, state=SupportTicket.State.WAITING_USER).count(),
         log=AuditEntry.objects.filter(hackathon=h).select_related('actor')[:12],
     )
 
@@ -1239,11 +1241,25 @@ def identity_label(person, user):
     return f'{user.fullname or user.email or "未命名账户"} · 账户 #{user.pk}'
 
 
+TICKET_STATE_TONES = {
+    SupportTicket.State.OPEN: 'orange',
+    SupportTicket.State.DOING: 'lavender',
+    SupportTicket.State.WAITING_USER: '',
+    SupportTicket.State.RESOLVED: 'mint',
+}
+
+
 def attach_ticket_threads(hackathon, tickets):
-    """把开单内容和之后的每一条发言按时间排好，处理人和时间都保留。"""
+    """把开单内容和之后的每一条发言按时间排好，处理人和时间都保留。
+
+    发言和作者在这里一次取回，调用方不必自己 prefetch，详情页也不会逐条查作者。
+    """
+    threads = {}
+    for message in TicketMessage.objects.filter(ticket__in=tickets).select_related('author'):
+        threads.setdefault(message.ticket_id, []).append(message)
     users = {ticket.user_id: ticket.user for ticket in tickets}
-    for ticket in tickets:
-        for message in ticket.messages.all():
+    for replies in threads.values():
+        for message in replies:
             users[message.author_id] = message.author
     people = {
         person.user_id: person
@@ -1258,6 +1274,7 @@ def attach_ticket_threads(hackathon, tickets):
     for ticket in tickets:
         person = people.get(ticket.user_id)
         ticket.identity = identity_label(person, users[ticket.user_id])
+        ticket.state_tone = TICKET_STATE_TONES[ticket.state]
         project = team_projects.get(person.team_id) if person and person.team_id else None
         if project:
             # 开单人属于哪一队，主办就能从工单直接走到那份作品。
@@ -1278,7 +1295,7 @@ def attach_ticket_threads(hackathon, tickets):
                 'is_opening': True,
             }
         ]
-        for message in ticket.messages.all():
+        for message in threads.get(ticket.pk, []):
             thread.append(
                 {
                     'at': message.created,
@@ -1301,7 +1318,7 @@ def support(request):
         tickets = tickets.filter(user=request.user)
     if request.hackathon_organizer and state:
         tickets = tickets.filter(state=state)
-    items = list(tickets.select_related('user', 'handler').prefetch_related('messages__author'))
+    items = list(tickets.select_related('user', 'handler'))
     attach_ticket_threads(h, items)
     back = f"{url(h, 'support')}?{urlencode({'state': state})}" if state else url(h, 'support')
     action = request.POST.get('action') if request.method == 'POST' else None
@@ -1681,6 +1698,7 @@ def export(request, kind):
                 '工单号',
                 '姓名',
                 '本届编号',
+                '账户编号',
                 '队伍',
                 '作品',
                 '学号',
@@ -1719,10 +1737,11 @@ def export(request, kind):
                     ticket.pk,
                     person.name if person else account_label(ticket.user),
                     person.code if person else '',
+                    account_reference(ticket.user),
                     (person.team.name if person.team_id else '尚未组队') if person else '未报名',
                     project.code if project else '',
                     student_id_of(ticket.user),
-                    ticket.user.email,
+                    ticket.user.email or '',
                     ticket.get_category_display(),
                     ticket.get_state_display(),
                     account_label(ticket.handler) if ticket.handler else '',

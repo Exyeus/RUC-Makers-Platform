@@ -1,5 +1,6 @@
 # 工单改成逐条线程：先把旧的单条 reply 搬进线程，再撤掉那个会被覆盖的字段。
-# 撤销 reply 列不可逆（旧内容已复制为一条发言，回滚后那一列会是空的），因此部署时先 migrate 再启新版。
+# 撤销 reply 列不可逆（旧内容已复制为一条发言，回滚后那一列会是空的），
+# 因此部署顺序是：停旧实例 → migrate hackathon → 起新版本。
 
 import django.db.models.deletion
 from django.conf import settings
@@ -13,11 +14,12 @@ def move_replies_into_thread(apps, schema_editor):
         message = TicketMessage.objects.create(
             hackathon_id=ticket.hackathon_id,
             ticket_id=ticket.pk,
-            # 老数据只在工单上记了一个 handler，不知道是谁写的就退回开单人，但标明来自组委会。
+            # 老数据只在工单上记了一个 handler：有 handler 才算组委会发言，没有就退回开单人本人。
             author_id=ticket.handler_id or ticket.user_id,
-            from_staff=True,
+            from_staff=ticket.handler_id is not None,
             body=ticket.reply,
         )
+        # 旧数据没有逐条回复的写入时间，只能挂到工单最后修改时间上。
         TicketMessage.objects.filter(pk=message.pk).update(created=ticket.updated)
 
 
@@ -77,7 +79,7 @@ class Migration(migrations.Migration):
                     ('resolved', '已解决'),
                 ],
                 default='open',
-                help_text='待选手补充会进入对方工作台的下一步。',
+                help_text='待选手补充会在对方参赛总览持续提示；作品已提交时成为下一步。',
                 max_length=16,
                 verbose_name='状态',
             ),

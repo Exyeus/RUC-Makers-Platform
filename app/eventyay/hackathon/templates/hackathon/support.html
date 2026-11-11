@@ -49,7 +49,7 @@
               ·
               {{ ticket.get_category_display }}
             </span>
-            <span class="tag {% if ticket.state == 'resolved' %}mint{% else %}orange{% endif %}">
+            <span class="tag {{ ticket.state_tone }}">
               {{ ticket.get_state_display }}
             </span>
           </div>

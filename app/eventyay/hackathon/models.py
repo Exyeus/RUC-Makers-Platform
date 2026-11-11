@@ -515,7 +515,7 @@ class SupportTicket(EventRecord):
         max_length=16,
         default=State.OPEN,
         choices=State.choices,
-        help_text='待选手补充会进入对方工作台的下一步。',
+        help_text='待选手补充会在对方参赛总览持续提示；作品已提交时成为下一步。',
     )
     handler = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
 
