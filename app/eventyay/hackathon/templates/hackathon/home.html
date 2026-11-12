@@ -89,7 +89,7 @@
         <div class="ruc-section-header"><h2 id="schedule-title">接下来</h2><a class="ruc-text-link" href="{% url 'hackathon:schedule' hackathon.slug %}">完整日程<svg aria-hidden="true"><use href="#i-arrow" /></svg></a></div>
         {% for item in upcoming|slice:':1' %}<div class="ruc-timeline"><time datetime="{{ item.starts_at|date:'c' }}">{{ item.starts_at|date:'n 月 j 日 H:i' }} · {{ hackathon.event.timezone }}</time><h3>{{ item.title }}</h3><p class="ruc-secondary">{{ item.location }}</p></div>{% empty %}<p class="ruc-secondary">暂无后续日程，请关注活动通知。</p>{% endfor %}
       </section>
-      <section class="ruc-panel" aria-labelledby="help-title"><h2 id="help-title">卡住了？我们在。</h2><p class="ruc-secondary">组队、材料上传或路演遇到问题，都可以联系支持团队。</p><a class="ruc-text-link" href="{% url 'hackathon:support' hackathon.slug %}">联系支持团队<svg aria-hidden="true"><use href="#i-arrow" /></svg></a></section>
+      <section class="ruc-panel" aria-labelledby="help-title"><h2 id="help-title">卡住了？我们在。</h2>{% if waiting_ticket %}<p class="ruc-secondary">工单 #{{ waiting_ticket.pk }} 等你补充：{{ waiting_ticket.subject }}</p>{% endif %}<p class="ruc-secondary">组队、材料上传或路演遇到问题，都可以联系支持团队。</p><a class="ruc-text-link" href="{% url 'hackathon:support' hackathon.slug %}">联系支持团队<svg aria-hidden="true"><use href="#i-arrow" /></svg></a></section>
     </aside>
   </div>
 {% endblock %}

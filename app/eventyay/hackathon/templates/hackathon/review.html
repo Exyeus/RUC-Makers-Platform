@@ -15,13 +15,20 @@
         {{ project.summary }}
       </p>
     </div>
-    <a class="button secondary" href="{% url 'hackathon:project-detail' hackathon.slug project.pk %}">
-      完整作品 ↗
-    </a>
+    <div class="actions">
+      <a class="button secondary" href="{% url 'hackathon:submissions' hackathon.slug %}?state={{ filter_state }}&reason={{ filter_reason }}">
+        返回这份筛选 ↗
+      </a>
+      <a class="button secondary" href="{% url 'hackathon:project-detail' hackathon.slug project.pk %}">
+        完整作品 ↗
+      </a>
+    </div>
   </section>
   <div class="two-column">
     <form method="post" class="panel">
       {% csrf_token %}
+      <input type="hidden" name="filter_state" value="{{ filter_state }}">
+      <input type="hidden" name="filter_reason" value="{{ filter_reason }}">
       {% include 'hackathon/form_fields.html' %}
       <button class="button">
         保存检查结果 ↗

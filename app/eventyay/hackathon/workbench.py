@@ -5,7 +5,7 @@ from datetime import datetime
 
 from django.urls import reverse
 
-from eventyay.hackathon.models import Hackathon, Participant, Project, Resource
+from eventyay.hackathon.models import Hackathon, Participant, Project, Resource, SupportTicket
 
 
 @dataclass(frozen=True)
@@ -25,11 +25,15 @@ def next_task(
     unread: Resource | None,
     now: datetime,
     status: dict,
+    waiting_ticket: SupportTicket | None = None,
 ) -> Task:
     """Pick the one action the participant should take next.
 
     ``status`` is :func:`eventyay.hackathon.services.project_status`; the workbench
     and the project page must describe the same current version with the same words.
+    ``waiting_ticket`` is the organizer's open question to this person, if any; it
+    never outranks registration, teaming, the deadline or material fixes, and the
+    home page keeps it visible on its own.
     """
 
     def task(key, title, detail, label, route, **kwargs):
@@ -121,6 +125,16 @@ def next_task(
             status['detail'],
             '查看检查意见',
             'project',
+        )
+    # 工单只顶掉没有时限的动作（已提交、阅读推荐）；报名、组队、截止与材料补充都排在它前面，
+    # 等本人回复的工单另在首页帮助面板持续可见。
+    if waiting_ticket:
+        return task(
+            'ticket_reply',
+            f'工单 #{waiting_ticket.pk} 等你补充',
+            '组委会在这条工单里把问题交回给你，回复后会重新回到主办待处理。',
+            '查看并回复工单',
+            'support',
         )
     if status['done']:
         return task(

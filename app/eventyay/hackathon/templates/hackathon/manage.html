@@ -61,13 +61,17 @@
     <div class="metric">
       <div>
         <span>
-          未解决工单
+          工单待主办 / 等选手补充
         </span>
         <strong>
           {{ tickets }}
+          <small>
+            /
+            {{ waiting_tickets }}
+          </small>
         </strong>
       </div>
-      <a href="{% url 'hackathon:support' hackathon.slug %}">
+      <a href="{% url 'hackathon:support' hackathon.slug %}?state=open">
         去处理 ↗
       </a>
     </div>
@@ -180,6 +184,12 @@
           </a>
           <a href="{% url 'hackathon:export' hackathon.slug 'volunteers' %}">
             志愿服务时长 CSV
+            <span>
+              ↓
+            </span>
+          </a>
+          <a href="{% url 'hackathon:export' hackathon.slug 'tickets' %}">
+            支持工单交接 CSV
             <span>
               ↓
             </span>

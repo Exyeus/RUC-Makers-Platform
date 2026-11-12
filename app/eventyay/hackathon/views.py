@@ -4,6 +4,7 @@ import tempfile
 import zipfile
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 
 from defusedcsv import csv
 from django.contrib import messages
@@ -46,6 +47,7 @@ from eventyay.hackathon.models import (
     StationToken,
     SupportTicket,
     Team,
+    TicketMessage,
     Track,
     UploadSession,
     VolunteerTask,
@@ -58,6 +60,31 @@ from eventyay.hackathon.workbench import next_task
 
 def url(hackathon, name, **kwargs):
     return services.event_url(hackathon, name, **kwargs)
+
+
+def list_filters(source, state_key='state', reason_key='reason'):
+    """作品检查列表的筛选值，只认枚举里有的取值。"""
+    state = source.get(state_key, '')
+    reason = source.get(reason_key, '')
+    return (
+        state if state in Project.State.values else '',
+        reason if reason in Project.StateReason.values else '',
+    )
+
+
+def submissions_return(hackathon, post):
+    """检查完一条作品后回到原来那份筛选结果。
+
+    跳转地址只由白名单取值拼成，不会把提交上来的任意字符串带进 URL。
+    """
+    state, reason = list_filters(post, 'filter_state', 'filter_reason')
+    params = {}
+    if state:
+        params['state'] = state
+    if reason:
+        params['reason'] = reason
+    target = url(hackathon, 'submissions')
+    return f'{target}?{urlencode(params)}' if params else target
 
 
 def page(request, template, **context):
@@ -205,7 +232,16 @@ def landing_context(request):
         unread = required.exclude(
             pk__in=ResourceRead.objects.filter(hackathon=h, user=request.user).values('resource_id')
         ).first()
-    current_task = next_task(h, participant, project, unread, timezone.now(), status)
+    waiting_ticket = (
+        SupportTicket.objects.filter(
+            hackathon=h, user=request.user, state=SupportTicket.State.WAITING_USER
+        )
+        .order_by('-updated')
+        .first()
+        if request.user.is_authenticated and not h.results_published
+        else None
+    )
+    current_task = next_task(h, participant, project, unread, timezone.now(), status, waiting_ticket)
     checklist = [
         {
             'title': '完善参赛信息',
@@ -238,6 +274,7 @@ def landing_context(request):
         'project_status': status,
         'journey_url': url(h, 'project' if participant else 'register'),
         'current_task': current_task,
+        'waiting_ticket': waiting_ticket,
         'completed_steps': [item for item in checklist if item['done']],
         'pending_steps': [item for item in checklist if not item['done']],
         'required_count': required_count,
@@ -780,7 +817,8 @@ def manage(request):
         ),
         attention=attention,
         special=special,
-        tickets=SupportTicket.objects.filter(hackathon=h).exclude(state='resolved').count(),
+        tickets=SupportTicket.objects.filter(hackathon=h, state=SupportTicket.State.OPEN).count(),
+        waiting_tickets=SupportTicket.objects.filter(hackathon=h, state=SupportTicket.State.WAITING_USER).count(),
         log=AuditEntry.objects.filter(hackathon=h).select_related('actor')[:12],
     )
 
@@ -788,19 +826,36 @@ def manage(request):
 @event_view('organizer')
 def participants(request):
     h = request.hackathon
+    query = request.GET.get('q', '').strip()
     if request.method == 'POST':
+        # 表单没有 action，POST 仍带 ?q=…，回到列表时不必重新搜索一次。
+        back = f"{url(h, 'participants')}?{request.GET.urlencode()}"
         person = get_object_or_404(Participant, hackathon=h, pk=request.POST.get('participant'))
-        person.checked_in = request.POST.get('checked_in') == 'yes'
-        person.save(update_fields=['checked_in', 'updated'])
-        services.audit(h, request.user, '更新签到', person.code)
-        messages.success(request, '签到状态已更新。')
-        return redirect(url(h, 'participants'))
+        action = request.POST.get('action')
+        if action == 'check_in':
+            if person.checked_in:
+                messages.info(request, f'{person.name}（{person.code}）此前已签到，状态没有变化。')
+            else:
+                person.checked_in = True
+                person.save(update_fields=['checked_in', 'updated'])
+                services.audit(h, request.user, '签到', person.code)
+                messages.success(request, f'{person.name}（{person.code}）已签到。')
+        elif action == 'uncheck':
+            if not person.checked_in:
+                messages.info(request, f'{person.name}（{person.code}）本来就没有签到记录。')
+            else:
+                person.checked_in = False
+                person.save(update_fields=['checked_in', 'updated'])
+                services.audit(h, request.user, '撤销签到', person.code)
+                messages.success(request, f'已撤销 {person.name}（{person.code}）的签到记录。')
+        else:
+            messages.error(request, '没有识别这个操作，签到状态保持不变。')
+        return redirect(back)
     items = (
         Participant.objects.filter(hackathon=h)
         .select_related('team', 'user')
         .annotate(student_id=F('user__student_account__student_id'))
     )
-    query = request.GET.get('q', '').strip()
     if query:
         items = items.filter(
             Q(name__icontains=query)
@@ -819,10 +874,9 @@ def participants(request):
 @require_GET
 def submissions(request):
     items = Project.objects.filter(hackathon=request.hackathon).select_related('team__track').prefetch_related('assets')
-    state = request.GET.get('state', '')
+    state, reason = list_filters(request.GET)
     if state:
         items = items.filter(state=state)
-    reason = request.GET.get('reason', '')
     if reason:
         items = items.filter(state_reason=reason)
     return page(
@@ -864,8 +918,11 @@ def review(request, project_id):
                     DemoSlot.objects.filter(project=current_project, state='ready').update(state='waiting')
                 services.audit(h, request.user, '作品检查', item.code, item.review_note)
                 messages.success(request, '检查意见已保存，队伍可以在“我的作品”中查看。')
-                return redirect(url(h, 'submissions'))
-    return page(request, 'review', form=form, project=item, assets=item.assets.all())
+                return redirect(submissions_return(h, request.POST))
+    state, reason = list_filters(request.GET)
+    return page(
+        request, 'review', form=form, project=item, assets=item.assets.all(), filter_state=state, filter_reason=reason
+    )
 
 
 @event_view('organizer')
@@ -1173,40 +1230,169 @@ def task_edit(request, task_id=None):
     )
 
 
+def identity_label(person, user):
+    """工单里怎么认出一个人：姓名 · 本届编号 · 队伍，没报名才退回账户姓名加账户号。
+
+    邮箱不是唯一身份，无邮箱的学号账户也要能被找到。
+    """
+    if person:
+        team = person.team.name if person.team_id else '尚未组队'
+        return f'{person.name} · {person.code} · {team}'
+    return f'{user.fullname or user.email or "未命名账户"} · 账户 #{user.pk}'
+
+
+TICKET_STATE_TONES = {
+    SupportTicket.State.OPEN: 'orange',
+    SupportTicket.State.DOING: 'lavender',
+    SupportTicket.State.WAITING_USER: '',
+    SupportTicket.State.RESOLVED: 'mint',
+}
+
+
+def attach_ticket_threads(hackathon, tickets):
+    """把开单内容和之后的每一条发言按时间排好，处理人和时间都保留。
+
+    发言和作者在这里一次取回，调用方不必自己 prefetch，详情页也不会逐条查作者。
+    """
+    threads = {}
+    for message in TicketMessage.objects.filter(ticket__in=tickets).select_related('author'):
+        threads.setdefault(message.ticket_id, []).append(message)
+    users = {ticket.user_id: ticket.user for ticket in tickets}
+    for replies in threads.values():
+        for message in replies:
+            users[message.author_id] = message.author
+    people = {
+        person.user_id: person
+        for person in Participant.objects.filter(hackathon=hackathon, user__in=list(users.values())).select_related(
+            'team'
+        )
+    }
+    team_ids = [person.team_id for person in people.values() if person.team_id]
+    team_projects = {}
+    for project in Project.objects.filter(hackathon=hackathon, team_id__in=team_ids):
+        team_projects[project.team_id] = project
+    for ticket in tickets:
+        person = people.get(ticket.user_id)
+        ticket.identity = identity_label(person, users[ticket.user_id])
+        ticket.state_tone = TICKET_STATE_TONES[ticket.state]
+        project = team_projects.get(person.team_id) if person and person.team_id else None
+        if project:
+            # 开单人属于哪一队，主办就能从工单直接走到那份作品。
+            ticket.work_reference = (f'{project.code} · 当前作品', url(hackathon, 'review', project_id=project.pk))
+        elif person:
+            ticket.work_reference = (
+                '在名单中查找本人',
+                f"{url(hackathon, 'participants')}?{urlencode({'q': person.code})}",
+            )
+        else:
+            ticket.work_reference = None
+        thread = [
+            {
+                'at': ticket.created,
+                'who': ticket.identity,
+                'from_staff': False,
+                'body': ticket.body,
+                'is_opening': True,
+            }
+        ]
+        for message in threads.get(ticket.pk, []):
+            thread.append(
+                {
+                    'at': message.created,
+                    'who': identity_label(people.get(message.author_id), users[message.author_id]),
+                    'from_staff': message.from_staff,
+                    'body': message.body,
+                    'is_opening': False,
+                }
+            )
+        ticket.thread = thread
+
+
 @event_view('login')
 def support(request):
     h = request.hackathon
-    form = forms.SupportForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        item = form.save(commit=False)
-        item.hackathon, item.user = h, request.user
-        item.save()
+    query_state = request.GET.get('state', '')
+    state = query_state if query_state in SupportTicket.State.values else ''
+    tickets = SupportTicket.objects.filter(hackathon=h)
+    if not request.hackathon_organizer:
+        tickets = tickets.filter(user=request.user)
+    if request.hackathon_organizer and state:
+        tickets = tickets.filter(state=state)
+    items = list(tickets.select_related('user', 'handler'))
+    attach_ticket_threads(h, items)
+    back = f"{url(h, 'support')}?{urlencode({'state': state})}" if state else url(h, 'support')
+    action = request.POST.get('action') if request.method == 'POST' else None
+    if action == 'append':
+        # 追加只认本人开出的工单，主办在同一页面看到的每一条发言都不会被覆盖。
+        ticket = SupportTicket.objects.filter(hackathon=h, user=request.user, pk=request.POST.get('ticket')).first()
+        if not ticket:
+            messages.error(request, '这条工单不属于当前账户，没有写入任何内容。')
+            return redirect(back)
+        note_form = forms.TicketNoteForm(request.POST)
+        if not note_form.is_valid():
+            messages.error(request, '请先填写要补充的内容。')
+            return redirect(back)
+        with transaction.atomic():
+            TicketMessage.objects.create(
+                hackathon=h, ticket=ticket, author=request.user, from_staff=False, body=note_form.cleaned_data['body']
+            )
+            ticket.state = SupportTicket.State.OPEN
+            ticket.save(update_fields=['state', 'updated'])
+            services.audit(h, request.user, '追加工单说明', ticket.pk)
+        messages.success(request, f'已追加到工单 #{ticket.pk}，现在轮到主办处理。')
+        return redirect(back)
+    form = forms.SupportForm(request.POST if action == 'new' else None)
+    if action == 'new' and form.is_valid():
+        with transaction.atomic():
+            item = form.save(commit=False)
+            item.hackathon, item.user = h, request.user
+            item.save()
+            services.audit(h, request.user, '提交支持工单', item.pk)
         messages.success(request, f'工单 #{item.pk} 已收到，可以在本页跟踪处理结果。')
         return redirect(url(h, 'support'))
-    items = SupportTicket.objects.filter(hackathon=h).select_related('user', 'handler')
-    if not request.hackathon_organizer:
-        items = items.filter(user=request.user)
-    return page(request, 'support', form=form, tickets=items)
+    if request.method == 'POST' and action != 'new':
+        # 校验失败的新建工单仍留在本页，逐字段告诉开单人缺了什么。
+        messages.error(request, '没有识别这个操作，工单内容没有被保存。')
+        return redirect(back)
+    return page(
+        request,
+        'support',
+        form=form,
+        tickets=items,
+        states=SupportTicket.State.choices,
+        state=state,
+    )
 
 
 @event_view('organizer')
 def support_reply(request, ticket_id):
-    item = get_object_or_404(SupportTicket, hackathon=request.hackathon, pk=ticket_id)
-    form = forms.ReplyForm(request.POST or None, instance=item)
-    if request.method == 'POST' and form.is_valid():
-        item = form.save(commit=False)
-        item.handler = request.user
-        item.save()
-        services.audit(request.hackathon, request.user, '处理支持工单', item.pk)
-        return redirect(url(request.hackathon, 'support'))
-    return page(
-        request,
-        'form',
-        form=form,
-        title=f'处理工单 #{item.pk} · {item.subject}',
-        subtitle=item.body,
-        button='回复并更新状态',
-    )
+    h = request.hackathon
+    item = get_object_or_404(SupportTicket.objects.select_related('user', 'handler'), hackathon=h, pk=ticket_id)
+    query_state = request.GET.get('state', '')
+    state = query_state if query_state in SupportTicket.State.values else ''
+    back = f"{url(h, 'support')}?{urlencode({'state': state})}" if state else url(h, 'support')
+    form = forms.ReplyForm(request.POST or None)
+    if request.method == 'POST':
+        if request.POST.get('action') != 'reply':
+            messages.error(request, '没有识别这个操作，工单没有被改动。')
+            return redirect(back)
+        if form.is_valid():
+            with transaction.atomic():
+                TicketMessage.objects.create(
+                    hackathon=h,
+                    ticket=item,
+                    author=request.user,
+                    from_staff=True,
+                    body=form.cleaned_data['body'],
+                )
+                item.state = form.cleaned_data['state']
+                item.handler = request.user
+                item.save(update_fields=['state', 'handler', 'updated'])
+                services.audit(h, request.user, '处理支持工单', item.pk, item.get_state_display())
+            messages.success(request, f'已回复工单 #{item.pk}，此前的每一轮说明都还保留。')
+            return redirect(back)
+    attach_ticket_threads(h, [item])
+    return page(request, 'ticket', ticket=item, form=form, filter_state=state)
 
 
 @event_view()
@@ -1373,6 +1559,20 @@ def station_asset(request, hackathon_slug, asset_id):
         return response
 
 
+def account_label(user):
+    return user.fullname or f'账户 #{user.pk}'
+
+
+def student_id_of(user):
+    account = getattr(user, 'student_account', None)
+    return account.student_id if account else ''
+
+
+def account_reference(user):
+    """交接表里用来区分同名的稳定依据：先学号，没有学号就用账户 ID，邮箱只作联系方式。"""
+    return student_id_of(user) or f'#{user.pk}'
+
+
 @event_view('organizer')
 @require_GET
 def export(request, kind):
@@ -1459,17 +1659,96 @@ def export(request, kind):
                 ]
             )
     elif kind == 'volunteers':
-        writer.writerow(['任务', '负责人', '备份', '状态', '开始', '完成', '核准分钟'])
-        for item in VolunteerTask.objects.filter(hackathon=h).select_related('owner', 'backup'):
+        writer.writerow(
+            [
+                '任务',
+                '负责人',
+                '负责人编号',
+                '负责人邮箱',
+                '备份',
+                '备份编号',
+                '备份邮箱',
+                '状态',
+                '开始',
+                '完成',
+                '核准分钟',
+            ]
+        )
+        for item in VolunteerTask.objects.filter(hackathon=h).select_related(
+            'owner__student_account', 'backup__student_account'
+        ):
             writer.writerow(
                 [
                     item.title,
+                    account_label(item.owner),
+                    account_reference(item.owner),
                     item.owner.email,
+                    account_label(item.backup) if item.backup else '',
+                    account_reference(item.backup) if item.backup else '',
                     item.backup.email if item.backup else '',
                     item.get_state_display(),
                     item.started_at,
                     item.finished_at,
                     item.approved_minutes,
+                ]
+            )
+    elif kind == 'tickets':
+        writer.writerow(
+            [
+                '工单号',
+                '姓名',
+                '本届编号',
+                '账户编号',
+                '队伍',
+                '作品',
+                '学号',
+                '邮箱',
+                '类别',
+                '状态',
+                '处理人',
+                '开单时间',
+                '最近沟通',
+                '沟通条数',
+                '标题',
+            ]
+        )
+        tickets = list(
+            SupportTicket.objects.filter(hackathon=h)
+            .select_related('user__student_account', 'handler')
+            .prefetch_related('messages')
+        )
+        people = {
+            person.user_id: person
+            for person in Participant.objects.filter(hackathon=h, user__in=[t.user for t in tickets]).select_related(
+                'team'
+            )
+        }
+        team_ids = [person.team_id for person in people.values() if person.team_id]
+        team_projects = {}
+        for project in Project.objects.filter(hackathon=h, team_id__in=team_ids):
+            team_projects[project.team_id] = project
+        for ticket in tickets:
+            person = people.get(ticket.user_id)
+            project = team_projects.get(person.team_id) if person and person.team_id else None
+            messages_on_ticket = list(ticket.messages.all())
+            last_message = messages_on_ticket[-1] if messages_on_ticket else None
+            writer.writerow(
+                [
+                    ticket.pk,
+                    person.name if person else account_label(ticket.user),
+                    person.code if person else '',
+                    account_reference(ticket.user),
+                    (person.team.name if person.team_id else '尚未组队') if person else '未报名',
+                    project.code if project else '',
+                    student_id_of(ticket.user),
+                    ticket.user.email or '',
+                    ticket.get_category_display(),
+                    ticket.get_state_display(),
+                    account_label(ticket.handler) if ticket.handler else '',
+                    ticket.created,
+                    last_message.created if last_message else ticket.created,
+                    len(messages_on_ticket),
+                    ticket.subject,
                 ]
             )
     elif kind == 'projects':
