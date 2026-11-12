@@ -6,7 +6,7 @@
         THE PEOPLE BEHIND IT
       </div>
       <h1>
-        让每份投入，都有方向。
+        成员与权限
       </h1>
       <p>
         主办方沿用 Eventyay 的活动管理权限；在这里分配本届评委和志愿者。
@@ -15,7 +15,7 @@
   </section>
   <div class="actions judge-live-entry">
     <a class="button" href="{% url 'hackathon:judge-new' hackathon.slug %}">创建评委账户</a>
-    <a class="button secondary" href="{% url 'hackathon:judge-login' hackathon.slug %}">评委登录入口 ↗</a>
+    <a class="button secondary" href="{% url 'hackathon:judge-login' hackathon.slug %}">评委登录入口</a>
     <a class="button secondary" href="{% url 'hackathon:scoring-rules' hackathon.slug %}">设置算分规则</a>
   </div>
   <div class="two-column">
@@ -58,8 +58,7 @@
       </h2>
       {% include 'hackathon/form_fields.html' %}
       <button class="button">
-        分配角色 ↗
-      </button>
+        分配角色      </button>
     </form>
   </div>
 {% endblock %}

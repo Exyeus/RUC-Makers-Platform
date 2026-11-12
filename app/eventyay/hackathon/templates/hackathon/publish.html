@@ -6,7 +6,7 @@
         READY WHEN YOU ARE
       </div>
       <h1>
-        发出去之前，先看清发给谁。
+        发布准备
       </h1>
       <p>
         「活动公开」「作品展厅」「评委打分」「成绩公布」是四个各自独立的动作：改场地、改文案不会顺带动到它们，
@@ -14,8 +14,7 @@
       </p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:content' hackathon.slug %}">
-      内容管理 ↗
-    </a>
+      内容管理    </a>
   </section>
   <div class="two-column">
     <div>
@@ -92,8 +91,7 @@
             发布准备清单
           </h2>
           <a href="{% url 'hackathon:manage' hackathon.slug %}">
-            活动总控 ↗
-          </a>
+            活动总控          </a>
         </div>
         {% for row in checklist %}
           <div class="check-row{% if row.ready %} ready{% endif %}">
@@ -114,8 +112,7 @@
                       {{ item.label }}{{ item.detail }}
                       {% if item.url %}
                         <a href="{{ item.url }}">
-                          {{ item.url_label }} ↗
-                        </a>
+                          {{ item.url_label }}                        </a>
                       {% endif %}
                     </li>
                   {% endfor %}
@@ -123,8 +120,7 @@
               {% endif %}
             </div>
             <a href="{{ row.url }}">
-              去处理 ↗
-            </a>
+              去处理            </a>
           </div>
         {% endfor %}
       </section>

@@ -6,7 +6,7 @@
         SHOWTIME, UNDER CONTROL
       </div>
       <h1>
-        把舞台，交给作品。
+        路演调度
       </h1>
       <p>
         先检查、再就绪、再开始。倒计时自动进入评分换场，调度员确认后切换下一队。
@@ -64,8 +64,7 @@
                 {{ slot.project.team.code }}
               </small>
               <a href="{% url 'hackathon:review' hackathon.slug slot.project.pk %}">
-                检查材料与设备 ↗
-              </a>
+                检查材料与设备              </a>
             </td>
             <td>
               <span class="tag state-{{ slot.state }}">

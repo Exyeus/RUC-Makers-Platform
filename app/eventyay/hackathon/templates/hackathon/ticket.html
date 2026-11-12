@@ -9,7 +9,7 @@
         {{ ticket.get_category_display }}
       </div>
       <h1>
-        {{ ticket.subject }}
+        {{ title }}
       </h1>
       <p>
         <strong>
@@ -24,12 +24,10 @@
     </div>
     <div class="actions">
       <a class="button secondary" href="{% url 'hackathon:support' hackathon.slug %}?state={{ filter_state }}">
-        返回这份筛选 ↗
-      </a>
+        返回这份筛选      </a>
       {% if ticket.work_reference %}
         <a class="button secondary" href="{{ ticket.work_reference.1 }}">
-          {{ ticket.work_reference.0 }} ↗
-        </a>
+          {{ ticket.work_reference.0 }}        </a>
       {% endif %}
     </div>
   </section>
@@ -51,8 +49,7 @@
       </p>
       {% include 'hackathon/form_fields.html' %}
       <button class="button">
-        发送这条回复 ↗
-      </button>
+        发送这条回复      </button>
     </form>
   </div>
 {% endblock %}

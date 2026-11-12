@@ -6,7 +6,7 @@
         MAKE IT REAL
       </div>
       <h1>
-        让你的作品，被看见。
+        我的作品
       </h1>
       <p>
         提交截止
@@ -34,8 +34,7 @@
         请先完成报名，然后创建或加入队伍。一人参赛也需要创建队伍。
       </p>
       <a class="button" href="{% url 'hackathon:teams' hackathon.slug %}">
-        前往组队广场 ↗
-      </a>
+        前往组队广场      </a>
     </div>
   {% else %}
     {% if project %}
@@ -109,8 +108,7 @@
                 保存草稿
               </button>
               <button class="button" name="action" value="submit" {% if not hackathon.submissions_open or project.state == 'queued' %}disabled{% endif %}>
-                正式提交 / 排队登记 ↗
-              </button>
+                正式提交 / 排队登记              </button>
             </div>
           </form>
         {% else %}
@@ -231,8 +229,7 @@
             </ul>
           </div>
           <a href="{% url 'hackathon:resources' hackathon.slug %}?category=demo">
-            查看完整提交与路演指南 ↗
-          </a>
+            查看完整提交与路演指南          </a>
         </section>
       </aside>
     </div>

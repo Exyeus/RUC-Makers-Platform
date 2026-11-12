@@ -70,7 +70,7 @@
         <summary>查看活动赛道</summary>
         {% for track in tracks %}<a class="ruc-resource-row" href="{% url 'hackathon:teams' hackathon.slug %}?track={{ track.pk }}"><span><strong>{{ track.name }}</strong><small>{{ track.description }}</small></span><svg aria-hidden="true"><use href="#i-arrow" /></svg></a>{% empty %}<p class="ruc-secondary">赛道待公布。</p>{% endfor %}
       </details>
-      <details class="ruc-calendar"><summary>展开活动时段热力图</summary>{% include 'hackathon/hour_calendar.html' %}</details>
+      <details class="ruc-calendar"><summary>展开活动时间线与小时历</summary>{% include 'hackathon/hour_calendar.html' %}</details>
     </div>
     <aside class="ruc-rail" aria-label="截止时间、通知与日程">
       <section class="ruc-panel ruc-deadline" aria-labelledby="deadline-title">

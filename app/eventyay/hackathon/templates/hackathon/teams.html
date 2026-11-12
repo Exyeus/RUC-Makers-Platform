@@ -3,7 +3,7 @@
   <section class="page-heading team-directory-heading">
     <div>
       <h1>
-        我的队伍与组队
+        {% if request.user.is_authenticated %}我的队伍{% else %}组队广场{% endif %}
       </h1>
       <p>
         按技能、兴趣与赛道寻找伙伴。名单冻结：
@@ -29,7 +29,7 @@
   </nav>
   {% include 'hackathon/team_filters.html' %}
   {% if hackathon.matching_enabled %}
-    <section class="panel"><h2>正式组队与合作确认</h2><p>先交流、再确认合作。完整名单需每位成员同意。</p><a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}">查看匹配推荐与我的组队进度 ↗</a></section>
+    <section class="panel"><h2>正式组队与合作确认</h2><p>先交流、再确认合作。完整名单需每位成员同意。</p><a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}">查看匹配推荐与我的组队进度</a></section>
   {% else %}
     {% if own_team %}
       <section class="panel own-team">
@@ -45,8 +45,7 @@
           </div>
           {% if own_team.captain_id == participant.pk %}
             <a class="button secondary small" href="{% url 'hackathon:team-edit' hackathon.slug %}">
-              管理队伍 ↗
-            </a>
+              管理队伍            </a>
           {% endif %}
         </div>
         <p>
@@ -159,8 +158,7 @@
         </label>
         <input name="code" id="code" placeholder="输入队伍邀请码" required maxlength="32">
         <button type="submit" class="button secondary">
-          加入队伍 ↗
-        </button>
+          加入队伍        </button>
       </form>
     {% endif %}
   {% endif %}
@@ -205,8 +203,7 @@
           {% if participant and not own_team and hackathon.teams_open and not hackathon.matching_enabled %}
             <details>
               <summary class="text-link">
-                申请加入 ↗
-              </summary>
+                申请加入              </summary>
               <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="apply">

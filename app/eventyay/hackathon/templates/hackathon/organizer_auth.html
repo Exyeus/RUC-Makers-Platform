@@ -3,7 +3,7 @@
 {% block page_title %}{% if judge_login %}评委登录{% else %}主办方 / 邮箱登录{% endif %} · {{ hackathon.name }}{% endblock %}
 {% block auth_card %}
 <section class="glass-card auth-card" id="join" aria-labelledby="login-title">
-  <div class="auth-heading"><h2 id="login-title">{% if judge_login %}评委登录{% else %}主办方 / 邮箱登录{% endif %}</h2><a href="{% url 'hackathon:home' hackathon.slug %}">返回主页 ↗</a></div>
+  <div class="auth-heading"><h2 id="login-title">{% if judge_login %}评委登录{% else %}主办方 / 邮箱登录{% endif %}</h2><a href="{% url 'hackathon:home' hackathon.slug %}">返回主页</a></div>
   <p class="auth-intro">{% if judge_login %}使用主办方分配的评委邮箱账户，登录后进入当前路演的打分工作台。{% else %}使用已有邮箱账户和本站密码登录，主办方将进入本届活动管理工作台。{% endif %}</p>
   {% if switch_account %}
     <section class="auth-panel">
@@ -25,7 +25,7 @@
       {% turnstile_widget 'login' %}
       {% turnstile_script 'login' %}
       <div class="auth-actions">
-        <button type="submit" class="button">登录工作台 ↗</button>
+        <button type="submit" class="button">登录工作台</button>
         <a class="button secondary" href="{% url 'hackathon:student-login' hackathon.slug %}">选手学号登录</a>
         {% if not judge_login %}<a class="button secondary" href="{% url 'hackathon:judge-login' hackathon.slug %}">评委登录</a>{% endif %}
       </div>

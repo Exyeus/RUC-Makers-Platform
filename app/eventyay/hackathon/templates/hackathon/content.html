@@ -6,15 +6,14 @@
         THE EVENT PLAYBOOK
       </div>
       <h1>
-        把经验，变成下一次的起点。
+        内容管理
       </h1>
       <p>
         统一维护公告、教程、日程和赛道。草稿只有主办能看到，点了「发布 / 更新公开版」才会出现在选手端。
       </p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:publish' hackathon.slug %}">
-      发布准备 ↗
-    </a>
+      发布准备    </a>
   </section>
   <div class="two-column equal">
     {% for group in groups %}
@@ -45,12 +44,10 @@
             <span class="row-actions">
               {% if group.previewable %}
                 <a href="{% url 'hackathon:content-preview' hackathon.slug group.kind item.pk %}">
-                  预览 ↗
-                </a>
+                  预览                </a>
               {% endif %}
               <a href="{% url 'hackathon:content-edit' hackathon.slug group.kind item.pk %}">
-                编辑 ↗
-              </a>
+                编辑              </a>
             </span>
           </div>
         {% empty %}

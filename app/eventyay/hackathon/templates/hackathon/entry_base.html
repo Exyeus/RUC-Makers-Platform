@@ -27,7 +27,7 @@
           <a href="{% url 'hackathon:home' hackathon.slug %}#learning">学习与指南</a>
           <a href="{% url 'hackathon:home' hackathon.slug %}#updates">活动日程</a>
         </nav>
-        <a class="header-login" href="{% url 'hackathon:student-login' hackathon.slug %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}#join">学号登录 / 注册 <span aria-hidden="true">↗</span></a>
+        <a class="header-login" href="{% url 'hackathon:student-login' hackathon.slug %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}#join">学号登录 / 注册</a>
       </div>
     </header>
     <main id="main" tabindex="-1">
@@ -61,7 +61,7 @@
                 <strong>{{ hackathon.submission_deadline|date:'m.d' }} <small>{{ hackathon.submission_deadline|date:'H:i' }}</small></strong>
               </div>
             </div>
-            <a class="text-link hero-guide" href="{% url 'hackathon:resources' hackathon.slug %}?category=guide">先读参赛指南 <span aria-hidden="true">↗</span></a>
+            <a class="text-link hero-guide" href="{% url 'hackathon:resources' hackathon.slug %}?category=guide">先读参赛指南</a>
             <div class="artifact-controls" data-artifact-controls role="group" aria-label="粒子动画" hidden></div>
           </div>
           {% block auth_card %}{% include 'hackathon/student_auth_card.html' with form=login_form %}{% endblock %}

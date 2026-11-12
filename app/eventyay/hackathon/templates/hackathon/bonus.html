@@ -3,7 +3,7 @@
   <section class="page-heading">
     <div>
       <div class="eyebrow">HACKATHON</div>
-      <h1>加分规则</h1>
+      <h1>{{ title }}</h1>
       <p>以本期黑客松公布的规则为准。每个事项限申请一次，由主办方审核；交流卡片的发布与回应不自动加分。</p>
     </div>
     {% if is_organizer %}
@@ -44,7 +44,7 @@
       </form>
     {% endif %}
   {% else %}
-    <p><a href="{% url 'hackathon:register' hackathon.slug %}">登录并完善资料后申请加分 ↗</a></p>
+    <p><a href="{% url 'hackathon:register' hackathon.slug %}">登录并完善资料后申请加分</a></p>
   {% endif %}
   {% if is_organizer %}
     <section>

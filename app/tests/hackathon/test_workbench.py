@@ -332,11 +332,17 @@ def test_other_event_reading_does_not_affect_progress(client, hackathon, team, u
     assert response.context['current_task'].key == 'read'
 
 
-@pytest.mark.parametrize('role,route', [('judge', 'judge-live'), ('volunteer', 'tasks')])
-def test_role_workspaces_remain_available(client, hackathon, user, role, route):
+@pytest.mark.parametrize('role,workspace,label', [('judge', 'judging', '评委'), ('volunteer', 'tasks', '志愿者')])
+def test_role_workspaces_remain_available(client, hackathon, user, role, workspace, label):
     StaffAssignment.objects.create(hackathon=hackathon, user=user, role=role)
     _, soup = overview(client, hackathon, user)
-    assert any(a['href'] == endpoint(hackathon, route) for a in soup.select('#sidebar a'))
+    switcher = soup.select_one('nav[aria-label="当前工作身份"]')
+    entry = next(a for a in switcher.select('a') if a.get_text(strip=True) == label)
+    assert entry['href'] == endpoint(hackathon, workspace)
+    response = client.get(entry['href'])
+    assert response.status_code == 200
+    sidebar = BeautifulSoup(response.content, 'html.parser').select('#sidebar a')
+    assert any(a['href'] == endpoint(hackathon, workspace) for a in sidebar)
 
 
 @pytest.mark.parametrize('route', ['schedule', 'announcements'])

@@ -6,7 +6,7 @@
         JUDGE THE WORK, HELP IT GROW
       </div>
       <h1>
-        看见作品，也看见可能。
+        评委工作台
       </h1>
       <p>
         {{ rule_description }}个人所属队伍自动回避。
@@ -14,7 +14,7 @@
     </div>
   </section>
   {% include 'hackathon/judge_sync.html' %}
-  <a class="button judge-live-entry" href="{% url 'hackathon:judge-live' hackathon.slug %}">进入现场打分 · 跟随当前队伍 ↗</a>
+  <a class="button judge-live-entry" href="{% url 'hackathon:judge-live' hackathon.slug %}">进入现场打分 · 跟随当前队伍</a>
   <div class="deadline-strip">
     <div>
       <span>
@@ -92,8 +92,7 @@
             {% endif %}
           </strong>
           <a class="button small" href="{% url 'hackathon:score' hackathon.slug entry.project.pk %}">
-            进入评审 ↗
-          </a>
+            进入评审          </a>
         </div>
       </article>
     {% empty %}

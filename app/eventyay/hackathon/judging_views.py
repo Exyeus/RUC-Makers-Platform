@@ -112,6 +112,7 @@ def score(request, project_id):
         'score',
         form=form,
         project=item,
+        title=item.title,
         assets=item.assets.all(),
         follow_live=follow_live,
         previous=projects[position - 1] if position else None,

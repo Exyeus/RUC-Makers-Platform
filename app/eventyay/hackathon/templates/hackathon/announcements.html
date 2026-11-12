@@ -6,7 +6,7 @@
         STAY IN THE LOOP
       </div>
       <h1>
-        重要的事，都在这里。
+        通知公告
       </h1>
       <p>
         一处获取所有活动更新，不再翻找聊天记录。
@@ -46,8 +46,7 @@
         </div>
         {% if is_organizer %}
           <a href="{% url 'hackathon:content-edit' hackathon.slug 'announcement' notice.pk %}">
-            编辑通知 ↗
-          </a>
+            编辑通知          </a>
         {% endif %}
       </article>
     {% empty %}

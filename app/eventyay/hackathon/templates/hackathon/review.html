@@ -7,7 +7,7 @@
         {{ project.code }}
       </div>
       <h1>
-        {{ project.title }}
+        {{ title }}
       </h1>
       <p>
         {{ project.team.name }}
@@ -17,11 +17,9 @@
     </div>
     <div class="actions">
       <a class="button secondary" href="{% url 'hackathon:submissions' hackathon.slug %}?state={{ filter_state }}&reason={{ filter_reason }}">
-        返回这份筛选 ↗
-      </a>
+        返回这份筛选      </a>
       <a class="button secondary" href="{% url 'hackathon:project-detail' hackathon.slug project.pk %}">
-        完整作品 ↗
-      </a>
+        完整作品      </a>
     </div>
   </section>
   <div class="two-column">
@@ -31,8 +29,7 @@
       <input type="hidden" name="filter_reason" value="{{ filter_reason }}">
       {% include 'hackathon/form_fields.html' %}
       <button class="button">
-        保存检查结果 ↗
-      </button>
+        保存检查结果      </button>
     </form>
     <aside>
       <section class="panel">
@@ -68,8 +65,7 @@
           现场检查顺序
         </h2>
         <a href="{% url 'hackathon:intake' hackathon.slug project.team.pk %}">
-          处理提交故障 / 异常补录 ↗
-        </a>
+          处理提交故障 / 异常补录        </a>
         <ol class="check-list">
           <li>
             从现场电脑打开 Demo 和代码仓库。
