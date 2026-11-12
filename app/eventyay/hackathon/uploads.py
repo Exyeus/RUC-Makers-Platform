@@ -6,6 +6,7 @@ import os
 import shutil
 from datetime import timedelta
 from pathlib import Path
+from uuid import uuid4
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files import File
@@ -23,6 +24,7 @@ from eventyay.hackathon.services import (
     require_project_editable,
     require_submission_open,
 )
+from eventyay.hackathon.storage import DurableFileStorage, local_root, remove_asset, temporary_root
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +39,7 @@ class UploadQueued(ValidationError):
 
 
 def part_path(session):
-    return Path(PrivateStorage().location) / '.uploads' / f'{session.pk}.part'
+    return temporary_root() / f'{session.pk}.part'
 
 
 def remove_file(path):
@@ -171,7 +173,7 @@ def admit_upload(session):
     )
     if occupied >= UPLOAD_SLOTS:
         raise UploadQueued('上传通道繁忙，已保留提交凭证，正在排队等待。请保持页面打开。')
-    root = Path(PrivateStorage().location)
+    root = local_root()
     root.mkdir(parents=True, exist_ok=True)
     reserved = sum(
         size - offset
@@ -244,15 +246,15 @@ def install_asset(hackathon, user, project, kind, original, size, checksum, stor
     asset = Asset.objects.filter(project=project, kind=kind).first()
     if asset and asset.checksum == checksum and asset.size == size:
         return asset
-    old_path = asset.file.path if asset and asset.file else None
+    old_name = asset.file.name if asset and asset.file else None
     asset = asset or Asset(hackathon=hackathon, project=project, kind=kind)
     asset.file.name = stored_name
     asset.filename = asset_filename(project, kind, checksum, original)
     asset.original_filename = original
     asset.size, asset.checksum = size, checksum
     asset.save()
-    if old_path and old_path != asset.file.path:
-        transaction.on_commit(lambda: remove_file(old_path))
+    if old_name and old_name != asset.file.name:
+        transaction.on_commit(lambda: remove_asset(old_name))
     project.revision += 1
     project.equipment_checked = False
     if project.state not in (Project.State.DRAFT, Project.State.QUEUED):
@@ -285,32 +287,39 @@ def finish_upload(session):
         digest = hashlib.file_digest(source, 'sha256').hexdigest()
     if digest != session.expected_checksum:
         raise UploadConflict('文件校验未通过，请取消任务后重新上传原文件。已有材料不受影响。')
-    # Hashing and validation hold only this upload lock, never the event lock.
+    # The slow final copy holds only this session lock, never the event lock.
+    project = session.project
+    relative = (
+        f'{session.hackathon_id}/{project.team_id}/{project.pk}/{session.kind}/'
+        f'{uuid4().hex}{Path(session.original_filename).suffix.lower()}'
+    )
+    storage = PrivateStorage()
+    if isinstance(storage.backend, DurableFileStorage):
+        destination = Path(storage.path(relative))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        os.link(path, destination)
+        parent = destination.parent
+        while parent.is_relative_to(local_root()):
+            directory_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+            parent = parent.parent
+    else:
+        with path.open('rb') as source:
+            relative = storage.save(relative, File(source))
+    # A failed recheck/rollback leaves a unique orphan for age-gated GC.
     hackathon = lock_event(session.hackathon)
     require_live(session)
     project = Project.objects.select_for_update().select_related('team').get(pk=session.project_id)
     require_owner(hackathon, session.user, project)
     require_project_editable(project, allow_queued=True)
-    relative = (
-        f'{hackathon.pk}/{project.team_id}/{project.pk}/{session.kind}/'
-        f'{session.pk.hex}{Path(session.original_filename).suffix.lower()}'
-    )
-    destination = Path(PrivateStorage().path(relative))
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    # The temporary and final directories share a filesystem. Hard-linking avoids
-    # a second 512 MiB copy and keeps the resumable source until database commit.
-    if not destination.exists():
-        os.link(path, destination)
-        directory_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
     asset = install_asset(
         hackathon, session.user, project, session.kind, session.original_filename, session.size, digest, relative
     )
     if asset.file.name != relative:
-        transaction.on_commit(lambda: remove_file(destination))
+        transaction.on_commit(lambda: remove_asset(relative))
     session.state, session.asset, session.checksum = UploadSession.State.COMPLETE, asset, digest
     session.last_error = ''
     session.save(update_fields=['state', 'asset', 'checksum', 'last_error', 'updated'])
@@ -371,4 +380,4 @@ def save_direct_asset(hackathon, participant, project, form, organizer=None, rea
         return asset
     finally:
         if not installed:
-            remove_file(candidate.file.path)
+            remove_asset(candidate.file.name)

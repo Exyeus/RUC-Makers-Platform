@@ -1,0 +1,19 @@
+{$DOMAIN} {
+    encode zstd gzip
+    handle_path /static/* {
+        root * /srv/static
+        file_server
+    }
+    # Only public MEDIA_ROOT is exposed. hackathon-private and .uploads are never served here.
+    handle_path /media/* {
+        root * /srv/data/media
+        file_server
+    }
+    @websocket header Connection *Upgrade*
+    handle @websocket {
+        reverse_proxy websocket:8001
+    }
+    handle {
+        reverse_proxy web:8000
+    }
+}
