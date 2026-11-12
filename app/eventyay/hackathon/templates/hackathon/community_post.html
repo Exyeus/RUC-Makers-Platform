@@ -3,7 +3,7 @@
   <section class="page-heading">
     <div>
       <div class="eyebrow">黑客松 · 组队广场</div>
-      <h1>{{ post.title }}</h1>
+      <h1>{{ title }}</h1>
       <p>{{ post.author.name }} · {{ post.get_kind_display }} · {{ post.created|date:'m-d H:i' }}</p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:teams' hackathon.slug %}">返回组队广场</a>

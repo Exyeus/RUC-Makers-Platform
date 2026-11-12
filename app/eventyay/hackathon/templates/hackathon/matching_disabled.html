@@ -1,5 +1,5 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
-  <section class="page-heading"><div><div class="eyebrow">HACKATHON</div><h1>匹配推荐</h1><p>本活动的 组队广场 尚未开放。开放后可浏览 Idea、表达合作意向，并共同确认正式名单。</p></div></section>
+  <section class="page-heading"><div><div class="eyebrow">HACKATHON</div><h1>{{ title }}</h1><p>本活动的 组队广场 尚未开放。开放后可浏览 Idea、表达合作意向，并共同确认正式名单。</p></div></section>
   {% if is_organizer %}<a class="button" href="{% url 'hackathon:matching-operations' hackathon.slug %}">设置开放与名单政策</a>{% endif %}
 {% endblock %}

@@ -354,7 +354,7 @@ def effective_state(item):
 def market(request):
     h = request.hackathon
     if not h.matching_enabled:
-        return page(request, 'matching_disabled')
+        return page(request, 'matching_disabled', title='匹配推荐')
     if not request.participant:
         return redirect(url(h, 'register'))
     if request.method == 'POST':
@@ -421,6 +421,7 @@ def market(request):
     return page(
         request,
         'matching',
+        title='匹配推荐与组队进度',
         own_members=Participant.objects.filter(hackathon=h, team_id=p.team_id) if p.team_id else [],
         people=people,
         market_teams=teams,

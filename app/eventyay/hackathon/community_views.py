@@ -71,7 +71,7 @@ def post_detail(request, post_id):
     responses = CommunityResponse.objects.filter(hackathon=h, post=post).select_related('author')
     if not request.hackathon_organizer and post.author_id != (participant.pk if participant else None):
         responses = responses.filter(Q(private=False) | Q(author=participant))
-    return page(request, 'community_post', post=post, responses=responses, form=form)
+    return page(request, 'community_post', post=post, responses=responses, form=form, title=post.title)
 
 
 class ClaimForm(forms.Form):
@@ -145,6 +145,7 @@ def bonus(request):
         request,
         'bonus',
         form=form,
+        title='加分规则',
         rules=BonusRule.objects.filter(hackathon=h, active=True),
         claims=own_claims.select_related('rule'),
         bonus_total=own_claims.aggregate(total=Sum('awarded_points'))['total'] or 0,

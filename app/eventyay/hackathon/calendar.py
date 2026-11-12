@@ -69,7 +69,7 @@ def schedule_timeline(hackathon) -> list[dict]:
             'starts_at': item.starts_at.astimezone(zone),
             'ends_at': item.ends_at.astimezone(zone),
             'title': item.title,
-            'kind': '活动',
+            'kind': item.kind,
             'location': item.location,
             'level': 'event',
         }

@@ -89,6 +89,9 @@ def event_view(access='public', auth_shell=False):
                 response['Cache-Control'] = 'private, no-store'
                 return response
 
+        # Keep the guard level readable: the navigation checks compare the
+        # sidebar against what each role can actually open.
+        wrapped.access = access
         return wrapped
 
     return decorator

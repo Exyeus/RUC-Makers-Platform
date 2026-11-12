@@ -3,7 +3,7 @@
   <section class="page-heading">
     <div>
       <div class="eyebrow">{{ project.code }} · {{ project.team.name }} · {{ project.team.track.name }}</div>
-      <h1>{{ project.title }}</h1>
+      <h1>{{ title }}</h1>
       <p>{{ project.summary }}</p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:judging' hackathon.slug %}">全部队伍与评分</a>

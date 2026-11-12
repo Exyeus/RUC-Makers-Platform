@@ -1,5 +1,6 @@
 import re
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from bs4 import BeautifulSoup
@@ -8,9 +9,42 @@ from django.urls import reverse
 from django.utils import timezone
 
 from eventyay.base.models import User
+from eventyay.hackathon import urls as hackathon_urls
 from eventyay.hackathon.calendar import schedule_heatmap, schedule_timeline
-from eventyay.hackathon.models import ScheduleItem, StaffAssignment
+from eventyay.hackathon.models import ScheduleItem, StaffAssignment, SupportTicket
+from eventyay.hackathon.views import navigation_column
 from tests.hackathon.test_workflows import endpoint
+
+
+WORKBENCH_CSS = Path(__file__).resolve().parents[2] / 'eventyay' / 'static' / 'hackathon' / 'workbench.css'
+# 工作区页面：这些路由渲染完整页面，侧栏要为能打开它的身份保留入口。
+# 访问级别来自 event_view 装饰器（permissions.py），别名页沿用所属栏目。
+# 加分页按设计留在导航之外（doc/ui-workbench.md），因此不在这份清单里。
+WORKSPACE_PAGES = (
+    'home',
+    'teams',
+    'project',
+    'resources',
+    'schedule',
+    'announcements',
+    'gallery',
+    'results',
+    'stage',
+    'support',
+    'manage',
+    'participants',
+    'submissions',
+    'manage-stage',
+    'publish',
+    'content',
+    'staff',
+    'settings',
+    'scoring-rules',
+    'matching-operations',
+    'tasks',
+    'judging',
+    'judge-live',
+)
 
 
 pytestmark = pytest.mark.django_db
@@ -48,6 +82,52 @@ def primary(response):
 def mobile_bar(response):
     nav = BeautifulSoup(response.content, 'html.parser').select_one('nav.mobile-nav')
     return [span.get_text(strip=True) for span in nav.select('a span, button span')]
+
+
+def browser_title(response):
+    match = re.search(r'<title>(.*?)</title>', response.content.decode(), re.S)
+    return ' '.join(match.group(1).split())
+
+
+def heading_text(response):
+    body = response.content.decode()
+    heading = re.search(r'<h1[^>]*>(.*?)</h1>', body, re.S).group(1)
+    return ' '.join(re.sub(r'<[^>]+>', '', heading).split())
+
+
+def page_access_levels():
+    """每个路由的访问级别，取自 event_view 装饰器。"""
+    return {
+        pattern.name: getattr(pattern.callback, 'access', 'public')
+        for pattern in hackathon_urls.event_patterns
+    }
+
+
+def columns_the_identity_can_open(identity, roles=()):
+    """侧栏必须保留的入口：路由表 × 访问级别，别名页沿用所属栏目。"""
+    levels = page_access_levels()
+    allowed = {'public', 'login'}
+    if identity == 'judge':
+        allowed.add('judge')
+    if identity == 'volunteer':
+        allowed.add('volunteer')
+    if identity == 'organizer':
+        allowed |= {'organizer', 'volunteer'}
+        if 'judge' in roles:
+            allowed.add('judge')
+    return {navigation_column(name) for name in WORKSPACE_PAGES if levels[name] in allowed}
+
+
+def css_rules(css):
+    cleaned = re.sub(r'/\*.*?\*/', '', css, flags=re.S)
+    return [(selector.strip(), body) for selector, body in re.findall(r'([^{}]+)\{([^{}]*)\}', cleaned)]
+
+
+def css_rule(css, selector):
+    for candidate, body in css_rules(css):
+        if candidate == selector:
+            return body
+    return ''
 
 
 def test_anonymous_navigation_offers_only_public_entries(client, hackathon):
@@ -393,3 +473,150 @@ def test_schedule_leads_with_the_list_and_keeps_the_grid_optional(client, hackat
     assert '<details class="ruc-calendar">' in body
     assert 'calendar-timeline' not in body
     assert '开幕式' in body
+
+
+def test_ticket_reply_keeps_the_organizer_workbench(client, hackathon, organizer_user):
+    """主办打开工单回复页时仍然是主办，不是选手。"""
+    client.force_login(organizer_user)
+    ticket = SupportTicket.objects.create(
+        hackathon=hackathon,
+        user=organizer_user,
+        subject='材料一直停在排队',
+        body='换了网络也重试了三次。',
+        category='tech',
+    )
+    response = client.get(endpoint(hackathon, 'support-reply', ticket_id=ticket.pk))
+    assert response.status_code == 200
+    assert response.context['working_identity_key'] == 'organizer'
+    assert response.context['working_identity'] == '主办'
+    assert response.context['navigation_groups'][0][0] == '我的待办'
+    assert 'manage' in routes(response)
+    assert response.context['navigation_active'] == 'support'
+
+
+@pytest.mark.parametrize(
+    'fixture_name,entry,identity',
+    [
+        ('user', 'home', 'participant'),
+        ('judge_user', 'judging', 'judge'),
+        ('volunteer_user', 'tasks', 'volunteer'),
+        ('organizer_user', 'manage', 'organizer'),
+    ],
+)
+def test_sidebar_covers_every_page_the_identity_can_open(
+    client, hackathon, participant, request, fixture_name, entry, identity
+):
+    """每个身份能打开的页面都在侧栏保留入口，因此没有页面失去高亮。"""
+    account = request.getfixturevalue(fixture_name)
+    client.force_login(account)
+    response = client.get(endpoint(hackathon, entry))
+    roles = set(
+        StaffAssignment.objects.filter(hackathon=hackathon, user=account).values_list('role', flat=True)
+    )
+    missing = columns_the_identity_can_open(identity, roles) - set(routes(response))
+    assert not missing, f'{identity} 侧栏缺少入口：{sorted(missing)}'
+
+
+def test_judge_and_volunteer_keep_the_shared_pages_in_the_sidebar(client, hackathon, judge_user, volunteer_user):
+    """评委与志愿者回到路演现场、组队与作品页时，侧栏仍然有路可回。"""
+    for account, entry in ((judge_user, 'judging'), (volunteer_user, 'tasks')):
+        client.force_login(account)
+        response = client.get(endpoint(hackathon, entry))
+        for shared in ('stage', 'teams', 'project'):
+            assert shared in routes(response)
+        assert response.context['navigation_active'] in routes(response)
+
+
+@pytest.mark.parametrize(
+    'fixture_name,name,kwargs,task',
+    [
+        ('user', 'register', {}, '个人资料 · 让队友认识你'),
+        ('user', 'team-edit', {}, '管理我的队伍'),
+        ('user', 'matching', {}, '匹配推荐'),
+        ('user', 'bonus', {}, '加分规则'),
+        ('organizer_user', 'content-new', {'kind': 'announcement'}, '新增通知'),
+        ('organizer_user', 'judge-new', {}, '创建评委账户'),
+        ('organizer_user', 'task-new', {}, '安排志愿任务'),
+    ],
+)
+def test_browser_title_uses_the_page_task_name(
+    client, hackathon, participant, team, request, fixture_name, name, kwargs, task
+):
+    """浏览器标题用这一页自己的任务名，别名只决定侧栏高亮哪一栏。"""
+    client.force_login(request.getfixturevalue(fixture_name))
+    response = client.get(endpoint(hackathon, name, **kwargs))
+    assert response.status_code == 200
+    assert response.context['page_title'] == task
+    assert heading_text(response) == task
+    assert browser_title(response) == f'{task} · {hackathon.name}'
+
+
+def test_ticket_reply_uses_the_ticket_subject_as_its_task_name(client, hackathon, organizer_user):
+    client.force_login(organizer_user)
+    ticket = SupportTicket.objects.create(
+        hackathon=hackathon,
+        user=organizer_user,
+        subject='材料一直停在排队',
+        body='换了网络也重试了三次。',
+        category='tech',
+    )
+    response = client.get(endpoint(hackathon, 'support-reply', ticket_id=ticket.pk))
+    assert response.context['page_title'] == '材料一直停在排队'
+    assert heading_text(response) == '材料一直停在排队'
+    assert browser_title(response) == f'材料一直停在排队 · {hackathon.name}'
+
+
+def test_password_reset_pages_keep_the_campaign_title(client, hackathon, user):
+    """登录与找回密码页保留「活动名 · 黑客松」，不退回裸活动名。"""
+    response = client.get(endpoint(hackathon, 'student-password-reset-request'))
+    assert response.status_code == 200
+    assert browser_title(response) == f'{hackathon.name} · 黑客松'
+
+    user.pw_reset_token = 'reset-token-for-tests'
+    user.pw_reset_time = timezone.now()
+    user.save(update_fields=['pw_reset_token', 'pw_reset_time'])
+    confirm = client.get(f'{endpoint(hackathon, "student-password-reset-confirm")}?token=reset-token-for-tests')
+    assert confirm.status_code == 200
+    assert browser_title(confirm) == f'{hackathon.name} · 黑客松'
+
+
+def test_timeline_uses_the_kind_the_organizer_entered(hackathon, client, participant, user):
+    """时间线的类型用主办填写的 ScheduleItem.kind，不写死成「活动」。"""
+    starts = timezone.now() + timedelta(days=1)
+    ScheduleItem.objects.create(
+        hackathon=hackathon,
+        title='路演彩排',
+        starts_at=starts,
+        ends_at=starts + timedelta(hours=1),
+        kind='路演',
+        state='published',
+    )
+    entry = next(entry for entry in schedule_timeline(hackathon) if entry['title'] == '路演彩排')
+    assert entry['kind'] == '路演'
+
+    client.force_login(user)
+    home = client.get(endpoint(hackathon, 'home')).content.decode()
+    schedule = client.get(endpoint(hackathon, 'schedule')).content.decode()
+    timeline = re.search(r'<ol class="calendar-timeline">(.*?)</ol>', home, re.S).group(1)
+    assert '路演彩排' in timeline
+    assert re.search(r'<span class="tag">\s*路演\s*</span>', timeline)
+    assert '活动' not in timeline
+    assert re.search(r'<span class="tag">\s*路演\s*</span>', schedule)
+
+
+def test_workbench_layer_covers_the_small_action_links():
+    """工作区层给动作链接补足字号与 44px 触达，并让时间段用等宽数字。"""
+    css = WORKBENCH_CSS.read_text(encoding='utf-8')
+    for selector in (
+        '.ruc-app .metric > a',
+        '.ruc-app a.tag',
+        '.ruc-app .judge-team-picker summary',
+        '.ruc-app .ruc-notice h3 a',
+    ):
+        body = css_rule(css, selector)
+        assert body, f'{selector} 缺少 workbench 层覆盖'
+        assert 'min-height: 2.75rem' in body, f'{selector} 触达高度不足 44px'
+    for selector in ('.ruc-app .metric > a', '.ruc-app a.tag'):
+        assert 'font-size: var(--ruc-small-size)' in css_rule(css, selector), f'{selector} 字号低于 14px'
+    tabular = [selector for selector, body in css_rules(css) if 'tabular-nums' in body]
+    assert any('.schedule-time' in selector for selector in tabular), '时间段没有使用等宽数字'

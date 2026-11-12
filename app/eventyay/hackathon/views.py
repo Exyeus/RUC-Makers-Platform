@@ -89,25 +89,59 @@ def submissions_return(hackathon, post):
 
 ORGANIZER_ROUTES = {
     'manage', 'participants', 'submissions', 'manage-stage', 'publish', 'content', 'staff', 'settings',
-    'scoring-rules', 'matching-operations',
+    'scoring-rules', 'matching-operations', 'support-reply',
 }
 JUDGE_ROUTES = {'judging', 'judge-live', 'score'}
 VOLUNTEER_ROUTES = {'tasks'}
+# 详情页沿用所属栏目：这些路由的侧栏入口是「我的队伍」。
+TEAM_ROUTES = {
+    'matching', 'matching-profile', 'idea-create', 'idea-edit', 'proposal-create', 'matching-receipt',
+    'post-new', 'post-edit', 'post-detail', 'team-edit',
+}
+# 别名只决定侧栏高亮哪一栏，不再决定工作身份与浏览器标题。
+NAVIGATION_ALIASES = {
+    'register': 'home',
+    'resource': 'resources',
+    'project-detail': 'gallery',
+    'support-reply': 'support',
+    'review': 'submissions',
+    'intake': 'submissions',
+    'content-new': 'content',
+    'content-edit': 'content',
+    'content-preview': 'content',
+    'judge-new': 'staff',
+    'task-new': 'tasks',
+    'task-edit': 'tasks',
+}
 
 
-def working_identity(request, active):
-    """Which workbench the current page belongs to, for an account holding several roles."""
+def navigation_column(route, follow_live=False):
+    """The sidebar entry a route belongs to; detail pages keep their column."""
+    if route in TEAM_ROUTES:
+        return 'teams'
+    if route == 'score':
+        return 'judge-live' if follow_live else 'judging'
+    return NAVIGATION_ALIASES.get(route, route)
+
+
+def working_identity(request, route, column):
+    """Which workbench the current page belongs to, for an account holding several roles.
+
+    The page's own route decides first: an organizer-only detail page keeps the
+    organizer workbench even though the sidebar highlights a shared column.
+    """
     if not request.user.is_authenticated:
         return None
     organizer = request.hackathon_organizer
     judge = 'judge' in request.hackathon_roles
-    if active in ORGANIZER_ROUTES and organizer:
-        return 'organizer'
-    if active in JUDGE_ROUTES and judge:
-        return 'judge'
-    if active in VOLUNTEER_ROUTES and (organizer or 'volunteer' in request.hackathon_roles):
-        return 'volunteer'
-    if active == 'results':
+    for candidate in (route, column):
+        if candidate in ORGANIZER_ROUTES and organizer:
+            return 'organizer'
+        if candidate in JUDGE_ROUTES and judge:
+            return 'judge'
+        if candidate in VOLUNTEER_ROUTES and (organizer or 'volunteer' in request.hackathon_roles):
+            return 'volunteer'
+    if route == 'results':
         return 'organizer' if organizer else 'judge' if judge else 'participant'
     return 'participant'
 
@@ -115,12 +149,16 @@ def working_identity(request, active):
 def workspace_navigation(request, hackathon, identity):
     """Sidebar for the working identity: about six primary entries, the rest below.
 
-    Every page that identity can open keeps an entry somewhere in the sidebar, so no
-    view loses its `aria-current` marker; only the prominence changes.
+    Every page the identity can open keeps an entry in this sidebar, so no page
+    loses its `aria-current` marker; only the prominence changes. The 加分页 is
+    the one deliberate exception: it stays outside the navigation (see
+    doc/ui-workbench.md).
     """
     activity = [('schedule', '活动日程', 'calendar'), ('announcements', '通知公告', 'bell')]
     reference = [('resources', '学习与指南', 'book'), ('gallery', '作品展厅', 'spark')]
     help_entry = ('support', '帮助与支持', 'help')
+    contestant_entries = [('teams', '我的队伍', 'users'), ('project', '我的作品', 'folder')]
+    stage_entry = ('stage', '路演现场', 'play')
     judge_entries = [('judging', '评委工作台', 'chart'), ('judge-live', '当前路演', 'play')]
     results_entry = ('results', '评审与成绩', 'chart')
     if identity == 'organizer':
@@ -141,7 +179,15 @@ def workspace_navigation(request, hackathon, identity):
                 ('matching-operations', '组队撮合', 'users'),
             ]),
         ]
-        elsewhere = [('tasks', '志愿者工作台', 'badge'), help_entry, ('home', '参赛总览', 'grid'), *activity]
+        elsewhere = [
+            ('tasks', '志愿者工作台', 'badge'),
+            help_entry,
+            ('home', '参赛总览', 'grid'),
+            *contestant_entries,
+            stage_entry,
+            *activity,
+            *reference,
+        ]
         if 'judge' in request.hackathon_roles:
             elsewhere = judge_entries + elsewhere
         groups.append(('协作与活动页面', elsewhere))
@@ -149,28 +195,27 @@ def workspace_navigation(request, hackathon, identity):
         groups = [
             ('我的评审', [*judge_entries, results_entry]),
             ('活动与帮助', [*activity, help_entry]),
-            ('参考', [*reference, ('home', '参赛总览', 'grid')]),
+            ('参考', [*reference, stage_entry, *contestant_entries, ('home', '参赛总览', 'grid')]),
         ]
     elif identity == 'volunteer':
         groups = [
             ('我的工作', [('tasks', '志愿者工作台', 'badge'), *activity, help_entry]),
-            ('参考', [*reference, ('home', '参赛总览', 'grid')]),
+            ('参考', [*reference, stage_entry, *contestant_entries, results_entry, ('home', '参赛总览', 'grid')]),
         ]
     elif identity == 'participant':
         groups = [
             ('我的参赛', [
                 ('home', '参赛总览', 'grid'),
-                ('teams', '我的队伍', 'users'),
-                ('project', '我的作品', 'folder'),
+                *contestant_entries,
             ]),
             ('活动与帮助', [*activity, help_entry]),
-            ('学习与展示', [*reference, ('stage', '路演现场', 'play'), results_entry]),
+            ('学习与展示', [*reference, stage_entry, results_entry]),
         ]
     else:
         groups = [
             ('活动', [('home', '活动主页', 'grid'), *activity, *reference, results_entry]),
             ('入口', [
-                ('stage', '路演现场', 'play'),
+                stage_entry,
                 ('teams', '组队广场', 'users'),
                 help_entry,
                 ('judge-login', '评委入口', 'chart'),
@@ -208,6 +253,7 @@ def working_identities(request, hackathon, identity):
 def page(request, template, **context):
     hackathon = request.hackathon
     participant = request.participant
+    route = request.resolver_match.url_name
     common = {
         'hackathon': hackathon,
         'participant': participant,
@@ -215,50 +261,26 @@ def page(request, template, **context):
         'is_staff_member': request.hackathon_organizer or bool(request.hackathon_roles),
         'is_judge': 'judge' in request.hackathon_roles,
         'now': timezone.now(),
-        'active': request.resolver_match.url_name,
+        'active': route,
         'latest_notice': Announcement.published(hackathon).filter(audience='all').first(),
     }
     common.update(context)
-    if common['active'] in {
-        'matching',
-        'matching-profile',
-        'idea-create',
-        'idea-edit',
-        'proposal-create',
-        'matching-receipt',
-        'post-new',
-        'post-edit',
-        'post-detail',
-        'team-edit',
-    }:
+    if common['active'] in TEAM_ROUTES:
         common['active'] = 'teams'
-    navigation_aliases = {
-        'register': 'home',
-        'resource': 'resources',
-        'project-detail': 'gallery',
-        'support-reply': 'support',
-        'review': 'submissions',
-        'intake': 'submissions',
-        'content-new': 'content',
-        'content-edit': 'content',
-        'content-preview': 'content',
-        'judge-new': 'staff',
-        'task-new': 'tasks',
-        'task-edit': 'tasks',
-        'score': 'judge-live' if common.get('follow_live') else 'judging',
-    }
-    common['navigation_active'] = navigation_aliases.get(common['active'], common['active'])
-    identity = working_identity(request, common['navigation_active'])
+    common['navigation_active'] = navigation_column(route, common.get('follow_live'))
+    identity = working_identity(request, route, common['navigation_active'])
     navigation_groups = workspace_navigation(request, hackathon, identity)
     common['navigation'] = [item for label, items in navigation_groups for item in items]
     common['navigation_groups'] = navigation_groups
     common['identities'] = working_identities(request, hackathon, identity)
     common['working_identity_key'] = identity
     common['working_identity'] = next((item['label'] for item in common['identities'] if item['current']), None)
-    if not common.get('page_title'):
-        common['page_title'] = next(
-            (item[1] for item in common['navigation'] if item[0] == common['navigation_active']), None
-        )
+    # 浏览器标题用这一页自己的任务名：视图给出的标题优先，别名只决定侧栏高亮。
+    common['page_title'] = (
+        common.get('page_title')
+        or common.get('title')
+        or next((item[1] for item in common['navigation'] if item[0] == common['navigation_active']), None)
+    )
     return render(request, f'hackathon/{template}.html', common)
 
 
@@ -737,6 +759,7 @@ def project_detail(request, project_id):
         request,
         'project_detail',
         project=item,
+        title=item.title,
         assets=item.assets.all()
         if request.hackathon_organizer
         or 'judge' in request.hackathon_roles
@@ -819,7 +842,7 @@ def resource_detail(request, resource_id):
         ResourceRead.objects.get_or_create(hackathon=request.hackathon, resource=item, user=request.user)
         messages.success(request, '已记录阅读进度。')
         return redirect(url(request.hackathon, 'resource', resource_id=item.pk))
-    return page(request, 'resource', resource=item, read=read)
+    return page(request, 'resource', resource=item, read=read, title=item.title)
 
 
 @event_view()
@@ -1005,7 +1028,14 @@ def review(request, project_id):
                 return redirect(submissions_return(h, request.POST))
     state, reason = list_filters(request.GET)
     return page(
-        request, 'review', form=form, project=item, assets=item.assets.all(), filter_state=state, filter_reason=reason
+        request,
+        'review',
+        form=form,
+        project=item,
+        title=item.title,
+        assets=item.assets.all(),
+        filter_state=state,
+        filter_reason=reason,
     )
 
 
@@ -1042,7 +1072,15 @@ def intake(request, team_id):
         else:
             messages.success(request, '补录已保存，操作人、原因与版本已写入日志。')
             return redirect(url(h, 'intake', team_id=team.pk))
-    return page(request, 'intake', form=form, asset_form=asset_form, team=team, project=item)
+    return page(
+        request,
+        'intake',
+        form=form,
+        asset_form=asset_form,
+        team=team,
+        project=item,
+        title=f'作品异常补录 · {team.name}',
+    )
 
 
 @event_view('organizer')
@@ -1214,6 +1252,11 @@ def content_preview(request, kind, item_id):
         'preview_note': note,
         'is_organizer': False,
         'preview_back': url(h, 'content-edit', kind=kind, item_id=item.pk),
+        'title': {
+            'announcement': '通知公告',
+            'resource': item.title,
+            'schedule': '活动日程',
+        }.get(kind, f'{label}预览'),
     }
     if kind == 'resource':
         context.update({'resource': item, 'read': False})
@@ -1476,7 +1519,7 @@ def support_reply(request, ticket_id):
             messages.success(request, f'已回复工单 #{item.pk}，此前的每一轮说明都还保留。')
             return redirect(back)
     attach_ticket_threads(h, [item])
-    return page(request, 'ticket', ticket=item, form=form, filter_state=state)
+    return page(request, 'ticket', ticket=item, form=form, filter_state=state, title=item.subject)
 
 
 @event_view()
