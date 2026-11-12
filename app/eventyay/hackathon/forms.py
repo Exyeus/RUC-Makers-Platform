@@ -406,8 +406,9 @@ class ScoreForm(forms.ModelForm):
     revision = forms.IntegerField(min_value=0, required=False, widget=forms.HiddenInput)
     scoring_revision = forms.IntegerField(min_value=0, required=False, widget=forms.HiddenInput)
 
-    def __init__(self, *args, hackathon=None, **kwargs):
+    def __init__(self, *args, hackathon=None, confirm=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.confirm = confirm
         self.fields['revision'].initial = self.instance.revision or 0
         self.fields['scoring_revision'].initial = hackathon.scoring_revision if hackathon else 0
         self.fields['feedback'].widget.attrs['rows'] = 3
@@ -415,6 +416,17 @@ class ScoreForm(forms.ModelForm):
         for name, label, default in CRITERIA:
             self.fields[name].label = f'{label} · {rule_weights[name]}%'
             self.fields[name].widget.attrs['data-weight'] = rule_weights[name]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not self.confirm:
+            return cleaned_data
+        # Unfilled criteria stay empty instead of becoming a 0 that would count as a real judgement.
+        for name, label, _default in CRITERIA:
+            # A rejected value (e.g. 11) also leaves the field empty; do not then claim it was blank.
+            if cleaned_data.get(name) is None and not self.has_error(name):
+                self.add_error(name, f'确认评分前请填写「{label}」。如需稍后补全，请先保存草稿。')
+        return cleaned_data
 
     class Meta:
         model = Score
@@ -426,7 +438,6 @@ class ScoreForm(forms.ModelForm):
             'breakthrough',
             'creativity',
             'feedback',
-            'final',
         ]
         widgets = {
             name: forms.NumberInput(attrs={'min': 0, 'max': 10})

@@ -30,7 +30,7 @@ from eventyay.hackathon.models import (
     UploadSession,
 )
 from eventyay.hackathon.permissions import is_organizer
-from eventyay.hackathon.scoring import aggregate
+from eventyay.hackathon.scoring import aggregate, is_trimmed
 
 
 def audit(hackathon, user, action, target='', detail=''):
@@ -422,7 +422,7 @@ def save_asset(hackathon, participant, project, form, organizer=None, reason='')
 
 
 @transaction.atomic
-def save_score(hackathon, user, project, form):
+def save_score(hackathon, user, project, form, confirm=False):
     hackathon = lock_event(hackathon)
     project = Project.objects.select_related('team').get(pk=project.pk, hackathon=hackathon)
     if not hackathon.judging_open or hackathon.results_published:
@@ -434,6 +434,9 @@ def save_score(hackathon, user, project, form):
     if project.state != Project.State.APPROVED:
         raise ValidationError('只有通过材料检查的作品可以评分。')
     score = form.save(commit=False)
+    score.final = confirm
+    if confirm and not score.is_complete:
+        raise ValidationError('四项分数都填好后才能确认评分；空着的项目不会被算成 0 分。')
     current = Score.objects.filter(project=project, judge=user).first()
     if (form.cleaned_data.get('revision') or 0) != (current.revision if current else 0):
         raise ValidationError('此评分已在其他页面保存。请重新打开评分页核对，当前输入未覆盖已保存的分数。')
@@ -563,20 +566,29 @@ def stage_action(hackathon, user, slot, action, note=''):
     audit(hackathon, user, f'路演：{action}', slot.project.code, note)
 
 
-def active_judge_ids(hackathon):
-    """Judges the scoring actually counts: assigned to this event, still active, not marked as spam."""
-    return set(
+def judge_panel(hackathon):
+    """Active judges and the teams each of them has to avoid — the single source of 'who owes which score'."""
+    assignments = list(
         StaffAssignment.objects.filter(
             hackathon=hackathon, role='judge', user__is_active=True, user__is_spam=False
-        ).values_list('user_id', flat=True)
+        ).select_related('user')
     )
+    conflicts = {}
+    for participant in Participant.objects.filter(
+        hackathon=hackathon, user_id__in=[assignment.user_id for assignment in assignments], team__isnull=False
+    ):
+        conflicts.setdefault(participant.team_id, set()).add(participant.user_id)
+    return assignments, conflicts
+
+
+def active_judge_ids(hackathon):
+    """Judges the scoring actually counts: assigned to this event, still active, not marked as spam."""
+    return {assignment.user_id for assignment in judge_panel(hackathon)[0]}
 
 
 def results(hackathon):
-    judges = active_judge_ids(hackathon)
-    conflicts = {}
-    for participant in Participant.objects.filter(hackathon=hackathon, user_id__in=judges, team__isnull=False):
-        conflicts.setdefault(participant.team_id, set()).add(participant.user_id)
+    assignments, conflicts = judge_panel(hackathon)
+    judges = {assignment.user_id for assignment in assignments}
     rows = []
     for project in (
         Project.objects.filter(hackathon=hackathon, state='approved')
@@ -595,6 +607,7 @@ def results(hackathon):
                 'complete': bool(eligible) and len(scores) == len(eligible) and average is not None,
                 'counted': counted,
                 'trimmed': len(scores) - counted if average is not None else 0,
+                'thin_panel': is_trimmed(hackathon) and 0 < len(scores) < 2 * hackathon.trim_extremes + 1,
                 'breakthrough': sum(score.breakthrough for score in scores),
                 'creativity': sum(score.creativity for score in scores),
             }
@@ -606,6 +619,46 @@ def results(hackathon):
             if row['average'] != last_score:
                 rank = index
             row['rank'], last_score = rank, row['average']
+    return rows
+
+
+def review_progress(hackathon):
+    """Who still owes which score: same judge panel and same task set that drives the ranking."""
+    assignments, conflicts = judge_panel(hackathon)
+    projects = list(Project.objects.filter(hackathon=hackathon, state='approved').select_related('team__track'))
+    scores = {
+        (score.judge_id, score.project_id): score
+        for score in Score.objects.filter(
+            hackathon=hackathon, judge_id__in=[a.user_id for a in assignments], project_id__in=[p.pk for p in projects]
+        )
+    }
+    rows = []
+    for assignment in assignments:
+        expected = confirmed = drafts = 0
+        outstanding = []
+        for project in projects:
+            if assignment.user_id in conflicts.get(project.team_id, set()):
+                continue
+            expected += 1
+            score = scores.get((assignment.user_id, project.pk))
+            if score is None:
+                outstanding.append({'project': project, 'draft': False})
+            elif score.final:
+                confirmed += 1
+            else:
+                drafts += 1
+                outstanding.append({'project': project, 'draft': True})
+        rows.append(
+            {
+                'user': assignment.user,
+                'expected': expected,
+                'confirmed': confirmed,
+                'drafts': drafts,
+                'outstanding': outstanding,
+                'complete': not outstanding,
+            }
+        )
+    rows.sort(key=lambda row: (row['complete'], -len(row['outstanding']), row['user'].fullname or row['user'].email))
     return rows
 
 

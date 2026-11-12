@@ -275,7 +275,7 @@
   .judge-score-layout .score-form { position: static; }
   .judge-score-layout .detail-poster { max-height: 480px; }
   .score-form .score-total { padding: 16px; }
-  .score-form > .button { width: 100%; }
+  .score-form > .button, .score-form .actions > .button { width: 100%; }
   .stage-board { padding: 20px 16px; }
   .stage-board-heading .stage-sync { max-width: none; font-size: 11px; }
   .next-up { grid-template-columns: minmax(0, 1fr); }

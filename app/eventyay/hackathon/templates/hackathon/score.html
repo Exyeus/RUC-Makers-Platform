@@ -14,15 +14,16 @@
     <a class="button secondary small" href="#judge-materials">查看作品 ↓</a>
     {% if previous %}<a class="button secondary small" href="{% url 'hackathon:score' hackathon.slug previous.pk %}">← {{ previous.team.name }}</a>{% endif %}
     <details class="judge-team-picker">
-      <summary>选择队伍 / 回看评分（{{ confirmed }} 份已确认）</summary>
+      <summary>选择队伍 / 回看评分（{{ confirmed }}/{{ total }} 已确认）</summary>
       <div class="judge-team-links">
         {% for entry in entries %}
           <a href="{% url 'hackathon:score' hackathon.slug entry.project.pk %}" {% if entry.project.pk == project.pk %}aria-current="page"{% endif %}>
-            {{ entry.project.team.name }} · {% if entry.score.final %}已确认{% elif entry.score %}草稿{% else %}待评{% endif %}
+            {{ entry.project.team.name }} · {% if entry.state == 'confirmed' %}已确认{% elif entry.state == 'draft' %}草稿{% else %}待评{% endif %}
           </a>
         {% endfor %}
       </div>
     </details>
+    {% if next_task %}<a class="button small" href="{% url 'hackathon:score' hackathon.slug next_task.project.pk %}">下一份未完成 · {{ next_task.project.team.name }}</a>{% endif %}
     {% if following %}<a class="button secondary small" href="{% url 'hackathon:score' hackathon.slug following.pk %}">{{ following.team.name }} →</a>{% endif %}
   </nav>
   <div class="judge-score-layout">
@@ -52,13 +53,16 @@
       {% csrf_token %}
       <div class="eyebrow">正在为 {{ project.team.name }} 评分</div>
       <h2>记录你的判断</h2>
-      <p>每项 0–10 整数分；草稿不参与排名。每项特别奖最多提名 3 队。</p>
+      <p>每项 0–10 整数分。没想好的可以先留空并存草稿，留空不会被算成 0 分；只有点“确认评分”后才计入统计。每项特别奖最多提名 3 队。</p>
       <details class="judge-rule-note"><summary>本届算分规则</summary><p>{{ rule_description }}</p></details>
       {% include 'hackathon/form_fields.html' %}
-      <div class="score-total">加权总分 <output data-score-total>0</output><span>/ 100</span></div>
-      <p data-score-status role="status">{% if form.is_bound %}本次修改尚未保存，请处理表单提示。{% elif form.instance.pk %}当前评分已保存{% if form.instance.final %}并确认{% else %}为草稿{% endif %}。{% else %}尚未保存评分。{% endif %}</p>
-      {% if not hackathon.judging_open or hackathon.results_published %}<p class="warning-text">评分已关闭或成绩已公布，当前仅可回看。</p>{% endif %}
-      <button type="submit" class="button" {% if not hackathon.judging_open or hackathon.results_published %}disabled{% endif %}>保存评分</button>
+      <div class="score-total">加权总分 <output data-score-total>—</output><span>/ 100</span><small data-score-progress></small></div>
+      <p data-score-status role="status">{% if form.is_bound %}本次修改尚未保存，请处理表单提示。{% elif form.instance.pk %}{% if form.instance.final %}已确认 · 已计入统计{% else %}草稿 · 尚未计分{% endif %}{% if not form.instance.is_complete %} · 已填 {{ form.instance.filled }} 项{% endif %} · 最后保存 {{ form.instance.updated|date:'m-d H:i' }}{% else %}尚未保存评分。{% endif %}</p>
+      {% if not scoring_open %}<p class="warning-text">评分已关闭或成绩已公布，当前仅可回看。</p>{% endif %}
+      <div class="actions">
+        <button type="submit" name="action" value="final" class="button" {% if not scoring_open %}disabled{% endif %}>{% if form.instance.final %}更新已确认评分{% else %}确认评分并继续{% endif %}</button>
+        <button type="submit" name="action" value="draft" class="button secondary" {% if not scoring_open %}disabled{% endif %}{% if form.instance.final %} data-confirm="「{{ project.team.name }}」的评分会变回草稿，不再计入统计。确定改为草稿保存吗？"{% endif %}>{% if form.instance.final %}改为草稿保存{% else %}保存草稿{% endif %}</button>
+      </div>
     </form>
   </div>
 {% endblock %}

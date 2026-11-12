@@ -11,8 +11,8 @@ from django_scopes import scope
 
 from eventyay.base.models import Event, User
 from eventyay.hackathon import forms, services
-from eventyay.hackathon.models import Asset, DemoSlot, Hackathon, Score, StaffAssignment
-from eventyay.hackathon.scoring import aggregate
+from eventyay.hackathon.models import Asset, DemoSlot, Hackathon, Score, StaffAssignment, Team
+from eventyay.hackathon.scoring import aggregate, weighted_total
 from tests.hackathon.test_workflows import approved_project, endpoint
 
 
@@ -31,7 +31,7 @@ SCORE = {
     'implementation': 8,
     'impact': 7,
     'presentation': 6,
-    'final': True,
+    'action': 'final',
     'revision': 0,
     'scoring_revision': 0,
 }
@@ -160,7 +160,8 @@ def test_old_rule_revision_rejected_and_rules_locked_after_first_draft(
     response = client.post(scoring, SCORE)
     assert '规则已更新' in response.content.decode()
     assert not Score.objects.filter(project=project).exists()
-    assert client.post(scoring, {**SCORE, 'scoring_revision': 1, 'final': False}).status_code == 302
+    assert client.post(scoring, {**SCORE, 'scoring_revision': 1, 'action': 'draft'}).status_code == 302
+    assert not Score.objects.get(project=project, judge=judge).final
     client.force_login(organizer_user)
     response = client.post(location, DEFAULT_RULES)
     assert '规则已锁定' in response.content.decode()
@@ -199,14 +200,28 @@ def test_rules_validate_sum_and_support_defaults(client, hackathon, organizer_us
         ([1, 4, 5, 6, 10], 1, Decimal('50.00'), 3),
         ([8, 8, 8, 8, 8], 1, Decimal('80.00'), 3),
         ([0, 2, 5, 8, 10], 2, Decimal('50.00'), 1),
-        ([0, 10], 1, None, 0),
         ([0, 0, 0], 1, Decimal('0.00'), 1),
+        ([], 1, None, 0),
+        ([0, 10], 1, Decimal('50.00'), 2),
+        ([6], 2, Decimal('60.00'), 1),
+        ([1, 2, 3, 4], 5, Decimal('25.00'), 4),
+        ([0, 0, 0, 10], 2, Decimal('25.00'), 4),
+        ([0, 0, 0, 10], 3, Decimal('25.00'), 4),
     ],
 )
-def test_trimmed_mean_removes_exact_counts_even_with_ties(hackathon, totals, trim, expected, counted):
+def test_trimmed_mean_drops_extremes_and_falls_back_on_thin_panels(hackathon, totals, trim, expected, counted):
     hackathon.score_aggregation, hackathon.trim_extremes = 'trimmed', trim
     scores = [Score(innovation=value, implementation=value, impact=value, presentation=value) for value in totals]
     assert aggregate(scores, hackathon) == (expected, counted)
+
+
+def test_partial_draft_totals_are_not_silently_read_as_zero(hackathon):
+    complete = Score(innovation=10, implementation=10, impact=10, presentation=10)
+    partial = Score(innovation=0, implementation=None, impact=0, presentation=0)
+    assert complete.is_complete and not partial.is_complete
+    assert partial.filled == 3
+    assert weighted_total(partial, hackathon) is None
+    assert aggregate([complete, partial], hackathon) == (Decimal('100.00'), 1)
 
 
 def test_default_and_custom_weighted_totals(hackathon):
@@ -253,7 +268,7 @@ def test_trimmed_results_preserve_nominations_and_exclude_drafts_inactive_judges
     assert not services.results(hackathon)[0]['complete']
 
 
-def test_too_few_scores_explains_missing_result(client, hackathon, organizer_user, judge, project):
+def test_thin_panel_explains_the_automatic_average(client, hackathon, organizer_user, judge, project):
     hackathon.score_aggregation = 'trimmed'
     hackathon.save()
     Score.objects.create(
@@ -267,16 +282,24 @@ def test_too_few_scores_explains_missing_result(client, hackathon, organizer_use
         final=True,
     )
     row = services.results(hackathon)[0]
-    assert row['average'] is None and not row['complete'] and 'rank' not in row
+    assert row['average'] == Decimal('79.00') and row['counted'] == 1 and row['thin_panel']
+    assert row['complete'] and row['rank'] == 1
     client.force_login(organizer_user)
-    assert '有效人数不足' in client.get(endpoint(hackathon, 'results')).content.decode()
+    body = client.get(endpoint(hackathon, 'results')).content.decode()
+    assert '有效评分不足去极窗口' in body and '不足 3 份时不去极值' in body
     exported = client.get(endpoint(hackathon, 'export', kind='results')).content.decode('utf-8-sig')
     assert '采用评分数' in exported and '去掉 1 个最高' in exported
 
 
-def test_insufficient_trimmed_scores_cannot_be_published(client, hackathon, organizer_user, judge, project):
+def test_missing_final_scores_still_block_publication(client, hackathon, organizer_user, judge, project):
     hackathon.score_aggregation = 'trimmed'
     hackathon.save()
+    client.force_login(organizer_user)
+    response = client.post(endpoint(hackathon, 'publish'), {'action': 'publish-results'})
+    assert response.status_code == 200
+    assert '未完成全部有效评委评分' in response.content.decode()
+    hackathon.refresh_from_db()
+    assert not hackathon.results_published
     Score.objects.create(
         hackathon=hackathon,
         project=project,
@@ -287,12 +310,9 @@ def test_insufficient_trimmed_scores_cannot_be_published(client, hackathon, orga
         presentation=6,
         final=True,
     )
-    client.force_login(organizer_user)
-    response = client.post(endpoint(hackathon, 'publish'), {'action': 'publish-results'})
-    assert response.status_code == 200
-    assert '未完成全部有效评委评分' in response.content.decode()
-    hackathon.refresh_from_db()
-    assert not hackathon.results_published
+    # A panel thinner than the trimming window still counts as fully reviewed, so the
+    # publish gate is only about missing confirmations, never about the judge headcount.
+    assert all(row['complete'] and row['counted'] == 1 for row in services.results(hackathon))
 
 
 def test_judge_role_and_scoring_are_isolated_between_events(client, hackathon, judge, project):
@@ -342,6 +362,114 @@ def test_score_is_private_to_its_judge_and_locked_after_publication(client, hack
     response = client.post(location, SCORE)
     assert '锁定' in response.content.decode()
     assert not Score.objects.filter(judge=judge).exists()
+
+
+def test_half_finished_score_saves_as_draft_but_cannot_be_confirmed(client, hackathon, judge, project):
+    client.force_login(judge)
+    location = endpoint(hackathon, 'score', project_id=project.pk)
+    partial = {
+        'innovation': 8,
+        'implementation': '',
+        'impact': '',
+        'presentation': '',
+        'revision': 0,
+        'scoring_revision': 0,
+    }
+    assert client.post(location, {**partial, 'action': 'draft'}).status_code == 302
+    score = Score.objects.get(project=project, judge=judge)
+    assert score.innovation == 8 and score.implementation is None and not score.final
+    assert score.total is None and score.filled == 1 and not score.is_complete
+    response = client.post(location, {**partial, 'action': 'final', 'revision': score.revision})
+    assert response.status_code == 200
+    assert '确认评分前请填写' in response.content.decode()
+    score.refresh_from_db()
+    assert not score.final and score.revision == 1
+    rejected = client.post(location, {**partial, 'innovation': 11, 'action': 'final', 'revision': score.revision})
+    assert 'id_innovation_error' in rejected.content.decode()
+    assert '确认评分前请填写「创新性」' not in rejected.content.decode()
+    assert '已填 1 项' in client.get(location).content.decode()
+    assert '已填 1 项' in client.get(endpoint(hackathon, 'judging')).content.decode()
+    assert not services.results(hackathon)[0]['complete']
+
+
+def test_confirming_advances_to_the_next_unfinished_team(client, hackathon, judge, team, project):
+    other_team = Team.objects.create(hackathon=hackathon, captain=team.captain, name='下一队', track=team.track)
+    other = approved_project(hackathon, other_team, title='另一个作品')
+    client.force_login(judge)
+    location = endpoint(hackathon, 'score', project_id=project.pk)
+    assert client.post(location, {**SCORE, 'action': 'draft'}).url == location
+    draft = Score.objects.get(project=project, judge=judge)
+    assert not draft.final and draft.revision == 1
+    assert [entry['project'].pk for entry in client.get(endpoint(hackathon, 'judging')).context['entries']] == [
+        project.pk,
+        other.pk,
+    ]
+    assert client.post(location, {**SCORE, 'revision': draft.revision}).url == endpoint(
+        hackathon, 'score', project_id=other.pk
+    )
+    confirmed = Score.objects.get(project=project, judge=judge)
+    assert confirmed.final and confirmed.revision == 2
+    body = client.get(location).content.decode()
+    assert '更新已确认评分' in body and '改为草稿保存' in body and 'data-confirm' in body
+    assert '下一份未完成' in body
+    assert '下一份未完成' not in client.get(endpoint(hackathon, 'score', project_id=other.pk)).content.decode()
+    assert client.post(location, {**SCORE, 'action': 'draft', 'revision': confirmed.revision}).status_code == 302
+    confirmed.refresh_from_db()
+    assert not confirmed.final
+
+
+def test_score_post_without_a_button_leaves_the_confirmed_score_alone(client, hackathon, judge, project):
+    client.force_login(judge)
+    location = endpoint(hackathon, 'score', project_id=project.pk)
+    assert client.post(location, SCORE).status_code == 302
+    score = Score.objects.get(project=project, judge=judge)
+    assert score.final and score.revision == 1
+    response = client.post(
+        location, {**{key: value for key, value in SCORE.items() if key != 'action'}, 'revision': score.revision}
+    )
+    assert response.status_code == 200
+    assert '按钮提交' in response.content.decode()
+    score.refresh_from_db()
+    assert score.final and score.revision == 1
+
+
+def test_judging_home_filters_narrow_the_same_task_set(client, hackathon, judge, team, project):
+    other_team = Team.objects.create(hackathon=hackathon, captain=team.captain, name='另一队', track=team.track)
+    other = approved_project(hackathon, other_team, title='另一个作品')
+    Score.objects.create(hackathon=hackathon, project=project, judge=judge, innovation=5, final=False)
+    client.force_login(judge)
+    base = endpoint(hackathon, 'judging')
+    body = client.get(base).content.decode()
+    assert project.title in body and other.title in body and '继续未完成' in body
+    assert '没有符合筛选条件的作品' in client.get(base, {'status': 'confirmed'}).content.decode()
+    draft_body = client.get(base, {'status': 'draft'}).content.decode()
+    assert project.title in draft_body and other.title not in draft_body
+    search_body = client.get(base, {'q': other_team.name}).content.decode()
+    assert other.title in search_body and project.title not in search_body
+    # The tab links must carry the filters already in the URL; a doubled question mark would
+    # reach the view as GET['?status'] and leave every tab showing the same list.
+    assert 'href="?status=draft"' in body and '??' not in body
+    combined = client.get(base, {'q': other_team.name}).content.decode()
+    assert 'status=draft' in combined and 'q=' in combined and '??' not in combined
+
+
+def test_organizers_see_who_owes_which_score(client, hackathon, organizer_user, judge, project):
+    Score.objects.create(hackathon=hackathon, project=project, judge=judge, innovation=5, final=False)
+    retired = User.objects.create_user(email='retired@example.org', is_active=False)
+    StaffAssignment.objects.create(hackathon=hackathon, user=retired, role='judge')
+    rows = services.review_progress(hackathon)
+    assert [row['user'] for row in rows] == [judge]
+    row = rows[0]
+    assert row['expected'] == 1 and row['confirmed'] == 0 and row['drafts'] == 1 and not row['complete']
+    assert [(item['project'], item['draft']) for item in row['outstanding']] == [(project, True)]
+    client.force_login(organizer_user)
+    body = client.get(endpoint(hackathon, 'results')).content.decode()
+    assert '评委进度与缺评明细' in body and '现场评委' in body and '有草稿' in body
+    hackathon.results_published = True
+    hackathon.save()
+    client.logout()
+    anonymous = client.get(endpoint(hackathon, 'results')).content.decode()
+    assert '评委进度与缺评明细' not in anonymous and judge.email not in anonymous
 
 
 @pytest.fixture

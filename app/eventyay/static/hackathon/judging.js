@@ -3,25 +3,37 @@ const live = document.querySelector('[data-judge-sync]');
 let dirty = form?.dataset.scoreDirty === 'true';
 let submitting = false;
 
+const setSubmitDisabled = disabled => {
+  document.querySelectorAll('.score-form [type=submit]').forEach(button => { button.disabled = disabled; });
+};
+
 if (form) {
   const inputs = [...form.querySelectorAll('[data-weight]')];
+  const output = form.querySelector('[data-score-total]');
+  const progress = form.querySelector('[data-score-progress]');
+  const status = form.querySelector('[data-score-status]');
   const updateTotal = () => {
-    const total = inputs.reduce((sum, input) => {
-      const value = Math.min(10, Math.max(0, Number(input.value) || 0));
-      return sum + value * Number(input.dataset.weight) / 10;
-    }, 0);
-    form.querySelector('[data-score-total]').value = total.toFixed(2);
+    const filled = inputs.filter(input => input.value !== '');
+    const weighted = filled.reduce(
+      (sum, input) => sum + Math.min(10, Math.max(0, Number(input.value) || 0)) * Number(input.dataset.weight) / 10,
+      0,
+    );
+    const complete = filled.length === inputs.length;
+    output.value = complete ? weighted.toFixed(2) : '—';
+    progress.textContent = complete ? '' : `已填 ${filled.length}/${inputs.length} 项 · 留空不会被算成 0 分`;
   };
   form.addEventListener('input', () => {
     dirty = true;
-    form.querySelector('[data-score-status]').textContent = '有未保存的修改；现场换队不会覆盖当前输入。';
+    status.textContent = '有未保存的修改；现场换队不会覆盖当前输入。';
     updateTotal();
   });
   form.addEventListener('submit', event => {
+    const confirming = event.submitter?.value === 'final';
     queueMicrotask(() => {
       if (!event.defaultPrevented) {
         submitting = true;
         dirty = false;
+        status.textContent = confirming ? '正在确认评分…' : '正在保存草稿…';
       }
     });
   });
@@ -35,7 +47,7 @@ if (form) {
     submitting = false;
     if (event.persisted) {
       dirty = true;
-      form.querySelector('[data-score-status]').textContent = '从历史记录恢复；请核对已保存的评分后再提交。';
+      status.textContent = '从历史记录恢复；请核对已保存的评分后再提交。';
     }
   });
   updateTotal();
@@ -61,10 +73,10 @@ if (live) {
       const current = data.current;
       team.textContent = current ? `${current.team} · ${current.title}` : '等待下一队开始路演';
       status.classList.remove('warning-text');
-      if (form) form.querySelector('[type=submit]').disabled = !data.open;
+      setSubmitDisabled(!data.open);
       if (data.scoring_revision !== Number(live.dataset.rulesRevision)) {
         status.textContent = '算分规则已更新，请重新打开页面核对；当前输入尚未保存。';
-        if (form) form.querySelector('[type=submit]').disabled = true;
+        setSubmitDisabled(true);
         if (!dirty && !submitting) window.location.reload();
         return;
       }

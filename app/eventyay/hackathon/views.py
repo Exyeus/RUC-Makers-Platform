@@ -1525,13 +1525,18 @@ def support_reply(request, ticket_id):
 @event_view()
 @require_GET
 def results(request):
-    if not request.hackathon.results_published and not request.hackathon_organizer:
+    h = request.hackathon
+    if not h.results_published and not request.hackathon_organizer:
         return page(request, 'results', rows=[], unpublished=True)
+    progress = services.review_progress(h) if request.hackathon_organizer else []
+    summary = {key: sum(row[key] for row in progress) for key in ('expected', 'confirmed', 'drafts')}
     return page(
         request,
         'results',
-        rows=services.results(request.hackathon),
-        rule_description=rule_description(request.hackathon),
+        rows=services.results(h),
+        rule_description=rule_description(h),
+        progress=progress,
+        summary=summary,
     )
 
 
