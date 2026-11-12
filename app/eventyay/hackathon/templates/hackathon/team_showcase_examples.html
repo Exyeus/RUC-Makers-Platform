@@ -27,9 +27,9 @@
             <p>{{ example.tip }}</p>
           </details>
           {% if example.kind %}
-            <a class="showcase-example-action" href="{% url 'hackathon:post-new' hackathon.slug %}?kind={{ example.kind }}">{{ example.action }} <span aria-hidden="true">↗</span></a>
+            <a class="showcase-example-action" href="{% url 'hackathon:post-new' hackathon.slug %}?kind={{ example.kind }}">{{ example.action }}</a>
           {% else %}
-            <a class="showcase-example-action" href="{{ seeker_profile_url }}">{{ example.action }} <span aria-hidden="true">↗</span></a>
+            <a class="showcase-example-action" href="{{ seeker_profile_url }}">{{ example.action }}</a>
           {% endif %}
         </div>
       </article>

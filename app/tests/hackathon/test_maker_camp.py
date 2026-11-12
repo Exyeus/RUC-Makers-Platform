@@ -61,7 +61,7 @@ def test_camp_navigation_and_calendar(client, hackathon, participant, user):
     body = response.content.decode()
     assert 'aria-label="个人资料"' in body
     assert 'aria-label="通知公告"' in body
-    assert '活动小时历' in body
+    assert '活动时间线与小时历' in body
     assert '查看活动日程' not in body
 
 
@@ -92,6 +92,7 @@ def test_hour_calendar_uses_event_timezone_and_all_overlapping_items(hackathon):
         starts_at=due - timedelta(minutes=45),
         ends_at=due + timedelta(hours=1),
         location='创客教室',
+        state='published',
     )
     days = schedule_heatmap(hackathon)
     local = timezone.localtime(due, timezone.get_fixed_timezone(480))

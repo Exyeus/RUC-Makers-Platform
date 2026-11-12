@@ -6,7 +6,7 @@
         READY FOR THE SPOTLIGHT
       </div>
       <h1>
-        作品检查，一目了然。
+        作品检查
       </h1>
       <p>
         材料齐全后再通过审核；检查设备、声音和备用演示后再安排上场。
@@ -26,6 +26,18 @@
       </a>
     {% endfor %}
   </nav>
+  {% if state == 'changes' %}
+    <nav class="tabs" aria-label="需要补充的原因">
+      <a class="{% if not reason %}selected{% endif %}" href="?state={{ state }}">
+        全部
+      </a>
+      {% for value, label in reasons %}
+        <a class="{% if value == reason %}selected{% endif %}" href="?state={{ state }}&reason={{ value }}">
+          {{ label }}
+        </a>
+      {% endfor %}
+    </nav>
+  {% endif %}
   <div class="panel table-panel">
     <table>
       <thead>
@@ -69,9 +81,17 @@
             <td>
               <span class="tag state-{{ project.state }}">
                 {{ project.get_state_display }}
+                {% if project.state == 'changes' %}
+                  ·
+                  {{ project.get_state_reason_display|default:'未标注原因' }}
+                {% endif %}
               </span>
               <small>
-                {{ project.submitted_at|date:'m.d H:i'|default:'尚未提交' }}
+                {% if project.submitted_at %}
+                  首次 {{ project.submitted_at|date:'m.d H:i' }}
+                {% else %}
+                  尚未正式提交
+                {% endif %}
               </small>
             </td>
             <td>
@@ -96,9 +116,8 @@
               {% endif %}
             </td>
             <td>
-              <a class="button secondary small" href="{% url 'hackathon:review' hackathon.slug project.pk %}">
-                检查 ↗
-              </a>
+              <a class="button secondary small" href="{% url 'hackathon:review' hackathon.slug project.pk %}?state={{ state }}&reason={{ reason }}">
+                检查              </a>
             </td>
           </tr>
         {% empty %}

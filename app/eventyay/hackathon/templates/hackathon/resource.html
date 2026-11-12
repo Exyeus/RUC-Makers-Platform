@@ -12,7 +12,7 @@
         MIN READ
       </div>
       <h1>
-        {{ resource.title }}
+        {{ title }}
       </h1>
       <p>
         {{ resource.summary }}
@@ -29,7 +29,11 @@
       </a>
     {% endif %}
     <hr>
-    {% if request.user.is_authenticated %}
+    {% if preview %}
+      <p class="muted">
+        预览页面不会记录阅读进度；选手登录后在这里看到的是「标记为已读」。
+      </p>
+    {% elif request.user.is_authenticated %}
       <form method="post">
         {% csrf_token %}
         <button class="button" {% if read %}disabled{% endif %}>

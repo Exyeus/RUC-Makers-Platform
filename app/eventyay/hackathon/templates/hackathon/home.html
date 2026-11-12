@@ -23,7 +23,7 @@
         <p class="ruc-inline-deadline"><svg aria-hidden="true"><use href="#i-clock" /></svg><span>作品截止：{% include 'hackathon/workbench_deadline.html' %}</span></p>
         <div class="ruc-actions">
           <a class="ruc-button ruc-button--primary" href="{{ current_task.url }}">{{ current_task.label }}<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
-          {% if current_task.key != 'submitted' and current_task.key != 'queued' and current_task.key != 'changes' %}
+          {% if current_task.route != 'project' %}
             <a class="ruc-button ruc-button--secondary" href="{% url 'hackathon:project' hackathon.slug %}">查看我的作品</a>
           {% else %}
             <a class="ruc-button ruc-button--secondary" href="{% url 'hackathon:schedule' hackathon.slug %}">查看活动日程</a>
@@ -54,7 +54,7 @@
         </section>
         <section class="ruc-panel" aria-labelledby="project-title">
           <h2 id="project-title"><svg aria-hidden="true"><use href="#i-folder" /></svg> 我的作品</h2>
-          {% if project %}<span class="ruc-pill">{{ project.get_state_display }}</span><h3>{{ project.title }}</h3><p class="ruc-secondary">{{ project.code }}{% if project.submitted_at %} · 首次提交 {{ project.submitted_at|date:'n 月 j 日 H:i' }}{% endif %}</p>
+          {% if project %}<span class="ruc-pill{% if project_status.tone != 'neutral' %} ruc-pill--{{ project_status.tone }}{% endif %}">{{ project_status.label }}</span><h3>{{ project.title }}</h3><p class="ruc-secondary">{{ project.code }} · {{ project_status.detail }}</p>
           {% else %}<span class="ruc-pill">尚无作品记录</span><p class="ruc-secondary">Demo、仓库、电子海报与备用录屏。队长负责提交，全队可查看。</p>{% endif %}
           <a class="ruc-text-link" href="{% url 'hackathon:project' hackathon.slug %}">查看作品与提交记录<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
         </section>
@@ -65,12 +65,12 @@
           <a class="ruc-resource-row" href="{% url 'hackathon:resource' hackathon.slug resource.pk %}"><span><strong>{{ resource.title }}</strong><small>{{ resource.get_category_display }} · {{ resource.minutes }} 分钟{% if resource.required %} · 必读{% endif %}</small></span><svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
         {% empty %}<p class="ruc-secondary">指南待公布，遇到问题可联系支持团队。</p>{% endfor %}
       </section>
-      <div class="ruc-activity-strip" aria-label="本活动统计"><span>本活动累计</span><span><strong>{{ participant_count }}</strong> 位报名选手</span><span><strong>{{ team_count }}</strong> 支队伍</span><span><strong>{{ project_count }}</strong> 个有正式提交记录的作品</span></div>
+      <div class="ruc-activity-strip" aria-label="本活动统计"><span>本活动累计</span><span><strong>{{ participant_count }}</strong> 位报名选手</span><span><strong>{{ team_count }}</strong> 支队伍</span><span><strong>{{ project_count }}</strong> 个当前已正式提交的作品</span></div>
       <details class="ruc-panel ruc-tracks">
         <summary>查看活动赛道</summary>
         {% for track in tracks %}<a class="ruc-resource-row" href="{% url 'hackathon:teams' hackathon.slug %}?track={{ track.pk }}"><span><strong>{{ track.name }}</strong><small>{{ track.description }}</small></span><svg aria-hidden="true"><use href="#i-arrow" /></svg></a>{% empty %}<p class="ruc-secondary">赛道待公布。</p>{% endfor %}
       </details>
-      <details class="ruc-calendar"><summary>展开活动时段热力图</summary>{% include 'hackathon/hour_calendar.html' %}</details>
+      <details class="ruc-calendar"><summary>展开活动时间线与小时历</summary>{% include 'hackathon/hour_calendar.html' %}</details>
     </div>
     <aside class="ruc-rail" aria-label="截止时间、通知与日程">
       <section class="ruc-panel ruc-deadline" aria-labelledby="deadline-title">
@@ -89,7 +89,7 @@
         <div class="ruc-section-header"><h2 id="schedule-title">接下来</h2><a class="ruc-text-link" href="{% url 'hackathon:schedule' hackathon.slug %}">完整日程<svg aria-hidden="true"><use href="#i-arrow" /></svg></a></div>
         {% for item in upcoming|slice:':1' %}<div class="ruc-timeline"><time datetime="{{ item.starts_at|date:'c' }}">{{ item.starts_at|date:'n 月 j 日 H:i' }} · {{ hackathon.event.timezone }}</time><h3>{{ item.title }}</h3><p class="ruc-secondary">{{ item.location }}</p></div>{% empty %}<p class="ruc-secondary">暂无后续日程，请关注活动通知。</p>{% endfor %}
       </section>
-      <section class="ruc-panel" aria-labelledby="help-title"><h2 id="help-title">卡住了？我们在。</h2><p class="ruc-secondary">组队、材料上传或路演遇到问题，都可以联系支持团队。</p><a class="ruc-text-link" href="{% url 'hackathon:support' hackathon.slug %}">联系支持团队<svg aria-hidden="true"><use href="#i-arrow" /></svg></a></section>
+      <section class="ruc-panel" aria-labelledby="help-title"><h2 id="help-title">卡住了？我们在。</h2>{% if waiting_ticket %}<p class="ruc-secondary">工单 #{{ waiting_ticket.pk }} 等你补充：{{ waiting_ticket.subject }}</p>{% endif %}<p class="ruc-secondary">组队、材料上传或路演遇到问题，都可以联系支持团队。</p><a class="ruc-text-link" href="{% url 'hackathon:support' hackathon.slug %}">联系支持团队<svg aria-hidden="true"><use href="#i-arrow" /></svg></a></section>
     </aside>
   </div>
 {% endblock %}

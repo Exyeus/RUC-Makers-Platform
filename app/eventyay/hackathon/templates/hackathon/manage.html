@@ -6,15 +6,14 @@
         MISSION CONTROL
       </div>
       <h1>
-        全局清晰，现场从容。
+        活动总控
       </h1>
       <p>
         名单、材料、特殊安排和待办，共用一份真实的数据。
       </p>
     </div>
     <a class="button" href="{% url 'hackathon:manage-stage' hackathon.slug %}">
-      打开路演调度 ↗
-    </a>
+      打开路演调度    </a>
   </section>
   <section class="metrics">
     <div class="metric">
@@ -34,7 +33,7 @@
     <div class="metric">
       <div>
         <span>
-          队伍 / 已提交
+          队伍 / 当前有正式版本
         </span>
         <strong>
           {{ team_count }}
@@ -55,21 +54,23 @@
         </strong>
       </div>
       <a href="{% url 'hackathon:submissions' hackathon.slug %}?state=submitted">
-        去处理 ↗
-      </a>
+        去处理      </a>
     </div>
     <div class="metric">
       <div>
         <span>
-          未解决工单
+          工单待主办 / 等选手补充
         </span>
         <strong>
           {{ tickets }}
+          <small>
+            /
+            {{ waiting_tickets }}
+          </small>
         </strong>
       </div>
-      <a href="{% url 'hackathon:support' hackathon.slug %}">
-        去处理 ↗
-      </a>
+      <a href="{% url 'hackathon:support' hackathon.slug %}?state=open">
+        去处理      </a>
     </div>
   </section>
   <div class="two-column">
@@ -77,11 +78,31 @@
       <section class="panel">
         <div class="section-heading">
           <h2>
+            提交状态分布
+          </h2>
+          <a href="{% url 'hackathon:submissions' hackathon.slug %}">
+            全部作品          </a>
+        </div>
+        {% for label, count, link in attention %}
+          <div class="list-row">
+            <strong>
+              {{ label }}
+            </strong>
+            <span class="tag {% if count %}orange{% endif %}">
+              {{ count }}
+            </span>
+            <a class="tag" href="{{ link }}">
+              查看            </a>
+          </div>
+        {% endfor %}
+      </section>
+      <section class="panel">
+        <div class="section-heading">
+          <h2>
             需要关注 · 尚未提交的队伍
           </h2>
           <a href="{% url 'hackathon:content-new' hackathon.slug 'announcement' %}">
-            发布提醒 ↗
-          </a>
+            发布提醒          </a>
         </div>
         {% for team in missing %}
           <div class="list-row">
@@ -157,6 +178,12 @@
           </a>
           <a href="{% url 'hackathon:export' hackathon.slug 'volunteers' %}">
             志愿服务时长 CSV
+            <span>
+              ↓
+            </span>
+          </a>
+          <a href="{% url 'hackathon:export' hackathon.slug 'tickets' %}">
+            支持工单交接 CSV
             <span>
               ↓
             </span>

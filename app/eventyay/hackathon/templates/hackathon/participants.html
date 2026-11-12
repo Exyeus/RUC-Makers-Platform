@@ -6,10 +6,10 @@
         ONE SOURCE OF TRUTH
       </div>
       <h1>
-        每个人，都有自己的坐标。
+        报名与签到
       </h1>
       <p>
-        稳定的选手编号与队伍编号贯穿报名、提交、评审和证书。
+        稳定的选手编号与队伍编号贯穿报名、提交、评审和证书。签到与撤销是两个动作，处理后仍停留在当前搜索结果。
       </p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:export' hackathon.slug 'participants' %}">
@@ -77,25 +77,38 @@
               </small>
               {% if person.team %}
                 <a href="{% url 'hackathon:intake' hackathon.slug person.team.pk %}">
-                  异常补录 ↗
-                </a>
+                  异常补录                </a>
               {% endif %}
             </td>
             <td>
               {{ person.attendance_summary|default:'—' }}
             </td>
             <td>
-              <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="participant" value="{{ person.pk }}">
-                <button class="button small {% if person.checked_in %}secondary{% endif %}" name="checked_in" value="{% if person.checked_in %}no{% else %}yes{% endif %}">
-                  {% if person.checked_in %}
-                    已签到 ✓
-                  {% else %}
+              {% if person.checked_in %}
+                <span class="tag mint">
+                  已签到
+                </span>
+                <form method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="participant" value="{{ person.pk }}">
+                  <input type="hidden" name="action" value="uncheck">
+                  <button class="text-button danger" data-confirm="确认撤销 {{ person.name }}（{{ person.code }}）的签到记录？">
+                    撤销签到
+                  </button>
+                </form>
+              {% else %}
+                <span class="tag orange">
+                  未签到
+                </span>
+                <form method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="participant" value="{{ person.pk }}">
+                  <input type="hidden" name="action" value="check_in">
+                  <button class="button small">
                     签到
-                  {% endif %}
-                </button>
-              </form>
+                  </button>
+                </form>
+              {% endif %}
             </td>
           </tr>
         {% empty %}

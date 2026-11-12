@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 
 from eventyay.base.forms.auth import LoginForm
@@ -287,7 +288,11 @@ class TeamForm(forms.ModelForm):
     def __init__(self, *args, hackathon, **kwargs):
         super().__init__(*args, **kwargs)
         self.hackathon = hackathon
-        self.fields['track'].queryset = Track.objects.filter(hackathon=hackathon)
+        tracks = Track.published(hackathon)
+        if self.instance.pk:
+            # 队伍已经报过的赛道即使随后被下架，也要能继续显示与保留，不能被静默改赛道。
+            tracks = tracks | Track.objects.filter(hackathon=hackathon, pk=self.instance.track_id)
+        self.fields['track'].queryset = tracks
         self.fields['version'].initial = self.instance.roster_version if self.instance.created else 1
 
     def clean_name(self):
@@ -495,6 +500,8 @@ class IntakeAssetForm(AssetForm):
 
 
 class SettingsForm(forms.ModelForm):
+    """Editorial settings only: the four publish switches live in 发布准备 and never save from here."""
+
     starts_at = forms.DateTimeField(
         label='活动开始', widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M')
     )
@@ -502,10 +509,20 @@ class SettingsForm(forms.ModelForm):
         label='活动结束', widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M')
     )
 
+    DEADLINE_HELP = {
+        'registration_deadline': '过了这个时间就不能再报名，已报名的选手不受影响。',
+        'team_freeze_at': '队伍名单在此定格：之后不能新建队伍、换队长，也不能再邀人入队。',
+        'soft_deadline': '只是给选手的建议节点，页面会提示，不会因此关闭提交。',
+        'submission_deadline': '作品提交通道在此关闭；如需补交，请在作品检查页用补录并写明原因。',
+        'freeze_at': '所有材料最终定格，评委看到的附件与演示说明不再变化。',
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['starts_at'].initial = self.instance.event.date_from
         self.fields['ends_at'].initial = self.instance.event.date_to
+        for name, help_text in self.DEADLINE_HELP.items():
+            self.fields[name].help_text = help_text
 
     def clean(self):
         data = super().clean()
@@ -515,12 +532,44 @@ class SettingsForm(forms.ModelForm):
         return data
 
     def save(self, commit=True):
-        instance = super().save(commit=commit)
+        instance = super().save(commit=False)
+        event = instance.event
+        event_fields = []
+        for form_field, event_field in (('starts_at', 'date_from'), ('ends_at', 'date_to')):
+            value = self.cleaned_data[form_field]
+            if value != getattr(event, event_field):
+                setattr(event, event_field, value)
+                event_fields.append(event_field)
         if commit:
-            instance.event.date_from = self.cleaned_data['starts_at']
-            instance.event.date_to = self.cleaned_data['ends_at']
-            instance.event.save(update_fields=['date_from', 'date_to'])
+            model_fields = {field.name for field in Hackathon._meta.concrete_fields}
+            updates = [name for name in self.changed_data if name in model_fields]
+            if updates:
+                instance.save(update_fields=[*updates, 'updated'])
+            if event_fields:
+                event.save(update_fields=event_fields)
         return instance
+
+    def date_conflicts(self):
+        """Deadlines and schedule rows sitting outside the window this form just saved."""
+        start, end = self.cleaned_data['starts_at'], self.cleaned_data['ends_at']
+        deadlines = (
+            ('报名截止', self.instance.registration_deadline),
+            ('队伍冻结', self.instance.team_freeze_at),
+            ('建议提交', self.instance.soft_deadline),
+            ('作品提交截止', self.instance.submission_deadline),
+            ('材料最终冻结', self.instance.freeze_at),
+        )
+        conflicts = [
+            f'{label} {timezone.localtime(value):%m-%d %H:%M}'
+            for label, value in deadlines
+            if value and not start <= value <= end
+        ]
+        conflicts += [
+            f'日程「{item.title}」{timezone.localtime(item.starts_at):%m-%d %H:%M}'
+            for item in ScheduleItem.objects.filter(hackathon=self.instance)
+            if item.ends_at < start or item.starts_at > end
+        ]
+        return conflicts
 
     class Meta:
         model = Hackathon
@@ -538,10 +587,6 @@ class SettingsForm(forms.ModelForm):
             'team_size',
             'demo_seconds',
             'transition_seconds',
-            'is_public',
-            'gallery_open',
-            'judging_open',
-            'results_published',
         ]
         widgets = {
             name: forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M')
@@ -643,10 +688,15 @@ class SupportForm(forms.ModelForm):
         fields = ['category', 'subject', 'body']
 
 
-class ReplyForm(forms.ModelForm):
-    class Meta:
-        model = SupportTicket
-        fields = ['state', 'reply']
+class ReplyForm(forms.Form):
+    """一次处理 = 追加一条说明 + 明确接下来等谁，旧说明继续留在线程里。"""
+
+    state = forms.ChoiceField(label='接下来', choices=SupportTicket.State.choices)
+    body = forms.CharField(label='本轮说明', max_length=5000, widget=forms.Textarea(attrs={'rows': 4}))
+
+
+class TicketNoteForm(forms.Form):
+    body = forms.CharField(label='补充说明', max_length=5000, widget=forms.Textarea(attrs={'rows': 3}))
 
 
 class ReviewForm(forms.ModelForm):

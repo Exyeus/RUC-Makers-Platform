@@ -3,7 +3,7 @@
   <section class="page-heading">
     <div>
       <div class="eyebrow">{{ project.code }} · {{ project.team.name }} · {{ project.team.track.name }}</div>
-      <h1>{{ project.title }}</h1>
+      <h1>{{ title }}</h1>
       <p>{{ project.summary }}</p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:judging' hackathon.slug %}">全部队伍与评分</a>
@@ -23,7 +23,7 @@
         {% endfor %}
       </div>
     </details>
-    {% if next_task %}<a class="button small" href="{% url 'hackathon:score' hackathon.slug next_task.project.pk %}">下一份未完成 · {{ next_task.project.team.name }} ↗</a>{% endif %}
+    {% if next_task %}<a class="button small" href="{% url 'hackathon:score' hackathon.slug next_task.project.pk %}">下一份未完成 · {{ next_task.project.team.name }}</a>{% endif %}
     {% if following %}<a class="button secondary small" href="{% url 'hackathon:score' hackathon.slug following.pk %}">{{ following.team.name }} →</a>{% endif %}
   </nav>
   <div class="judge-score-layout">
@@ -60,7 +60,7 @@
       <p data-score-status role="status">{% if form.is_bound %}本次修改尚未保存，请处理表单提示。{% elif form.instance.pk %}{% if form.instance.final %}已确认 · 已计入统计{% else %}草稿 · 尚未计分{% endif %}{% if not form.instance.is_complete %} · 已填 {{ form.instance.filled }} 项{% endif %} · 最后保存 {{ form.instance.updated|date:'m-d H:i' }}{% else %}尚未保存评分。{% endif %}</p>
       {% if not scoring_open %}<p class="warning-text">评分已关闭或成绩已公布，当前仅可回看。</p>{% endif %}
       <div class="actions">
-        <button type="submit" name="action" value="final" class="button" {% if not scoring_open %}disabled{% endif %}>{% if form.instance.final %}更新已确认评分 ↗{% else %}确认评分并继续 ↗{% endif %}</button>
+        <button type="submit" name="action" value="final" class="button" {% if not scoring_open %}disabled{% endif %}>{% if form.instance.final %}更新已确认评分{% else %}确认评分并继续{% endif %}</button>
         <button type="submit" name="action" value="draft" class="button secondary" {% if not scoring_open %}disabled{% endif %}{% if form.instance.final %} data-confirm="「{{ project.team.name }}」的评分会变回草稿，不再计入统计。确定改为草稿保存吗？"{% endif %}>{% if form.instance.final %}改为草稿保存{% else %}保存草稿{% endif %}</button>
       </div>
     </form>

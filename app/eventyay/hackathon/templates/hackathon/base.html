@@ -7,8 +7,7 @@
     <meta name="theme-color" content="#0b0d14">
     <title>
       {% block title %}
-        {{ hackathon.name }}
-        · 黑客松
+        {% if page_title %}{{ page_title }} · {% endif %}{{ hackathon.name }}
       {% endblock %}
     </title>
     <link rel="stylesheet" href="{% versioned_static 'hackathon/hub.css' %}">
@@ -33,21 +32,6 @@
       <button type="button" class="nav-close icon-button" data-nav-close aria-label="关闭导航">×</button>
       <a class="brand" href="{% url 'hackathon:home' hackathon.slug %}" aria-label="创协活动主页">{% include 'hackathon/brand.html' %}</a>
       {% include 'hackathon/workbench_navigation.html' %}
-      {% if staff_navigation %}
-        <div class="nav-label">
-          我的工作台
-        </div>
-        <nav>
-          {% for name, label, icon, href in staff_navigation %}
-            <a href="{{ href }}" class="nav-item{% if navigation_active == name %} active{% endif %}" {% if navigation_active == name %}aria-current="page"{% endif %}>
-              <svg>
-                <use href="#i-{{ icon }}" />
-              </svg>
-              {{ label }}
-            </a>
-          {% endfor %}
-        </nav>
-      {% endif %}
       {% if not is_organizer %}
         <nav class="nav-account-links" aria-label="账户登录">
           {% if not request.user.is_authenticated %}
@@ -57,22 +41,20 @@
         </nav>
       {% endif %}
       <div class="sidebar-bottom">
-        <div class="sidebar-note">
-          <svg>
-            <use href="#i-spark" />
-          </svg>
-          <strong>
-            让好想法，继续生长。
-          </strong>
+        <details class="sidebar-note">
+          <summary>
+            <svg aria-hidden="true"><use href="#i-spark" /></svg>
+            <span>让好想法，继续生长。</span>
+          </summary>
           <p>
             教程、队友与下一步机会，
             <br>
             都在这里等你。
           </p>
           <a href="{% url 'hackathon:resources' hackathon.slug %}?category=incubate">
-            继续你的创造之旅 ↗
+            查看孵化与往届资源
           </a>
-        </div>
+        </details>
         <a class="powered" href="{% url 'presale:events.upcoming' %}">
           Powered by
           <strong>
@@ -90,6 +72,14 @@
         <button class="menu-toggle icon-button" data-nav-toggle type="button" aria-controls="sidebar" aria-expanded="false" aria-label="展开导航">
           ☰
         </button>
+        {% if identities %}
+          <nav class="identity-switch" aria-label="当前工作身份">
+            <span class="identity-switch-label">工作身份</span>
+            {% for identity in identities %}
+              <a class="identity-option{% if identity.current %} current{% endif %}" href="{{ identity.url }}"{% if identity.current %} aria-current="true"{% endif %}>{{ identity.label }}</a>
+            {% endfor %}
+          </nav>
+        {% endif %}
         <div class="topbar-actions">
           <a class="icon-button topbar-icon" href="{% url 'hackathon:announcements' hackathon.slug %}" aria-label="通知公告" title="通知公告">
             <svg>
@@ -112,7 +102,9 @@
               <span>
                 {{ participant.name|default:request.user.fullname|default:'我的账户' }}
                 <small>
-                  {% if is_organizer %}
+                  {% if working_identity %}
+                    {{ working_identity }}
+                  {% elif is_organizer %}
                     主办方
                   {% elif is_judge %}
                     评委
@@ -132,12 +124,24 @@
             </form>
           {% else %}
             <a class="button small" href="{% url 'hackathon:student-login' hackathon.slug %}?next={{ request.get_full_path|urlencode }}">
-              学号登录 / 注册 ↗
-            </a>
+              学号登录 / 注册            </a>
           {% endif %}
         </div>
       </header>
       <main id="main" tabindex="-1">
+        {% if preview %}
+          <div class="preview-flag" role="status">
+            <strong>
+              预览模式 · {{ preview_title }}
+            </strong>
+            <span>
+              {{ preview_note }}
+            </span>
+            <a class="button secondary small" href="{{ preview_back }}">
+              返回编辑 ↩
+            </a>
+          </div>
+        {% endif %}
         {% for message in messages %}
           <div class="message {{ message.tags }}" role="status">
             {{ message }}

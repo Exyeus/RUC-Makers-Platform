@@ -1,0 +1,24 @@
+{% for entry in ticket.thread %}
+  <div class="ticket-reply">
+    <div class="section-heading">
+      <strong>
+        {{ entry.who }}
+      </strong>
+      <span class="tag {% if entry.from_staff %}lavender{% else %}mint{% endif %}">
+        {% if entry.from_staff %}
+          组委会
+        {% elif entry.is_opening %}
+          提出
+        {% else %}
+          补充
+        {% endif %}
+      </span>
+      <small class="muted">
+        {{ entry.at|date:'m.d H:i' }}
+      </small>
+    </div>
+    <p>
+      {{ entry.body|linebreaksbr }}
+    </p>
+  </div>
+{% endfor %}

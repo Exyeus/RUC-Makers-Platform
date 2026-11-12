@@ -6,7 +6,6 @@ import pytest
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import close_old_connections
-from django.forms.models import model_to_dict
 from django.utils import timezone
 from django_scopes import scope
 
@@ -296,10 +295,9 @@ def test_missing_final_scores_still_block_publication(client, hackathon, organiz
     hackathon.score_aggregation = 'trimmed'
     hackathon.save()
     client.force_login(organizer_user)
-    data = model_to_dict(hackathon, fields=forms.SettingsForm.Meta.fields)
-    data.update({'starts_at': hackathon.event.date_from.isoformat(), 'ends_at': hackathon.event.date_to.isoformat()})
-    response = client.post(endpoint(hackathon, 'settings'), {**data, 'results_published': True})
-    assert '暂不能公布成绩' in response.content.decode()
+    response = client.post(endpoint(hackathon, 'publish'), {'action': 'publish-results'})
+    assert response.status_code == 200
+    assert '未完成全部有效评委评分' in response.content.decode()
     hackathon.refresh_from_db()
     assert not hackathon.results_published
     Score.objects.create(

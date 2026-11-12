@@ -1,8 +1,9 @@
 import hashlib
 import io
 import zipfile
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import Mock
+from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -29,6 +30,7 @@ from eventyay.hackathon.models import (
     Project,
     Resource,
     ResourceRead,
+    ScheduleItem,
     Score,
     StaffAssignment,
     StationToken,
@@ -72,6 +74,24 @@ def png():
     image = io.BytesIO()
     Image.new('RGB', (40, 40), '#778899').save(image, format='PNG')
     return SimpleUploadedFile('poster.png', image.getvalue(), content_type='image/png')
+
+
+def settings_payload(hackathon, **changes):
+    """Settings POST data shaped like a browser datetime-local submission."""
+    form = forms.SettingsForm(instance=hackathon)
+    payload = {}
+    with timezone.override(hackathon.event.timezone):
+        for name, field in form.fields.items():
+            value = form.get_initial_for_field(field, name)
+            if isinstance(value, datetime):
+                value = timezone.localtime(value).strftime('%Y-%m-%dT%H:%M')
+            payload[name] = value
+    payload.update(changes)
+    return payload
+
+
+def local_moment(value):
+    return timezone.localtime(value).strftime('%Y-%m-%d %H:%M')
 
 
 @pytest.mark.django_db
@@ -200,6 +220,84 @@ def test_complete_submission_flow(client, hackathon, team, user):
 
 
 @pytest.mark.django_db
+def test_edit_after_submission_stops_claiming_the_current_version(client, hackathon, team, user):
+    client.force_login(user)
+    assert client.post(endpoint(hackathon, 'project'), project_data()).status_code == 302
+    project = Project.objects.get(team=team)
+    client.post(endpoint(hackathon, 'upload'), {'kind': 'poster', 'file': png()})
+    assert client.post(endpoint(hackathon, 'project'), project_data(version=2, action='submit')).status_code == 302
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('submitted', '')
+    assert services.project_status(project)['key'] == 'submitted'
+    assert client.post(endpoint(hackathon, 'project'), project_data(title='改个标题', version=3)).status_code == 302
+    project.refresh_from_db()
+    # 提交记录还在，但参评的已不是当前版本。
+    assert (project.state, project.state_reason) == ('changes', 'edited')
+    assert project.submitted_at is not None
+    assert services.project_status(project)['key'] == 'resubmit'
+    client.post(endpoint(hackathon, 'upload'), {'kind': 'poster', 'file': png()})
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('changes', 'edited')
+    revision = project.revision
+    assert client.post(
+        endpoint(hackathon, 'project'), project_data(title='改个标题', version=revision, action='submit')
+    ).status_code == 302
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('submitted', '')
+    assert services.project_status(project)['key'] == 'submitted'
+
+
+@pytest.mark.django_db
+def test_status_json_reports_the_material_list_and_the_remaining_gaps(client, hackathon, team, user):
+    client.force_login(user)
+    assert client.post(endpoint(hackathon, 'project'), project_data()).status_code == 302
+    gaps = client.get(endpoint(hackathon, 'project-status')).json()['gaps']
+    assert any('电子项目海报' in item for item in gaps)
+    assert client.post(endpoint(hackathon, 'upload'), {'kind': 'poster', 'file': png()}).status_code == 302
+    asset = Asset.objects.get(project__team=team)
+    live = client.get(endpoint(hackathon, 'project-status')).json()
+    assert live['gaps'] == []
+    (material,) = live['materials']
+    assert material['kind'] == '项目海报'
+    assert material['filename'] == asset.filename
+    assert material['download_url'] == endpoint(hackathon, 'download', asset_id=asset.pk)
+    assert material['size_display']
+
+
+@pytest.mark.django_db
+def test_ajax_errors_split_field_messages_from_the_headline(client, hackathon, team, user):
+    client.force_login(user)
+    invalid = client.post(endpoint(hackathon, 'project'), project_data(title=''), HTTP_ACCEPT='application/json')
+    assert invalid.status_code == 400
+    assert invalid.json()['fields']['title']
+    assert invalid.json()['error']
+    missing = client.post(endpoint(hackathon, 'project'), project_data(action='submit'), HTTP_ACCEPT='application/json')
+    assert missing.status_code == 400
+    assert '电子项目海报' in missing.json()['error']
+    assert missing.json()['fields'] == {}
+    assert not Project.objects.exists()
+    saved = client.post(endpoint(hackathon, 'project'), project_data(), HTTP_ACCEPT='application/json')
+    assert saved.status_code == 200
+    assert saved.json()['state'] == 'draft'
+
+
+@pytest.mark.django_db
+def test_organizer_review_records_why_the_project_needs_work(client, hackathon, team, organizer_user):
+    project = approved_project(hackathon, team)
+    client.force_login(organizer_user)
+    data = {'state': 'changes', 'review_note': '缺少实机演示录屏', 'equipment_checked': 'on', 'award': ''}
+    assert client.post(endpoint(hackathon, 'review', project_id=project.pk), data).status_code == 302
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('changes', 'review')
+    status = services.project_status(project)
+    assert (status['key'], status['detail']) == ('review', '缺少实机演示录屏')
+    data['state'] = 'submitted'
+    assert client.post(endpoint(hackathon, 'review', project_id=project.pk), data).status_code == 302
+    project.refresh_from_db()
+    assert (project.state, project.state_reason) == ('submitted', '')
+
+
+@pytest.mark.django_db
 def test_incomplete_project_cannot_submit(client, hackathon, team, user):
     client.force_login(user)
     response = client.post(endpoint(hackathon, 'project'), project_data(action='submit'))
@@ -305,7 +403,9 @@ def test_tenant_isolation(client, hackathon, team, user):
         freeze_at=hackathon.freeze_at,
     )
     with scope(event=other_event):
-        resource = Resource.objects.create(hackathon=other, title='Secret other resource', category='guide')
+        resource = Resource.objects.create(
+            hackathon=other, title='Secret other resource', category='guide', state='published'
+        )
     assert client.get(endpoint(hackathon, 'resource', resource_id=resource.pk)).status_code == 404
     client.force_login(user)
     assert (
@@ -330,7 +430,9 @@ def test_event_organizer_permission_not_generic_staff(hackathon, user):
 
 @pytest.mark.django_db
 def test_staff_announcements_are_private(client, hackathon, user):
-    Announcement.objects.create(hackathon=hackathon, title='INTERNAL NOTE', body='private', audience='staff')
+    Announcement.objects.create(
+        hackathon=hackathon, title='INTERNAL NOTE', body='private', audience='staff', state='published'
+    )
     assert b'INTERNAL NOTE' not in client.get(endpoint(hackathon, 'announcements')).content
     StaffAssignment.objects.create(hackathon=hackathon, user=user, role='volunteer')
     client.force_login(user)
@@ -340,7 +442,7 @@ def test_staff_announcements_are_private(client, hackathon, user):
 @pytest.mark.django_db
 def test_read_progress_is_per_user(client, hackathon, user):
     resource = Resource.objects.create(
-        hackathon=hackathon, title='Read this', body='Learn', required=True, category='guide'
+        hackathon=hackathon, title='Read this', body='Learn', required=True, category='guide', state='published'
     )
     client.force_login(user)
     assert client.post(endpoint(hackathon, 'resource', resource_id=resource.pk)).status_code == 302
@@ -536,22 +638,120 @@ def test_organizer_intake_requires_reason_and_respects_freeze(client, hackathon,
 
 
 @pytest.mark.django_db
-def test_settings_require_complete_scores_before_publication(client, hackathon, team, organizer_user):
+def test_publish_requires_complete_scores_before_publication(client, hackathon, team, organizer_user):
     approved_project(hackathon, team)
     client.force_login(organizer_user)
-    data = model_to_dict(hackathon)
-    data.update(
-        {
-            'results_published': True,
-            'starts_at': hackathon.event.date_from.isoformat(),
-            'ends_at': hackathon.event.date_to.isoformat(),
-        }
-    )
-    response = client.post(endpoint(hackathon, 'settings'), data)
+    response = client.post(endpoint(hackathon, 'publish'), {'action': 'publish-results'})
     assert response.status_code == 200
-    assert '全部有效评委' in response.content.decode()
+    assert '还有作品未完成全部有效评委评分，暂不能公布成绩。' in response.content.decode()
     hackathon.refresh_from_db()
     assert not hackathon.results_published
+    assert not AuditEntry.objects.filter(action__contains='公布成绩').exists()
+
+
+@pytest.mark.django_db
+def test_settings_edits_never_flip_publish_switches(client, hackathon, organizer_user):
+    event = hackathon.event
+    local = ZoneInfo(event.timezone)
+    event.date_from = timezone.localtime(event.date_from, local).replace(second=0, microsecond=0)
+    event.date_to = timezone.localtime(event.date_to, local).replace(second=0, microsecond=0)
+    event.save()
+    client.force_login(organizer_user)
+    data = model_to_dict(hackathon, fields=forms.SettingsForm.Meta.fields)
+    data.update(
+        {
+            'tagline': '只改文案，不动发布开关',
+            'starts_at': event.date_from.strftime('%Y-%m-%dT%H:%M'),
+            'ends_at': event.date_to.strftime('%Y-%m-%dT%H:%M'),
+            'is_public': False,
+            'gallery_open': True,
+            'judging_open': False,
+            'results_published': True,
+        }
+    )
+    assert client.post(endpoint(hackathon, 'settings'), data).status_code == 302
+    hackathon.refresh_from_db()
+    assert hackathon.tagline == '只改文案，不动发布开关'
+    assert (hackathon.is_public, hackathon.gallery_open, hackathon.judging_open, hackathon.results_published) == (
+        True,
+        False,
+        True,
+        False,
+    )
+    assert 'results_published' not in forms.SettingsForm(instance=hackathon).fields
+
+
+@pytest.mark.django_db
+def test_settings_saves_both_event_dates(client, hackathon, organizer_user):
+    client.force_login(organizer_user)
+    response = client.post(
+        endpoint(hackathon, 'settings'),
+        settings_payload(hackathon, starts_at='2026-12-01T09:00', ends_at='2026-12-03T18:00'),
+    )
+    assert response.status_code == 302
+    hackathon.refresh_from_db()
+    hackathon.event.refresh_from_db()
+    with timezone.override(hackathon.event.timezone):
+        assert local_moment(hackathon.event.date_from) == '2026-12-01 09:00'
+        assert local_moment(hackathon.event.date_to) == '2026-12-03 18:00'
+    assert AuditEntry.objects.filter(actor=organizer_user, detail__contains='starts_at').exists()
+
+
+@pytest.mark.django_db
+def test_settings_saves_a_single_changed_date(client, hackathon, organizer_user):
+    event = hackathon.event
+    with timezone.override(event.timezone):
+        # datetime-local inputs only carry minutes; start from whole minutes so the
+        # fields this request leaves alone round-trip unchanged.
+        event.date_from = timezone.localtime(event.date_from).replace(second=0, microsecond=0)
+        event.date_to = timezone.localtime(event.date_to).replace(second=0, microsecond=0)
+        event.save(update_fields=['date_from', 'date_to'])
+        new_start = event.date_from + timedelta(days=1)
+        original_end = event.date_to
+    client.force_login(organizer_user)
+    response = client.post(
+        endpoint(hackathon, 'settings'), settings_payload(hackathon, starts_at=new_start.strftime('%Y-%m-%dT%H:%M'))
+    )
+    assert response.status_code == 302
+    hackathon.event.refresh_from_db()
+    with timezone.override(event.timezone):
+        assert local_moment(hackathon.event.date_from) == local_moment(new_start)
+    assert hackathon.event.date_to == original_end
+
+
+@pytest.mark.django_db
+def test_settings_rejects_inverted_dates_without_partial_save(client, hackathon, organizer_user):
+    original_name, original_start = hackathon.name, hackathon.event.date_from
+    client.force_login(organizer_user)
+    response = client.post(
+        endpoint(hackathon, 'settings'),
+        settings_payload(hackathon, name='改名后的活动', starts_at='2026-12-05T09:00', ends_at='2026-12-01T18:00'),
+    )
+    assert response.status_code == 200
+    assert '活动结束必须晚于开始' in response.content.decode()
+    hackathon.refresh_from_db()
+    hackathon.event.refresh_from_db()
+    assert hackathon.name == original_name
+    assert hackathon.event.date_from == original_start
+
+
+@pytest.mark.django_db
+def test_settings_reports_items_outside_the_new_window(client, hackathon, organizer_user):
+    ScheduleItem.objects.create(
+        hackathon=hackathon,
+        title='创客路演',
+        starts_at=timezone.now() + timedelta(days=30),
+        ends_at=timezone.now() + timedelta(days=30, hours=2),
+    )
+    client.force_login(organizer_user)
+    client.post(
+        endpoint(hackathon, 'settings'),
+        settings_payload(hackathon, starts_at='2026-12-01T09:00', ends_at='2026-12-03T18:00'),
+    )
+    body = client.get(endpoint(hackathon, 'settings'), follow=True).content.decode()
+    assert '活动窗口不一致' in body
+    assert '作品提交截止' in body
+    assert '创客路演' in body
 
 
 @pytest.mark.django_db

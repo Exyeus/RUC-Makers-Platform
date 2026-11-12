@@ -181,6 +181,7 @@ def score(request, project_id):
         'score',
         form=form,
         project=item,
+        title=item.title,
         assets=item.assets.all(),
         follow_live=follow_live,
         scoring_open=h.judging_open and not h.results_published,

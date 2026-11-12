@@ -14,20 +14,91 @@
         </p>
       {% endif %}
     </div>
+    {% if state_label %}
+      <span class="state-tag state-{{ item.state }}">
+        {{ state_label }}
+      </span>
+      <p class="muted small-text">
+        {% if item.state == 'published' %}
+          选手现在能看到这一条。保存草稿会立刻把它从选手端下架，只有再点「发布 / 更新公开版」才会覆盖公开版。
+        {% elif item.state == 'archived' %}
+          已归档，选手端列表与直达链接都看不到。重新发布即可回到线上。
+        {% else %}
+          仍是草稿，选手端看不到；点「发布 / 更新公开版」才会公开。
+        {% endif %}
+        {% if published_at %}
+          最后发布于 {{ published_at|date:'Y 年 m 月 d 日 H:i' }}。
+        {% endif %}
+      </p>
+    {% endif %}
+    {% if preview_url %}
+      <a class="button secondary small" href="{{ preview_url }}">
+        预览选手页面      </a>
+    {% endif %}
   </section>
-  <form method="post" class="panel form-panel">
+  <form method="post" class="panel form-panel" data-dirty-form data-once-form>
     {% csrf_token %}
     {% include 'hackathon/form_fields.html' %}
+    {% if drift %}
+      <div class="drift-note">
+        <h3>
+          改期后与新的活动区间不一致
+        </h3>
+        <p class="muted">
+          系统不会自动平移任何时间，请逐条确认后自行修改。
+        </p>
+        <ul>
+          {% for row in drift %}
+            <li>
+              <strong>
+                {{ row.label }}
+              </strong>
+              {{ row.detail }}
+              <a href="{{ row.url }}">
+                {{ row.url_label }}              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
     <div class="form-actions">
-      <button type="submit" class="button">
-        {{ button|default:'保存' }}
-        <span>
-          ↗
-        </span>
-      </button>
-      <a class="button secondary" href="{% url 'hackathon:home' hackathon.slug %}">
-        回到总览
+      {% for action, state, action_label, action_style, action_help in actions %}
+        <button
+          type="submit"
+          name="action"
+          value="{{ action }}"
+          class="button {{ action_style }}"
+          {% if action == 'archive' %}
+            data-confirm="确认归档这一条？选手端会立刻看不到，但记录与引用都会保留。"
+          {% elif action == 'draft' and item.state == 'published' %}
+            data-confirm="这一条现在对选手公开，存草稿会立刻把它下架，确认？"
+          {% endif %}
+        >
+          {{ action_label }}
+
+        </button>
+      {% endfor %}
+      {% if not actions %}
+        <button type="submit" class="button">
+          {{ button|default:'保存' }}
+
+        </button>
+      {% endif %}
+      <a class="button secondary" href="{% if back_url %}{{ back_url }}{% else %}{% url 'hackathon:home' hackathon.slug %}{% endif %}">
+        {{ back_label|default:'回到总览' }}
       </a>
     </div>
+    {% if actions %}
+      <div class="action-help">
+        {% for action, state, action_label, action_style, action_help in actions %}
+          <p class="muted small-text">
+            <strong>
+              {{ action_label }}
+            </strong>
+            {{ action_help }}
+          </p>
+        {% endfor %}
+      </div>
+    {% endif %}
   </form>
 {% endblock %}

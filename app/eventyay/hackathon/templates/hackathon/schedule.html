@@ -6,17 +6,15 @@
         THE JOURNEY, TOGETHER
       </div>
       <h1>
-        给创造，留出时间。
+        活动日程
       </h1>
       <p>
         从见面到路演，一份清晰的活动时间线。无法到场的时段可以在参赛信息中登记。
       </p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:register' hackathon.slug %}">
-      登记特殊时段 ↗
-    </a>
+      登记特殊时段    </a>
   </section>
-  {% include 'hackathon/hour_calendar.html' %}
   <div class="deadline-strip">
     <div>
       <span>
@@ -109,4 +107,8 @@
       </div>
     {% endfor %}
   </div>
+  <details class="ruc-calendar">
+    <summary>展开活动时段热力图</summary>
+    {% include 'hackathon/hour_calendar.html' with grid_only=1 %}
+  </details>
 {% endblock %}

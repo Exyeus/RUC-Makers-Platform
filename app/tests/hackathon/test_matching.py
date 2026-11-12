@@ -81,7 +81,7 @@ def concept(h, author, mode='challenge'):
 
 def proposal(h, members, idea=None, team=None, name=None):
     idea = idea or concept(h, members[0])
-    track, _ = Track.objects.get_or_create(hackathon=h, name='开放')
+    track, _ = Track.objects.get_or_create(hackathon=h, name='开放', defaults={'state': 'published'})
     with transaction.atomic():
         locked = services.lock_event(h)
         return matching.create_proposal(
@@ -262,7 +262,7 @@ def test_freeze_blocks_join_leave_and_saves_snapshot(market, organizer_user):
 @pytest.mark.django_db
 def test_old_join_entry_cannot_bypass_consent(market):
     a, b = player(market, 1), player(market, 2)
-    track = Track.objects.create(hackathon=market, name='开放')
+    track = Track.objects.create(hackathon=market, name='开放', state='published')
     team = Team.objects.create(hackathon=market, name='原队', captain=a, track=track)
     with pytest.raises(ValidationError, match='全员确认'):
         services.join_team(market, b, team, invite_code=team.invite_code)
@@ -286,7 +286,7 @@ def test_database_rejects_cross_event_and_over_capacity(market, event):
     )
     with pytest.raises(IntegrityError), transaction.atomic():
         MatchingProfile.objects.create(hackathon=other, participant=a)
-    track = Track.objects.create(hackathon=market, name='开放')
+    track = Track.objects.create(hackathon=market, name='开放', state='published')
     team = Team.objects.create(hackathon=market, name='队伍', captain=a, track=track)
     Participant.objects.filter(pk__in=[a.pk, b.pk, c.pk]).update(team=team)
     with pytest.raises(IntegrityError), transaction.atomic():
@@ -573,7 +573,7 @@ def test_consent_racing_freeze_is_serializable(market, organizer_user):
 @pytest.mark.django_db
 def test_rendered_team_intent_and_block_forms_work(client, market):
     a, b = player(market, 1), player(market, 2)
-    track = Track.objects.create(hackathon=market, name='招募赛道')
+    track = Track.objects.create(hackathon=market, name='招募赛道', state='published')
     team = Team.objects.create(hackathon=market, name='招募小队', captain=b, track=track)
     Participant.objects.filter(pk=b.pk).update(team=team)
     client.force_login(a.user)

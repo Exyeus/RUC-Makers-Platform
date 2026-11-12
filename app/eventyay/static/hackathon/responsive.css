@@ -206,7 +206,7 @@
   .topbar .breadcrumb strong { display: block; font-size: 12px; max-width: none; font-weight: 600; }
   .topbar-actions { gap: 6px; }
   .topbar-actions > .icon-button, .topbar .organizer-login-link { display: none; }
-  .topbar .user-chip { border: 0; padding: 0; min-height: 44px; min-width: 36px; justify-content: center; }
+  .topbar .user-chip { border: 0; padding: 0; min-height: 44px; min-width: 44px; justify-content: center; }
   .topbar .user-chip > span:last-child { display: none; }
   .topbar .button { padding: 10px 12px; font-size: 12px; }
   .page-heading { margin-bottom: 22px; }

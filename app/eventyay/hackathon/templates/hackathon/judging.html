@@ -6,7 +6,7 @@
         JUDGE THE WORK, HELP IT GROW
       </div>
       <h1>
-        看见作品，也看见可能。
+        评委工作台
       </h1>
       <p>
         {{ rule_description }}个人所属队伍自动回避。
@@ -15,14 +15,13 @@
   </section>
   {% include 'hackathon/judge_sync.html' %}
   <div class="actions">
-    <a class="button judge-live-entry" href="{% url 'hackathon:judge-live' hackathon.slug %}">进入现场打分 · 跟随当前队伍 ↗</a>
+    <a class="button judge-live-entry" href="{% url 'hackathon:judge-live' hackathon.slug %}">进入现场打分 · 跟随当前队伍</a>
     {% if next_task %}
       <a class="button secondary" href="{% url 'hackathon:score' hackathon.slug next_task.project.pk %}">
         继续未完成 · {{ next_task.project.team.name }}
         {% if next_task.state == 'draft' %}
           （草稿）
         {% endif %}
-        ↗
       </a>
     {% else %}
       <span class="tag mint">
@@ -176,11 +175,11 @@
           </strong>
           <a class="button small" href="{% url 'hackathon:score' hackathon.slug entry.project.pk %}">
             {% if entry.state == 'confirmed' %}
-              回看 / 修改 ↗
+              回看 / 修改
             {% elif entry.state == 'draft' %}
-              继续评分 ↗
+              继续评分
             {% else %}
-              开始评分 ↗
+              开始评分
             {% endif %}
           </a>
         </div>

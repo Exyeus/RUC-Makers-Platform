@@ -29,7 +29,16 @@ def is_organizer(user, hackathon):
     )
 
 
-def event_view(access='public'):
+def event_view(access='public', auth_shell=False):
+    """Guard an event-scoped view.
+
+    `auth_shell` marks the anonymous authentication entry points: a private
+    event stays hidden, but the login form itself must remain reachable so an
+    authorized organizer can authenticate through its direct link. Those
+    requests render `hackathon/private_auth.html`, which carries no event
+    content at all.
+    """
+
     def decorator(view):
         @wraps(view)
         def wrapped(request, hackathon_slug, *args, **kwargs):
@@ -40,6 +49,7 @@ def event_view(access='public'):
                 request.hackathon = hackathon
                 request.hackathon_organizer = is_organizer(request.user, hackathon)
                 request.hackathon_roles = set()
+                request.hackathon_shell = False
                 request.participant = None
                 if request.user.is_authenticated:
                     request.hackathon_roles = set(
@@ -53,7 +63,9 @@ def event_view(access='public'):
                         .first()
                     )
                 if not hackathon.is_public and not request.hackathon_organizer and not request.hackathon_roles:
-                    raise Http404
+                    if not (auth_shell and not request.user.is_authenticated):
+                        raise Http404
+                    request.hackathon_shell = True
                 if access != 'public' and not request.user.is_authenticated:
                     login_name = {'organizer': 'organizer-login', 'judge': 'judge-login'}.get(access, 'student-login')
                     return redirect_to_login(
@@ -77,6 +89,9 @@ def event_view(access='public'):
                 response['Cache-Control'] = 'private, no-store'
                 return response
 
+        # Keep the guard level readable: the navigation checks compare the
+        # sidebar against what each role can actually open.
+        wrapped.access = access
         return wrapped
 
     return decorator

@@ -6,7 +6,7 @@
         MAKE IT REAL
       </div>
       <h1>
-        让你的作品，被看见。
+        我的作品
       </h1>
       <p>
         提交截止
@@ -16,7 +16,7 @@
     </div>
     {% if project %}
       <span class="tag state-{{ project.state }}" data-project-badge>
-        {{ project.get_state_display }}
+        {{ project_status.label }}
         · v
         {{ project.revision }}
       </span>
@@ -34,10 +34,19 @@
         请先完成报名，然后创建或加入队伍。一人参赛也需要创建队伍。
       </p>
       <a class="button" href="{% url 'hackathon:teams' hackathon.slug %}">
-        前往组队广场 ↗
-      </a>
+        前往组队广场      </a>
     </div>
   {% else %}
+    {% if project %}
+      <div class="message {{ project_status.tone }}" data-status-banner data-status-key="{{ project_status.key }}" role="status">
+        <strong>
+          {{ project_status.label }}
+        </strong>
+        <p>
+          {{ project_status.detail }}
+        </p>
+      </div>
+    {% endif %}
     {% if project.review_note %}
       <div class="message warning">
         <strong>
@@ -49,8 +58,8 @@
       </div>
     {% endif %}
     {% if project.submitted_at %}
-      <div class="message success">
-        首次提交于
+      <div class="message">
+        首次正式提交于
         {{ project.submitted_at|date:'Y-m-d H:i:s' }}
         ·
         {{ project.code }}
@@ -60,7 +69,7 @@
     {% if project %}
       <section class="panel" data-project-status-url="{% url 'hackathon:project-status' hackathon.slug %}">
         <h2>提交状态与凭证</h2>
-        <p data-submission-state role="status">{{ project.get_state_display }}</p>
+        <p data-submission-state role="status">{{ project_status.label }}</p>
         {% if project.submission_receipt %}
           <p>提交凭证：{{ project.submission_receipt }} · 服务器登记时间：{{ project.submission_intent_at|date:'Y-m-d H:i:s' }}</p>
         {% endif %}
@@ -99,8 +108,7 @@
                 保存草稿
               </button>
               <button class="button" name="action" value="submit" {% if not hackathon.submissions_open or project.state == 'queued' %}disabled{% endif %}>
-                正式提交 / 排队登记 ↗
-              </button>
+                正式提交 / 排队登记              </button>
             </div>
           </form>
         {% else %}
@@ -127,7 +135,7 @@
             电子海报：作品名、问题、功能、团队与 Demo 二维码。请使用清晰的电子设计稿。
           </p>
           {% if project %}
-            <div class="asset-list">
+            <div class="asset-list" data-asset-list>
               {% for asset in project.assets.all %}
                 <a href="{% url 'hackathon:download' hackathon.slug asset.pk %}">
                   <svg>
@@ -208,23 +216,20 @@
               关闭系统更新，熟悉翻页笔与接线
             </li>
           </ul>
-          {% if submission_errors %}
-            <div class="form-errors">
-              <strong>
-                还有这些准备未完成
-              </strong>
-              <ul>
-                {% for error in submission_errors %}
-                  <li>
-                    {{ error }}
-                  </li>
-                {% endfor %}
-              </ul>
-            </div>
-          {% endif %}
+          <div class="form-errors" data-submission-errors {% if not submission_errors %}hidden{% endif %}>
+            <strong>
+              还有这些准备未完成
+            </strong>
+            <ul>
+              {% for error in submission_errors %}
+                <li>
+                  {{ error }}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
           <a href="{% url 'hackathon:resources' hackathon.slug %}?category=demo">
-            查看完整提交与路演指南 ↗
-          </a>
+            查看完整提交与路演指南          </a>
         </section>
       </aside>
     </div>

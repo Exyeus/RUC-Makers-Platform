@@ -1,11 +1,26 @@
-<section class="hour-calendar panel" aria-label="逐小时活动日历">
+<section class="hour-calendar panel" aria-label="活动时间线与小时历">
   <div class="section-heading">
     <div>
-      <h2>活动小时历</h2>
-      <p class="muted">每格 1 小时 · 悬停、聚焦或点按查看安排</p>
+      <h2>活动时间线与小时历</h2>
+      <p class="muted">按时间排列的全部安排与截止 · 时间以 {{ hackathon.event.timezone }} 为准</p>
     </div>
-    <a href="{% url 'hackathon:schedule' hackathon.slug %}">完整日程 ↗</a>
+    <a href="{% url 'hackathon:schedule' hackathon.slug %}">完整日程</a>
   </div>
+  {% if not grid_only %}
+    <ol class="calendar-timeline">
+      {% for entry in calendar_timeline %}
+        <li class="calendar-entry {{ entry.level }}">
+          <time datetime="{{ entry.starts_at|date:'c' }}">{{ entry.starts_at|date:'m.d H:i' }}{% if entry.ends_at %}–{{ entry.ends_at|date:'H:i' }}{% endif %}</time>
+          <span class="tag">{{ entry.kind }}</span>
+          <span class="calendar-entry-title">{{ entry.title }}</span>
+          {% if entry.location %}<span class="muted">{{ entry.location }}</span>{% endif %}
+        </li>
+      {% empty %}
+        <li class="calendar-entry empty">暂无安排，以主办方发布的日程为准。</li>
+      {% endfor %}
+    </ol>
+  {% endif %}
+  <p class="muted hour-grid-hint">每格 1 小时 · 悬停、聚焦或点按查看安排</p>
   <div class="hour-calendar-scroll">
     <div class="hour-calendar-scale" aria-hidden="true"><span></span>{% for cell in calendar_days.0.hours %}<span>{% if cell.hour|divisibleby:3 %}{{ cell.hour }}{% endif %}</span>{% endfor %}</div>
     {% for day in calendar_days %}

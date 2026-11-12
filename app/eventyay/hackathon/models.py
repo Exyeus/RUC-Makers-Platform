@@ -145,7 +145,26 @@ class EventRecord(TimestampedModel):
         abstract = True
 
 
-class Track(EventRecord):
+class Publishable(EventRecord):
+    """Organizer content only reaches contestants once it is published, never by merely saving."""
+
+    class State(models.TextChoices):
+        DRAFT = 'draft', '草稿'
+        PUBLISHED = 'published', '已发布'
+        ARCHIVED = 'archived', '已归档'
+
+    state = models.CharField('发布状态', max_length=12, choices=State.choices, default=State.DRAFT)
+    published_at = models.DateTimeField('最后发布时间', blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def published(cls, hackathon):
+        return cls.objects.filter(hackathon=hackathon, state=cls.State.PUBLISHED)
+
+
+class Track(Publishable):
     name = models.CharField('赛道', max_length=80)
     description = models.TextField('赛道介绍', blank=True)
     icon = models.CharField(max_length=20, default='code')
@@ -249,6 +268,13 @@ class Project(EventRecord):
         CHANGES = 'changes', '需要补充'
         APPROVED = 'approved', '已通过'
 
+    class StateReason(models.TextChoices):
+        """Why a project sits in `changes`; the state alone cannot tell the three apart."""
+
+        EDITED = 'edited', '已改未重交'
+        UPLOAD = 'upload', '上传未完成'
+        REVIEW = 'review', '主办方要求补充'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     team = models.OneToOneField(Team, on_delete=models.CASCADE, related_name='project')
     title = models.CharField('作品名称', max_length=120)
@@ -261,6 +287,7 @@ class Project(EventRecord):
     checklist = models.BooleanField('已完成提交自查与演示测试', default=False)
     public_consent = models.BooleanField('同意在作品展厅与历届归档公开介绍和链接', default=False)
     state = models.CharField(max_length=12, choices=State.choices, default=State.DRAFT)
+    state_reason = models.CharField('状态原因', max_length=12, choices=StateReason.choices, blank=True, default='')
     submitted_at = models.DateTimeField(null=True, blank=True)
     submission_intent_at = models.DateTimeField(null=True, blank=True)
     submission_client_clicked_at = models.DateTimeField(null=True, blank=True)
@@ -333,7 +360,7 @@ class UploadSession(EventRecord):
         ]
 
 
-class Resource(EventRecord):
+class Resource(Publishable):
     class Category(models.TextChoices):
         GUIDE = 'guide', '参赛指南'
         LEARN = 'learn', '开发教程'
@@ -362,7 +389,7 @@ class ResourceRead(EventRecord):
         constraints = [models.UniqueConstraint(fields=['resource', 'user'], name='hack_resource_read')]
 
 
-class Announcement(EventRecord):
+class Announcement(Publishable):
     title = models.CharField('通知标题', max_length=160)
     body = models.TextField('通知内容')
     pinned = models.BooleanField('置顶', default=False)
@@ -374,7 +401,7 @@ class Announcement(EventRecord):
         ordering = ['-pinned', '-created']
 
 
-class ScheduleItem(EventRecord):
+class ScheduleItem(Publishable):
     title = models.CharField('环节', max_length=120)
     starts_at = models.DateTimeField('开始时间')
     ends_at = models.DateTimeField('结束时间')
@@ -485,6 +512,12 @@ class VolunteerTask(EventRecord):
 
 
 class SupportTicket(EventRecord):
+    class State(models.TextChoices):
+        OPEN = 'open', '待主办处理'
+        DOING = 'doing', '处理中'
+        WAITING_USER = 'waiting_user', '待选手补充'
+        RESOLVED = 'resolved', '已解决'
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     subject = models.CharField('问题标题', max_length=150)
     body = models.TextField('问题描述 / 错误出现的时间', max_length=5000)
@@ -494,13 +527,28 @@ class SupportTicket(EventRecord):
         choices=[('tech', '技术支持'), ('submission', '提交异常'), ('schedule', '路演时段调整'), ('other', '其他')],
     )
     state = models.CharField(
-        '状态', max_length=12, default='open', choices=[('open', '待处理'), ('doing', '处理中'), ('resolved', '已解决')]
+        '状态',
+        max_length=16,
+        default=State.OPEN,
+        choices=State.choices,
+        help_text='待选手补充会在对方参赛总览持续提示；作品已提交时成为下一步。',
     )
-    reply = models.TextField('处理说明', blank=True)
     handler = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
 
     class Meta:
         ordering = ['-created']
+
+
+class TicketMessage(EventRecord):
+    """工单里的一轮发言：谁说的、是不是工作人员、什么时候，逐条留下。"""
+
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name='messages')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    from_staff = models.BooleanField('由工作人员发出', default=False)
+    body = models.TextField('内容', max_length=5000)
+
+    class Meta:
+        ordering = ['created', 'pk']
 
 
 class AuditEntry(EventRecord):
