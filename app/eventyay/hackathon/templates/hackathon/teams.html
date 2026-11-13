@@ -107,6 +107,23 @@
               </button>
             </form>
           </details>
+          {% if own_solo %}
+            <details class="details">
+              <summary>
+                我一个人，退出这支队伍
+              </summary>
+              <p>
+                解散后邀请码立即作废，队伍里的待回复申请会被关闭；已经建好的作品不受影响。你会回到自由状态，可以重新申请其他队伍或发起新队伍。
+              </p>
+              <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="dissolve">
+                <button type="submit" class="text-button danger" data-confirm="确认解散这支队伍？解散后可以重新组队。">
+                  解散队伍
+                </button>
+              </form>
+            </details>
+          {% endif %}
         {% else %}
           <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
             {% csrf_token %}
@@ -162,6 +179,87 @@
       </form>
     {% endif %}
   {% endif %}
+  {% if my_applications %}
+    <section class="panel" id="my-applications">
+      <div class="section-heading">
+        <div>
+          <h2>
+            我发出的申请
+          </h2>
+          <p>
+            队长的回复会出现在这里；还没回复的申请可以随时撤回。
+          </p>
+        </div>
+      </div>
+      {% for application in my_applications %}
+        <div class="application">
+          <p>
+            <strong>
+              {{ application.team.name }}
+            </strong>
+            ·
+            {{ application.team.code }}
+          </p>
+          <p>
+            {{ application.message }}
+          </p>
+          <p class="muted">
+            {{ application.label }}
+          </p>
+          {% if application.state == 'pending' %}
+            <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="withdraw">
+              <input type="hidden" name="application" value="{{ application.pk }}">
+              <button class="text-button" type="submit">
+                撤回申请
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+  {% if my_posts %}
+    <section class="panel" id="my-posts">
+      <div class="section-heading">
+        <div>
+          <h2>
+            我的交流卡片
+          </h2>
+          <p>
+            草稿只有你自己能看见，可以随时回来继续写。
+          </p>
+        </div>
+        <a class="button secondary small" href="{% url 'hackathon:post-new' hackathon.slug %}">
+          ＋ 分享交流卡片
+        </a>
+      </div>
+      {% for post in my_posts %}
+        <div class="application">
+          <p>
+            <strong>
+              <a href="{% url 'hackathon:post-detail' hackathon.slug post.pk %}">
+                {{ post.title }}
+              </a>
+            </strong>
+            ·
+            {{ post.get_kind_display }}
+          </p>
+          <p class="muted">
+            {% if post.is_public %}
+              已在组队广场公开
+            {% else %}
+              草稿 · 仅自己可见
+            {% endif %}
+          </p>
+          <a class="text-button" href="{% url 'hackathon:post-edit' hackathon.slug post.pk %}">
+            继续编辑
+          </a>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
   <div class="section-heading outside" id="team-results">
     <div><h2 id="team-results-heading">招募中的队伍</h2><p>找到方向相近的队伍，一起把想法做出来。</p></div>
   </div>
@@ -201,23 +299,63 @@
             {{ team.code }}
           </code>
           {% if participant and not own_team and hackathon.teams_open and not hackathon.matching_enabled %}
-            <details>
-              <summary class="text-link">
-                申请加入              </summary>
-              <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="apply">
-                <input type="hidden" name="team" value="{{ team.pk }}">
-                <label for="apply-{{ team.pk }}">
-                  介绍一下你能带来的技能
-                </label>
-                <textarea id="apply-{{ team.pk }}" name="message" required maxlength="300" rows="3">
-                </textarea>
-                <button type="submit" class="button small">
-                  发送申请
-                </button>
-              </form>
-            </details>
+            {% if team.applied_state == 'pending' %}
+              <div class="applied-note">
+                <span>
+                  已申请，等待队长回复
+                </span>
+                <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="withdraw">
+                  <input type="hidden" name="application" value="{{ team.applied_id }}">
+                  <button class="text-button" type="submit">
+                    撤回申请
+                  </button>
+                </form>
+              </div>
+            {% elif team.applied_state %}
+              <div class="applied-note">
+                <span>
+                  {{ team.applied_label }}
+                </span>
+                <details>
+                  <summary class="text-link">
+                    重新申请
+                  </summary>
+                  <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="apply">
+                    <input type="hidden" name="team" value="{{ team.pk }}">
+                    <label for="reapply-{{ team.pk }}">
+                      介绍一下你能带来的技能
+                    </label>
+                    <textarea id="reapply-{{ team.pk }}" name="message" required maxlength="300" rows="3">
+                    </textarea>
+                    <button type="submit" class="button small">
+                      再次申请
+                    </button>
+                  </form>
+                </details>
+              </div>
+            {% else %}
+              <details>
+                <summary class="text-link">
+                  申请加入              </summary>
+                <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="apply">
+                  <input type="hidden" name="team" value="{{ team.pk }}">
+                  <label for="apply-{{ team.pk }}">
+                    介绍一下你能带来的技能
+                  </label>
+                  <textarea id="apply-{{ team.pk }}" name="message" required maxlength="300" rows="3">
+                  </textarea>
+                  <button type="submit" class="button small">
+                    发送申请
+                  </button>
+                </form>
+              </details>
+            {% endif %}
           {% endif %}
         </div>
       </article>
