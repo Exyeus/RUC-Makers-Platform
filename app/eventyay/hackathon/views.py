@@ -54,6 +54,7 @@ from eventyay.hackathon.models import (
 )
 from eventyay.hackathon.permissions import event_view, is_organizer
 from eventyay.hackathon.scoring import rule_description
+from eventyay.hackathon.storage import STORAGE_ERRORS
 from eventyay.hackathon.team_showcase import COMMUNITY_EXAMPLES, POOL_EXAMPLES, SEEKER_EXAMPLES
 from eventyay.hackathon.workbench import next_task
 
@@ -729,6 +730,11 @@ def upload(request):
     if form.is_valid():
         try:
             services.save_asset(request.hackathon, participant, own, form)
+        except STORAGE_ERRORS:
+            return HttpResponse(
+                '存储暂时不可用，请稍后重试。已保存的材料不受影响。',
+                status=503, headers={'Retry-After': '5'},
+            )
         except ValidationError as error:
             report_validation(request, error)
         else:
@@ -795,7 +801,9 @@ def asset_preview(request, asset_id):
     try:
         with asset.file.open('rb') as source:
             data = zip_preview(source)
-    except (OSError, zipfile.BadZipFile, UnicodeError, ValidationError):
+    except STORAGE_ERRORS:
+        return JsonResponse({'error': '存储暂时不可用，请稍后重试。'}, status=503, headers={'Retry-After': '5'})
+    except (zipfile.BadZipFile, UnicodeError, ValidationError):
         return JsonResponse({'error': '无法读取压缩包目录，请联系技术人员核查。'}, status=422)
     response = JsonResponse({'filename': asset.original_filename, 'sha256': asset.checksum, **data})
     response['Cache-Control'] = 'no-store'
@@ -1067,6 +1075,11 @@ def intake(request, team_id):
                     organizer=request.user,
                     reason=form.cleaned_data['reason'],
                 )
+        except STORAGE_ERRORS:
+            return HttpResponse(
+                '存储暂时不可用，请稍后重试。已保存的材料不受影响。',
+                status=503, headers={'Retry-After': '5'},
+            )
         except ValidationError as error:
             active_form.add_error(None, error)
         else:
@@ -1928,14 +1941,26 @@ def export(request, kind):
 def bundle(request):
     h = request.hackathon
     output = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
-    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_STORED) as archive:
-        assets = Asset.objects.filter(hackathon=h, project__submitted_at__isnull=False).select_related('project__team')
-        for asset in assets:
-            name = f'{asset.project.team.code}/{asset.project.code}/{asset.kind}{Path(asset.filename).suffix.lower()}'
-            with asset.file.open('rb') as source, archive.open(name, 'w') as destination:
-                while chunk := source.read(1024 * 1024):
-                    destination.write(chunk)
-        archive.writestr('README.txt', '材料按 team_id / project_id 归档。请提前用现场设备检查；不要执行未知项目脚本。')
+    try:
+        with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_STORED) as archive:
+            assets = Asset.objects.filter(
+                hackathon=h, project__submitted_at__isnull=False
+            ).select_related('project__team')
+            for asset in assets:
+                name = (
+                    f'{asset.project.team.code}/{asset.project.code}/'
+                    f'{asset.kind}{Path(asset.filename).suffix.lower()}'
+                )
+                with asset.file.open('rb') as source, archive.open(name, 'w') as destination:
+                    while chunk := source.read(1024 * 1024):
+                        destination.write(chunk)
+            archive.writestr(
+                'README.txt',
+                '材料按 team_id / project_id 归档。请提前用现场设备检查；不要执行未知项目脚本。',
+            )
+    except STORAGE_ERRORS:
+        output.close()
+        return HttpResponse('存储暂时不可用，请稍后重试。', status=503, headers={'Retry-After': '5'})
     size = output.tell()
     output.seek(0)
     services.audit(h, request.user, '下载路演材料包')

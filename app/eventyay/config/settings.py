@@ -99,6 +99,17 @@ class BaseSettings(_BaseSettings):
     )
     # Here, starting our settings fields.
     # The names follow what is in Django and converted to lowercase.
+    hackathon_storage_backend: str = 'local'
+    hackathon_s3_endpoint: str = ''
+    hackathon_s3_region: str = 'us-east-1'
+    hackathon_s3_bucket: str = ''
+    hackathon_s3_prefix: str = 'hackathon-private'
+    hackathon_s3_access_key: str = ''
+    hackathon_s3_secret_key: str = ''
+    hackathon_s3_session_token: str = ''
+    hackathon_s3_credential_file: str = ''
+    hackathon_s3_signature_version: str = 's3v4'
+    hackathon_s3_addressing_style: str = 'virtual'
     debug: bool = False
     secret_key: str = 'please-give-one-in-secret-file'
     postgres_db: str = _DEFAULT_DB_NAME
@@ -1634,3 +1645,14 @@ if IS_DEVELOPMENT:
         ALLOWED_HOSTS = list(dict.fromkeys([*ALLOWED_HOSTS, '10.0.2.2', '10.0.3.2']))
     # Trust standard local and emulator origins for CSRF
     CSRF_TRUSTED_ORIGINS += ['http://localhost:8000', 'http://127.0.0.1:8000', 'http://10.0.2.2:8000', 'http://10.0.3.2:8000']
+
+
+HACKATHON_STORAGE_BACKEND = conf.hackathon_storage_backend
+HACKATHON_S3 = {
+    'endpoint': conf.hackathon_s3_endpoint, 'region': conf.hackathon_s3_region,
+    'bucket': conf.hackathon_s3_bucket, 'prefix': conf.hackathon_s3_prefix,
+    'access_key': conf.hackathon_s3_access_key, 'secret_key': conf.hackathon_s3_secret_key,
+    'session_token': conf.hackathon_s3_session_token, 'credential_file': conf.hackathon_s3_credential_file,
+    'signature_version': conf.hackathon_s3_signature_version,
+    'addressing_style': conf.hackathon_s3_addressing_style,
+}
