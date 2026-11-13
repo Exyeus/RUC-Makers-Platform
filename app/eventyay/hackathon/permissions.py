@@ -3,13 +3,14 @@ from functools import wraps
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from django.http import Http404
-from django.shortcuts import get_object_or_404
+from django.http import Http404, JsonResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django_scopes import scope
 
 from eventyay.base.models import Team as OrganizerTeam
+from eventyay.hackathon import identity
 from eventyay.hackathon.models import Hackathon, Participant, StaffAssignment
 
 
@@ -29,7 +30,7 @@ def is_organizer(user, hackathon):
     )
 
 
-def event_view(access='public', auth_shell=False):
+def event_view(access='public', auth_shell=False, admission_public=False):
     """Guard an event-scoped view.
 
     `auth_shell` marks the anonymous authentication entry points: a private
@@ -66,6 +67,20 @@ def event_view(access='public', auth_shell=False):
                     if not (auth_shell and not request.user.is_authenticated):
                         raise Http404
                     request.hackathon_shell = True
+                request.hackathon_admitted = (
+                    request.hackathon_organizer
+                    or bool(request.hackathon_roles)
+                    or identity.admitted(request.user, hackathon)
+                )
+                if hackathon.admission_required and not admission_public and not request.hackathon_admitted:
+                    if request.method not in {'GET', 'HEAD'} or '/api/' in request.path:
+                        response = JsonResponse({'error': 'ADMISSION_REQUIRED', 'message': identity.DENIED}, status=403)
+                    else:
+                        response = redirect(
+                            reverse('hackathon:home', kwargs={'hackathon_slug': hackathon.slug}) + '#join'
+                        )
+                    response['Cache-Control'] = 'private, no-store'
+                    return response
                 if access != 'public' and not request.user.is_authenticated:
                     login_name = {'organizer': 'organizer-login', 'judge': 'judge-login'}.get(access, 'student-login')
                     return redirect_to_login(

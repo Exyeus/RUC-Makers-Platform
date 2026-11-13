@@ -95,6 +95,7 @@
             <a class="organizer-login-link" href="{% url 'hackathon:organizer-login' hackathon.slug %}">主办方登录</a>
           {% endif %}
           {% if request.user.is_authenticated %}
+            <a class="button secondary small" href="{% url 'hackathon:account' hackathon.slug %}">账号与订阅</a>
             <a class="user-chip" href="{% url 'hackathon:register' hackathon.slug %}" aria-label="个人资料">
               <span class="avatar">
                 {{ request.user.fullname|default:request.user.email|slice:':1'|upper }}

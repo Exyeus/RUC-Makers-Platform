@@ -245,6 +245,9 @@ class ParticipantForm(forms.ModelForm):
         self.fields['availability'].label = '其他特殊安排（仅工作人员可见）'
         if self.instance.user_id:
             self.initial['email'] = self.instance.user.email
+        if hackathon and hackathon.admission_required:
+            self.fields['email'].disabled = True
+            self.fields['email'].help_text = '请在账号设置中更换邮箱，并完成新邮箱验证。'
 
     def clean_email(self):
         email = self.cleaned_data.get('email', '').strip().lower()

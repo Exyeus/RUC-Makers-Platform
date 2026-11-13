@@ -21,6 +21,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_safe
 from django_scopes import scope
 
+from eventyay.hackathon import identity
+from eventyay.hackathon.identity_forms import UnifiedLoginForm
 from eventyay.hackathon import forms, services
 from eventyay.hackathon.archive import zip_preview
 from eventyay.hackathon.calendar import absence_summary, schedule_heatmap, schedule_timeline
@@ -309,15 +311,17 @@ def index(request):
     return render(request, 'hackathon/index.html', {'editions': editions})
 
 
-@event_view()
+@event_view(admission_public=True)
 @require_GET
 def home(request):
     authenticated = request.user.is_authenticated
     context = landing_context(request)
     if not authenticated:
-        context['login_form'] = forms.StudentLoginForm()
+        context['login_form'] = UnifiedLoginForm()
         context['password_reset_url'] = url(request.hackathon, 'student-password-reset-request')
-    return page(request, 'home' if authenticated else 'landing', **context)
+    context['admission_message'] = identity.public_status(request.user, request.hackathon)
+    workspace = authenticated and (not request.hackathon.admission_required or request.hackathon_admitted)
+    return page(request, 'home' if workspace else 'landing', **context)
 
 
 def landing_context(request):

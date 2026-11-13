@@ -1,20 +1,23 @@
 <section class="glass-card auth-card" id="join" aria-labelledby="login-title">
-  <div class="auth-heading">
-    <h2 id="login-title">{% if signup %}用学号注册{% else %}学号登录{% endif %}</h2>
-    <a href="{% if signup %}{% url 'hackathon:student-login' hackathon.slug %}{% else %}{% url 'hackathon:student-signup' hackathon.slug %}{% endif %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">{% if signup %}已有账户，去登录{% else %}用学号注册{% endif %}</a>
-  </div>
-  <p class="auth-intro">选手入口 · 用学号和你设置的本站密码进入黑客松。请绑定邮箱用于密码找回。</p>
-  <form method="post" action="{% if signup %}{% url 'hackathon:student-signup' hackathon.slug %}{% else %}{% url 'hackathon:student-login' hackathon.slug %}{% endif %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">
-    {% csrf_token %}
-    {% include 'hackathon/form_fields.html' %}
-    {% if signup %}<p class="field-help">请使用自己的真实学号。本账户用于本站，不会获取或验证校园系统密码。</p>{% endif %}
-    <button class="button" type="submit">{% if signup %}注册并完善资料{% else %}登录{% endif %}</button>
-  </form>
-  {% if not signup and password_reset_url %}<p class="signup-link"><a href="{{ password_reset_url }}">忘记密码？点击重置</a></p>{% endif %}
-  <a class="signup-link" href="{% if signup %}{% url 'hackathon:student-login' hackathon.slug %}{% else %}{% url 'hackathon:student-signup' hackathon.slug %}{% endif %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">{% if signup %}已有学号账户，去登录{% else %}首次参加，用学号注册{% endif %}</a>
-  <div class="auth-footer">
-    <a href="{% url 'hackathon:organizer-login' hackathon.slug %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">已有邮箱账户 / 主办方登录</a>
-    <a href="{% url 'hackathon:judge-login' hackathon.slug %}">评委入口</a>
-    <a href="{% url 'hackathon:home' hackathon.slug %}">返回活动主页</a>
-  </div>
+  {% if request.user.is_authenticated %}
+    <h2 id="login-title">账号已登录</h2>
+    <p>{{ request.user.fullname|default:request.user.email }}</p>
+    {% if admission_message %}<p class="message" role="status">{{ admission_message }}</p>{% endif %}
+    <p>注册账号不代表通过参赛筛选。未入选也可以订阅活动动态和后续活动信息。</p>
+    <p><a class="button" href="{% url 'hackathon:account' hackathon.slug %}">验证邮箱 / 学号与邮件订阅</a></p>
+    <form method="post" action="{% url 'hackathon:logout' hackathon.slug %}">{% csrf_token %}<button class="button secondary" type="submit">退出登录</button></form>
+  {% else %}
+    <div class="auth-heading">
+      <h2 id="login-title">{% if signup %}注册账号{% else %}登录账号{% endif %}</h2>
+      <a href="{% if signup %}{% url 'hackathon:student-login' hackathon.slug %}{% else %}{% url 'hackathon:student-signup' hackathon.slug %}{% endif %}">{% if signup %}已有账号，去登录{% else %}注册账号{% endif %}</a>
+    </div>
+    <p class="auth-intro">学号或邮箱均可登录同一账号。参赛资格以组委会本届通过名单为准。</p>
+    <form method="post"{% if signup %} data-unified-signup{% endif %} action="{% if signup %}{% url 'hackathon:student-signup' hackathon.slug %}{% else %}{% url 'hackathon:student-login' hackathon.slug %}{% endif %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">
+      {% csrf_token %}{% include 'hackathon/form_fields.html' %}
+      {% if signup %}<p class="field-help">请使用本人邮箱，完成验证后可绑定学号。学号注册也须验证绑定邮箱；本站不会获取校园系统密码。</p>{% endif %}
+      <button class="button" type="submit">{% if signup %}创建账号并验证邮箱{% else %}登录{% endif %}</button>
+    </form>
+    {% if not signup %}<p class="signup-link"><a href="{{ password_reset_url }}">忘记密码？通过邮箱找回</a></p>{% endif %}
+    <div class="auth-footer"><a href="{% url 'hackathon:organizer-login' hackathon.slug %}">工作人员入口</a><a href="{% url 'hackathon:judge-login' hackathon.slug %}">评委入口</a><a href="{% url 'hackathon:home' hackathon.slug %}">返回宣传页</a></div>
+  {% endif %}
 </section>

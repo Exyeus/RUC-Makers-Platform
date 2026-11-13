@@ -62,6 +62,7 @@ class Hackathon(TimestampedModel):
         '换场秒数', default=30, validators=[MinValueValidator(10), MaxValueValidator(300)]
     )
     is_public = models.BooleanField('活动公开', default=False)
+    admission_required = models.BooleanField('仅通过名单中的选手可进入活动', default=False)
     gallery_open = models.BooleanField('公开已审核且同意展示的作品', default=False)
     results_published = models.BooleanField('公布成绩与评语', default=False)
     judging_open = models.BooleanField('开放评分', default=False)
@@ -814,3 +815,7 @@ class BonusClaim(EventRecord):
         constraints = [
             models.UniqueConstraint(fields=['rule', 'participant'], name='hack_bonus_claim_once'),
         ]
+
+
+# Register account-side models after EventRecord is available.
+from eventyay.hackathon.account_models import AccountActionToken, AccountSecurity, AdmissionGrant, UpdateDelivery  # noqa: E402,F401

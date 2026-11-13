@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="{% static 'hackathon/landing.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/brand.css' %}">
     <script type="module" src="{% static 'hackathon/landing.js' %}"></script>
+    <script type="module" src="{% static 'hackathon/account.js' %}"></script>
+    <meta name="referrer" content="no-referrer">
   </head>
   <body class="entry-page">
     <div class="landing-sky" aria-hidden="true">
@@ -27,7 +29,7 @@
           <a href="{% url 'hackathon:home' hackathon.slug %}#learning">学习与指南</a>
           <a href="{% url 'hackathon:home' hackathon.slug %}#updates">活动日程</a>
         </nav>
-        <a class="header-login" href="{% url 'hackathon:student-login' hackathon.slug %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}#join">学号登录 / 注册</a>
+        {% if request.user.is_authenticated %}<a class="header-login" href="{% url 'hackathon:account' hackathon.slug %}">账号与订阅</a>{% else %}<a class="header-login" href="{% url 'hackathon:student-login' hackathon.slug %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}#join">登录 / 注册</a>{% endif %}
       </div>
     </header>
     <main id="main" tabindex="-1">

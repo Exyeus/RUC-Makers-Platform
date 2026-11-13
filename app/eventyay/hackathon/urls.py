@@ -1,6 +1,6 @@
 from django.urls import include, path
 
-from eventyay.hackathon import accounts, community_views, judging_views, matching_views, upload_views, views
+from eventyay.hackathon import identity_views, accounts, community_views, judging_views, matching_views, upload_views, views
 
 
 app_name = 'hackathon'
@@ -11,12 +11,16 @@ event_patterns = [
     path('account/judge/', accounts.organizer_login, {'judge': True}, name='judge-login'),
     path('account/logout/', accounts.logout, name='logout'),
     path('account/signup/', accounts.student_auth, {'signup': True}, name='student-signup'),
-    path('account/password-reset/', accounts.student_password_reset_request, name='student-password-reset-request'),
+    path('account/password-reset/', identity_views.password_reset_request, name='student-password-reset-request'),
     path(
         'account/password-reset/confirm/',
-        accounts.student_password_reset_confirm,
+        identity_views.password_reset_confirm,
         name='student-password-reset-confirm',
     ),
+    path('account/', identity_views.account, name='account'),
+    path('account/verify-email/', identity_views.verify_email, name='verify-email'),
+    path('account/unsubscribe/', identity_views.unsubscribe, name='unsubscribe'),
+    path('manage/admission/', identity_views.admission_manage, name='admission-manage'),
     path('register/', views.register, name='register'),
     path('market/', matching_views.market, name='matching'),
     path('market/profile/', matching_views.profile, name='matching-profile'),
@@ -85,6 +89,7 @@ event_patterns = [
 ]
 
 urlpatterns = [
+    path('email/unsubscribe/', identity_views.unsubscribe, name='unsubscribe-account'),
     path('', views.index, name='index'),
     path('camp/', views.legacy_workspace, name='legacy-workspace'),
     path('camp/<path:suffix>', views.legacy_workspace),

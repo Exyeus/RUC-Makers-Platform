@@ -1,0 +1,30 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>取消邮件订阅 · 创协活动</title>
+    <link rel="stylesheet" href="{% static 'hackathon/landing.css' %}">
+  </head>
+  <body class="entry-page">
+    <main class="hero-grid">
+      <section class="glass-card auth-card" aria-labelledby="unsubscribe-title">
+        <h1 id="unsubscribe-title">取消邮件订阅</h1>
+        {% if done %}
+          <p role="status">已取消活动动态及后续活动信息邮件。账号安全邮件和参赛资格不受影响。</p>
+        {% elif invalid %}
+          <p role="alert">退订链接无效或邮箱已变更。您可以登录账号，在邮件订阅设置中取消。</p>
+        {% else %}
+          <p>确认取消活动动态及后续活动信息邮件？账号安全邮件继续正常发送。</p>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="token" value="{{ token }}">
+            <button class="button" type="submit">确认退订</button>
+          </form>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

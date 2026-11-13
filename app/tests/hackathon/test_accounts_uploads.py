@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import io
 import os
+import re
 import struct
 import uuid
 import zipfile
@@ -10,6 +11,7 @@ from datetime import timedelta
 from pathlib import Path
 from threading import Barrier
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from django.core import mail, signing
@@ -24,6 +26,7 @@ from django_scopes import scope
 
 from eventyay.base.models import Event, User
 from eventyay.hackathon import forms, services, uploads
+from eventyay.hackathon.account_models import AccountActionToken, AccountSecurity
 from eventyay.hackathon.constants import CHUNK_SIZE, MAX_UPLOAD_SIZE
 from eventyay.hackathon.downloads import stream_file
 from eventyay.hackathon.models import Asset, Hackathon, PrivateStorage, Project, StudentAccount, UploadSession
@@ -33,6 +36,21 @@ from tests.hackathon.test_workflows import endpoint, png, project_data
 pytestmark = pytest.mark.django_db
 PASSWORD = 'Student!Password2026'
 PDF = b'%PDF-1.7\n' + b'demo file contents\n' * 80
+
+
+def verified_recovery(user):
+    AccountSecurity.objects.update_or_create(
+        user=user,
+        defaults={
+            'verified_email': user.email,
+            'verified_at': timezone.now(),
+        },
+    )
+
+
+def recovery_token():
+    link = re.search(r'https?://[^\s]+', mail.outbox[-1].body).group()
+    return parse_qs(urlsplit(link).query)['token'][0]
 
 
 @pytest.fixture(autouse=True)
@@ -264,12 +282,13 @@ def test_bound_email_receives_reset_link_and_new_password_logs_in(client, hackat
     participant.user.set_password(PASSWORD)
     participant.user.save()
     account = StudentAccount.objects.create(student_id='20260001', user=participant.user)
+    verified_recovery(participant.user)
     response = client.post(endpoint(hackathon, 'student-password-reset-request'), {'student_id': '20260001'})
     assert response.status_code == 302
     assert response.url == endpoint(hackathon, 'home') + '#join'
     assert [message.to for message in mail.outbox] == [['reset@example.com']]
     account.user.refresh_from_db()
-    token = account.user.pw_reset_token
+    token = recovery_token()
     confirm = endpoint(hackathon, 'student-password-reset-confirm')
     assert client.get(confirm + '?token=' + token).status_code == 200
     response = client.post(confirm, {'token': token, 'password': new_password, 'password_confirm': new_password})
@@ -285,21 +304,19 @@ def test_reset_mail_failure_does_not_start_the_waiting_window(client, hackathon,
     participant.user.email = 'flaky@example.com'
     participant.user.set_password(PASSWORD)
     participant.user.save()
-    account = StudentAccount.objects.create(student_id='20260001', user=participant.user)
+    StudentAccount.objects.create(student_id='20260001', user=participant.user)
+    verified_recovery(participant.user)
     location = endpoint(hackathon, 'student-password-reset-request')
-
-    with patch('eventyay.hackathon.accounts.send_mail', side_effect=ConnectionError('smtp unavailable')):
+    with patch('eventyay.hackathon.identity.send_mail', side_effect=ConnectionError('smtp unavailable')):
         response = client.post(location, {'student_id': '20260001'})
-    assert response.status_code == 200
-    assert '现在可以直接重试' in response.content.decode()
-    account.user.refresh_from_db()
-    assert account.user.pw_reset_token is None
-    assert account.user.pw_reset_time is None
-
+    assert response.status_code == 302
+    assert not AccountActionToken.objects.filter(used_at__isnull=True).exists()
+    assert mail.outbox == []
+    # The IP anti-abuse delay is independent of the failed delivery's retry window.
+    cache.clear()
     response = client.post(location, {'student_id': '20260001'})
     assert response.status_code == 302
-    account.user.refresh_from_db()
-    assert account.user.pw_reset_token
+    assert AccountActionToken.objects.filter(used_at__isnull=True).count() == 1
     assert [message.to for message in mail.outbox] == [['flaky@example.com']]
 
 
@@ -329,9 +346,10 @@ def test_password_recovery_pages_link_back_to_login(client, hackathon, participa
     participant.user.email = 'roundtrip@example.com'
     participant.user.save()
     StudentAccount.objects.create(student_id='20260001', user=participant.user)
+    verified_recovery(participant.user)
     client.post(endpoint(hackathon, 'student-password-reset-request'), {'student_id': '20260001'})
     participant.user.refresh_from_db()
-    confirm = endpoint(hackathon, 'student-password-reset-confirm') + '?token=' + participant.user.pw_reset_token
+    confirm = endpoint(hackathon, 'student-password-reset-confirm') + '?token=' + recovery_token()
     assert login_link in client.get(confirm).content.decode()
 
 

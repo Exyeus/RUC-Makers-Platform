@@ -11,6 +11,7 @@ from django.db import connection, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from eventyay.hackathon import identity
 from eventyay.hackathon import match_core as core
 from eventyay.hackathon.matching_forms import ROLE_LABELS
 from eventyay.hackathon.models import (
@@ -289,7 +290,7 @@ def snapshot_roster(h, members, idea, team):
         not profiles[p.pk].opt_in or profiles[p.pk].visibility == 'paused' for p in members
     ):
         raise MatchingError('PROFILE_NEEDS_CONFIRMATION', '所有成员需先确认匹配资料与参与意愿。', 422)
-    if any(p.admission_state != 'admitted' for p in members):
+    if any(not (identity.admitted(p.user, h) if h.admission_required else p.admission_state == 'admitted') for p in members):
         raise MatchingError('ROSTER_NOT_AVAILABLE', '名单资格尚未满足，请本人联系工作人员。')
     if any(blocked(a, b) for a, b in combinations(members, 2)):
         raise MatchingError('ROSTER_NOT_AVAILABLE', '当前名单不可确认，请重新协商。')
@@ -549,7 +550,7 @@ def core_profiles(h):
                 interests=frozenset(record.interests) or None,
                 slots=frozenset(record.slots) if record.slots is not None else None,
                 goal=record.goal or None,
-                eligible=p.admission_state == 'admitted',
+                eligible=identity.admitted(p.user, h) if h.admission_required else p.admission_state == 'admitted',
                 opt_in=record.opt_in and record.visibility != 'paused',
                 blocked_ids=frozenset(exclusions.get(str(p.pk), set())),
                 team_id=str(p.team_id) if p.team_id else None,
@@ -880,6 +881,8 @@ def configure(h, actor, enabled, roster, single, minimum, maximum, capacity=150)
 
 
 def set_admission(h, actor, participant_id, state):
+    if h.admission_required:
+        raise MatchingError('ADMISSION_MANAGED_SEPARATELY', '请在通过名单与准入页面维护本届选拔结果。')
     if not is_organizer(actor, h):
         raise PermissionDenied
     p = person(h, participant_id)

@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from eventyay.hackathon.calendar import available_half_hours
+from eventyay.hackathon import identity
 from eventyay.hackathon.models import (
     Announcement,
     AuditEntry,
@@ -100,6 +101,8 @@ def save_team(hackathon, participant, form):
     hackathon = lock_event(hackathon)
     require_team_open(hackathon)
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
+    if hackathon.admission_required and not identity.admitted(participant.user, hackathon):
+        raise ValidationError(identity.DENIED)
     if hackathon.matching_enabled and not form.instance.created:
         raise ValidationError('请在 组队广场提交完整名单并取得全员确认。')
     current = None
@@ -137,6 +140,8 @@ def join_team(hackathon, participant, team, *, invite_code=None, application=Non
         raise ValidationError('请在 组队广场提交完整名单并取得全员确认。')
     team = Team.objects.select_for_update().get(pk=team.pk, hackathon=hackathon)
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
+    if hackathon.admission_required and not identity.admitted(participant.user, hackathon):
+        raise ValidationError(identity.DENIED)
     if invite_code != team.invite_code and application is None:
         raise PermissionDenied
     if participant.team_id:
@@ -170,6 +175,10 @@ def leave_team(hackathon, participant):
 
 def submission_errors(project, pending_kinds=()):
     errors = []
+    if project.hackathon.admission_required:
+        members = project.team.members.select_related('user')
+        if any(not identity.admitted(member.user, project.hackathon) for member in members):
+            errors.append('队伍中有成员尚未通过本届资格核验，请联系组委会处理后再提交。')
     if (
         project.created
         and not pending_kinds
