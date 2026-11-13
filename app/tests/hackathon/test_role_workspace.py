@@ -1,18 +1,21 @@
 import re
 from datetime import timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 from bs4 import BeautifulSoup
 from django.core.cache import cache
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
 from eventyay.base.models import User
 from eventyay.hackathon import urls as hackathon_urls
-from eventyay.hackathon.calendar import schedule_heatmap, schedule_timeline
+from eventyay.hackathon.calendar import deadline_moments, schedule_heatmap, schedule_timeline
 from eventyay.hackathon.models import ScheduleItem, StaffAssignment, SupportTicket
-from eventyay.hackathon.views import navigation_column
+from eventyay.hackathon.views import JUDGE_ROUTES, ORGANIZER_ROUTES, VOLUNTEER_ROUTES, navigation_column
 from tests.hackathon.test_workflows import endpoint
 
 
@@ -101,6 +104,21 @@ def page_access_levels():
         pattern.name: getattr(pattern.callback, 'access', 'public')
         for pattern in hackathon_urls.event_patterns
     }
+
+
+# 下载与轮询类响应不渲染工作台页面，因此不参与侧栏身份判定。
+NON_PAGE_ROUTES = {'export', 'bundle', 'judge-state'}
+
+
+def test_every_restricted_route_keeps_its_own_sidebar_column():
+    """受限路由不能退回选手侧栏分层：路由本身或它的栏目要落在某个身份的集合里。"""
+    sets = (ORGANIZER_ROUTES, JUDGE_ROUTES, VOLUNTEER_ROUTES)
+    for name, access in page_access_levels().items():
+        if access in {'public', 'login'} or name in NON_PAGE_ROUTES:
+            continue
+        assert any(
+            name in expected or navigation_column(name) in expected for expected in sets
+        ), name
 
 
 def columns_the_identity_can_open(identity, roles=()):
@@ -406,15 +424,23 @@ def test_team_square_heading_matches_the_navigation_label(client, hackathon, par
     ],
 )
 def test_internal_links_carry_no_outward_arrow(client, hackathon, participant, request, fixture_name, name):
+    """外跳标记只留给真正离开本工作台的链接；按钮上的 ↗ 同样不放行。"""
     client.force_login(request.getfixturevalue(fixture_name))
     body = client.get(endpoint(hackathon, name)).content.decode()
     external = {reverse('auth.login'), reverse('presale:events.upcoming')}
-    for attrs, text in re.findall(r'<a\b([^>]*)>(.*?)</a>', body, re.S):
-        visible = re.sub(r'<span[^>]*aria-hidden="true"[^>]*>.*?</span>', '', text, flags=re.S)
+    pattern = re.compile(r'<(?P<tag>a|button)\b(?P<attrs>[^>]*)>(?P<text>.*?)</(?P=tag)>', re.S)
+    for match in pattern.finditer(body):
+        attrs = match.group('attrs')
+        visible = re.sub(r'<span[^>]*aria-hidden="true"[^>]*>.*?</span>', '', match.group('text'), flags=re.S)
         if '↗' not in visible:
             continue
         href = re.search(r'href="([^"]*)"', attrs)
-        assert 'target="_blank"' in attrs or (href and href.group(1) in external), visible
+        destination = href.group(1) if href else ''
+        # 站外地址（绝对 URL）与工作台之外的固定入口可以带 ↗；站内相对地址不行。
+        leaves_workspace = destination in external or (
+            destination.startswith(('http://', 'https://', '//')) and not destination.startswith('http://testserver')
+        )
+        assert leaves_workspace, f'{visible} → {destination}'
 
 
 def test_long_term_promotion_is_collapsed_by_default(client, hackathon, participant, user):
@@ -443,6 +469,14 @@ def test_timeline_carries_the_same_items_and_deadlines_as_the_grid(hackathon):
     assert entry['level'] == 'event' and entry['location'] == '创客教室'
     assert entry['ends_at'] == item.ends_at.astimezone(timezone.get_fixed_timezone(480))
     assert entry['starts_at'].utcoffset() == timedelta(hours=8)
+    # 只比时刻的话，时区换错了也测不出来：五个截止条目的偏移与墙上时间都要钉住。
+    zone = timezone.get_fixed_timezone(480)
+    for at, label in deadline_moments(hackathon):
+        deadline = next(entry for entry in timeline if entry['title'] == label)
+        assert deadline['level'] == 'deadline'
+        assert deadline['starts_at'].utcoffset() == timedelta(hours=8)
+        assert deadline['starts_at'] == at.astimezone(zone)
+        assert deadline['starts_at'].strftime('%Y-%m-%d %H:%M') == at.astimezone(zone).strftime('%Y-%m-%d %H:%M')
     grid = ' '.join(
         cell['label'] for day in schedule_heatmap(hackathon) for cell in day['hours'] if cell['level'] != 'empty'
     )
@@ -473,6 +507,44 @@ def test_schedule_leads_with_the_list_and_keeps_the_grid_optional(client, hackat
     assert '<details class="ruc-calendar">' in body
     assert 'calendar-timeline' not in body
     assert '开幕式' in body
+
+
+def test_the_grid_only_page_does_not_promise_a_timeline(client, hackathon, participant, user):
+    """日程页只保留色块：标题、说明与 aria-label 也不该承诺一份不存在的时间线。"""
+    client.force_login(user)
+    body = client.get(endpoint(hackathon, 'schedule')).content.decode()
+    assert '活动时段色块历' in body
+    assert '活动时间线与小时历' not in body
+    assert '按时间排列的全部安排与截止' not in body
+
+
+def test_a_cross_day_schedule_shows_the_end_date(client, hackathon, participant, user):
+    """跨天日程的结束侧要带日期，否则「09:00–18:00」看不出是次日。"""
+    zone = ZoneInfo(hackathon.event.timezone)
+    starts = (timezone.now().astimezone(zone) + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+    ends = starts + timedelta(days=1, hours=9)
+    ScheduleItem.objects.create(
+        hackathon=hackathon, title='跨天工作坊', starts_at=starts, ends_at=ends, state='published'
+    )
+    client.force_login(user)
+    body = client.get(endpoint(hackathon, 'home')).content.decode()
+    timeline = re.search(r'<ol class="calendar-timeline">(.*?)</ol>', body, re.S).group(1)
+    assert '跨天工作坊' in timeline
+    assert f'{starts:%m.%d} 09:00' in timeline
+    assert f'{ends:%m.%d} 18:00' in timeline
+
+
+def test_the_home_page_reads_the_published_schedule_once(client, hackathon, participant, user):
+    """首页的「接下来」与两套日历用同一份日程，不要把同一张表取三遍。"""
+    starts = timezone.now() + timedelta(days=1)
+    ScheduleItem.objects.create(
+        hackathon=hackathon, title='开幕式', starts_at=starts, ends_at=starts + timedelta(hours=1), state='published'
+    )
+    client.force_login(user)
+    with CaptureQueriesContext(connection) as queries:
+        client.get(endpoint(hackathon, 'home'))
+    hits = [query['sql'] for query in queries.captured_queries if 'hackathon_scheduleitem' in query['sql']]
+    assert len(hits) == 1, hits
 
 
 def test_ticket_reply_keeps_the_organizer_workbench(client, hackathon, organizer_user):

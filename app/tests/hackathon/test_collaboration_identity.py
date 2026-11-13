@@ -5,11 +5,13 @@ import io
 from datetime import timedelta
 
 import pytest
+from bs4 import BeautifulSoup
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from eventyay.base.models import User
+from eventyay.hackathon import services
 from eventyay.hackathon.models import (
     AuditEntry,
     Participant,
@@ -40,6 +42,19 @@ def rows_from(response):
     return list(csv.reader(io.StringIO(response.content.decode('utf-8-sig'))))
 
 
+def work_reference_link(content, label):
+    """工单里那条「作品 / 名单」入口：文案与地址必须落在同一个链接上。"""
+    links = [link for link in BeautifulSoup(content, 'html.parser').select('a') if label in link.get_text()]
+    assert links, label
+    return links[0]
+
+
+def ticket_replies(content):
+    """工单线程里的每一轮发言，按页面上的先后顺序。"""
+    soup = BeautifulSoup(content, 'html.parser')
+    return [entry.get_text(' ', strip=True) for entry in soup.select('.ticket-reply')]
+
+
 def test_check_in_and_uncheck_are_separate_actions(client, hackathon, participant, organizer_user):
     client.force_login(organizer_user)
     path = endpoint(hackathon, 'participants')
@@ -49,11 +64,15 @@ def test_check_in_and_uncheck_are_separate_actions(client, hackathon, participan
     assert participant.checked_in
 
     # 重复点签到不产生第二条记录，也不改写审计。
+    participant.refresh_from_db()
+    stamped = participant.updated
     client.post(path, data)
     client.post(path, data)
     participant.refresh_from_db()
     assert participant.checked_in
     assert AuditEntry.objects.filter(hackathon=hackathon, action='签到').count() == 1
+    # 没有真正改动就不该顶动这条记录。
+    assert participant.updated == stamped
 
     # 撤销只在显式动作下发生。
     client.post(path, {'participant': participant.pk, 'action': 'uncheck'})
@@ -329,18 +348,90 @@ def test_ticket_reaches_that_teams_project(client, hackathon, participant, team,
     project = approved_project(hackathon, team)
     client.force_login(organizer_user)
     content = client.get(endpoint(hackathon, 'support')).content.decode()
-    assert f'{project.code} · 当前作品' in content
-    assert endpoint(hackathon, 'review', project_id=project.pk) in content
+    # 文案与地址要落在同一个链接上：拆开断言的话，两个位置互换也测不出来。
+    link = work_reference_link(content, f'{project.code} · 当前作品')
+    assert link['href'] == endpoint(hackathon, 'review', project_id=project.pk)
     reply_page = client.get(endpoint(hackathon, 'support-reply', ticket_id=ticket.pk)).content.decode()
-    assert endpoint(hackathon, 'review', project_id=project.pk) in reply_page
+    assert work_reference_link(reply_page, f'{project.code} · 当前作品')['href'] == endpoint(
+        hackathon, 'review', project_id=project.pk
+    )
 
 
 def test_ticket_without_a_project_still_finds_the_person(client, hackathon, participant, team, user, organizer_user):
     make_ticket(hackathon, user)
     client.force_login(organizer_user)
     content = client.get(endpoint(hackathon, 'support')).content.decode()
-    assert '在名单中查找本人' in content
-    assert f"{endpoint(hackathon, 'participants')}?q={participant.code}" in content
+    link = work_reference_link(content, '在名单中查找本人')
+    assert link['href'].startswith(endpoint(hackathon, 'participants'))
+    assert f'q={participant.code}' in link['href']
+
+
+def test_the_player_reads_every_round_of_the_thread_in_order(client, hackathon, user, organizer_user):
+    """选手侧要能读到组委会每一轮说明，顺序与写下的一致。"""
+    ticket = make_ticket(hackathon, user)
+    client.force_login(organizer_user)
+    path = endpoint(hackathon, 'support-reply', ticket_id=ticket.pk)
+    client.post(path, {'action': 'reply', 'state': 'waiting_user', 'body': '先看一眼浏览器控制台的报错。'})
+    client.post(path, {'action': 'reply', 'state': 'resolved', 'body': '问题已修复，感谢配合。'})
+
+    client.force_login(user)
+    content = client.get(endpoint(hackathon, 'support')).content.decode()
+    replies = ticket_replies(content)
+    # 第一条是开单本身，之后每轮组委会说明各占一条。
+    assert len(replies) == 3
+    assert '10:20 左右开始，刷新后仍然卡住。' in replies[0]
+    assert '先看一眼浏览器控制台的报错。' in replies[1]
+    assert '问题已修复，感谢配合。' in replies[2]
+
+
+def test_the_identity_line_is_on_the_ticket_and_on_every_reply(
+    client, hackathon, participant, team, user, organizer_user
+):
+    """「姓名 · 编号 · 队伍」既出现在工单身份行，也出现在每一轮说明的作者行。"""
+    ticket = make_ticket(hackathon, user)
+    client.force_login(organizer_user)
+    path = endpoint(hackathon, 'support-reply', ticket_id=ticket.pk)
+    client.post(path, {'action': 'reply', 'state': 'waiting_user', 'body': '请提供浏览器版本。'})
+
+    content = client.get(endpoint(hackathon, 'support')).content.decode()
+    soup = BeautifulSoup(content, 'html.parser')
+    identity = f'{participant.name} · {participant.code} · {team.name}'
+    # 工单身份行与线程作者行是两处，不能只断其中一个。
+    assert identity in [node.get_text(' ', strip=True) for node in soup.select('p > strong')]
+    assert identity in [node.get_text(' ', strip=True) for node in soup.select('.ticket-reply strong')]
+
+
+def test_the_thread_follows_the_writing_order_even_if_the_clock_moves_back(
+    client, hackathon, user, organizer_user
+):
+    """线程按写入顺序排列：系统时钟回拨时也不会把两轮说明倒过来。"""
+    ticket = make_ticket(hackathon, user)
+    first = TicketMessage.objects.create(
+        hackathon=hackathon, ticket=ticket, author=organizer_user, from_staff=True, body='第一轮说明'
+    )
+    second = TicketMessage.objects.create(
+        hackathon=hackathon, ticket=ticket, author=organizer_user, from_staff=True, body='第二轮说明'
+    )
+    # 模拟时钟回拨：后写入的一条带着更早的时间戳。
+    TicketMessage.objects.filter(pk=second.pk).update(created=first.created - timedelta(seconds=1))
+
+    client.force_login(organizer_user)
+    content = client.get(endpoint(hackathon, 'support')).content.decode()
+    replies = ticket_replies(content)
+    assert '第一轮说明' in replies[1]
+    assert '第二轮说明' in replies[2]
+
+
+def test_only_the_first_concurrent_check_in_writes_an_audit(client, hackathon, participant, organizer_user):
+    """两个主办同时点签到：只有真正改到状态的那位写审计。"""
+    # 两份旧快照正是并发时会话里各自持有的对象。
+    first_view = Participant.objects.get(pk=participant.pk)
+    second_view = Participant.objects.get(pk=participant.pk)
+    assert services.set_check_in(hackathon, organizer_user, first_view, True) is True
+    assert services.set_check_in(hackathon, organizer_user, second_view, True) is False
+    assert AuditEntry.objects.filter(hackathon=hackathon, action='签到').count() == 1
+    participant.refresh_from_db()
+    assert participant.checked_in is True
 
 
 def test_tickets_export_marks_unregistered_openers(client, hackathon, user, organizer_user):

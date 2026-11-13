@@ -61,9 +61,14 @@ def deadline_moments(hackathon) -> list[tuple[datetime, str]]:
     ]
 
 
-def schedule_timeline(hackathon) -> list[dict]:
-    """The hour grid's items and deadlines as one readable time-ordered list."""
+def schedule_timeline(hackathon, items=None) -> list[dict]:
+    """The hour grid's items and deadlines as one readable time-ordered list.
+
+    `items` lets a caller that already fetched the published schedule reuse it
+    instead of querying the same rows again.
+    """
     zone = ZoneInfo(hackathon.event.timezone)
+    items = list(ScheduleItem.published(hackathon)) if items is None else list(items)
     entries = [
         {
             'starts_at': item.starts_at.astimezone(zone),
@@ -73,7 +78,7 @@ def schedule_timeline(hackathon) -> list[dict]:
             'location': item.location,
             'level': 'event',
         }
-        for item in ScheduleItem.published(hackathon)
+        for item in items
     ]
     entries += [
         {
@@ -90,9 +95,9 @@ def schedule_timeline(hackathon) -> list[dict]:
     return entries
 
 
-def schedule_heatmap(hackathon) -> list[dict]:
+def schedule_heatmap(hackathon, items=None) -> list[dict]:
     zone = ZoneInfo(hackathon.event.timezone)
-    items = list(ScheduleItem.published(hackathon))
+    items = list(ScheduleItem.published(hackathon)) if items is None else list(items)
     deadlines = deadline_moments(hackathon)
     days = {hackathon.event.date_from.astimezone(zone).date()}
     end = (hackathon.event.date_to or hackathon.event.date_from).astimezone(zone).date()

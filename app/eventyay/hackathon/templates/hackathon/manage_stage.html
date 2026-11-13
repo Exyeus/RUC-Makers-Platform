@@ -13,7 +13,8 @@
       </p>
     </div>
     <a class="button secondary" href="{% url 'hackathon:stage' hackathon.slug %}?display=1" target="_blank" rel="noopener">
-      打开大屏 ↗
+      打开大屏
+      <span class="sr-only">（在新标签页打开）</span>
     </a>
   </section>
   {% include 'hackathon/stage_timer.html' %}

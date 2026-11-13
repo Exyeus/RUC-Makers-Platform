@@ -553,7 +553,8 @@ class TicketMessage(EventRecord):
     body = models.TextField('内容', max_length=5000)
 
     class Meta:
-        ordering = ['created', 'pk']
+        # 按写入顺序（主键）排列，不按墙上时间：系统时钟回拨时线程顺序不会倒过来。
+        ordering = ['pk']
 
 
 class AuditEntry(EventRecord):
