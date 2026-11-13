@@ -167,32 +167,107 @@
           下载、校验并预加载材料，在开始路演时打开文稿，到点关闭它自己启动的播放进程。
         </p>
       </div>
-      <form method="post">
-        {% csrf_token %}
-        <button name="action" value="token" class="button secondary">
-          生成 12 小时连接令牌
-        </button>
-      </form>
+      <span class="tag lavender">
+        {{ station_status.label }}
+      </span>
     </div>
+    <div class="message {{ station_status.tone }}">
+      {{ station_status.detail }}
+      {% if station_status.last_seen_at %}
+        <p>
+          最近一次同步：{{ station_status.last_seen_at|date:"H:i:s" }}
+        </p>
+      {% endif %}
+      {% if station_status.expires_at %}
+        <p>
+          当前令牌有效期至：{{ station_status.expires_at|date:"m-d H:i" }}
+        </p>
+      {% endif %}
+    </div>
+    <details>
+      <summary class="text-link">
+        连接说明与服务地址（不涉及令牌）
+      </summary>
+      <p>
+        服务地址：
+        <code>
+          {{ station_url }}
+        </code>
+      </p>
+      <p>
+        <button type="button" class="button secondary small" data-copy="{{ station_url }}">
+          复制服务地址
+        </button>
+      </p>
+      <ol>
+        <li>
+          现场电脑运行播放助手，填入服务地址与连接令牌。
+        </li>
+        <li>
+          助手先下载并校验材料，路演开始时打开文稿。
+        </li>
+        <li>
+          令牌有效期 12 小时，过期后需要重新更换；更换前会先说明影响。
+        </li>
+      </ol>
+      <p>
+        令牌是秘密，只在签发当次显示。查看本说明不会更换令牌，也不会影响现场正在使用的连接。
+      </p>
+    </details>
     {% if token %}
       <div class="message warning">
-        令牌只显示这一次，请仅复制到现场受信任电脑。新令牌已使旧令牌失效。
+        新令牌已签发，旧令牌已立即失效。令牌只显示这一次，刷新页面不再显示。
       </div>
       <code class="token-block">
         {{ token }}
       </code>
       <p>
-        现场助手地址：
-        <code>
-          {{ station_url }}
-        </code>
+        请按顺序重新连接：
       </p>
+      <ol>
+        <li>
+          把上面这串令牌填入现场电脑的播放助手。
+        </li>
+        <li>
+          助手重新连接后会自动重新拉取当前队列与材料。
+        </li>
+        <li>
+          上方连接状态回到「最近同步正常」，说明现场已经恢复。
+        </li>
+      </ol>
+    {% elif token_prepare %}
+      <div class="message warning">
+        {{ token_impact.text }}
+      </div>
+      <div class="actions">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="nonce" value="{{ token_nonce }}">
+          <button name="action" value="token_issue" class="button" data-confirm="确认更换播放助手令牌？旧令牌会立即失效。">
+            确认更换令牌
+          </button>
+        </form>
+        <a class="button secondary" href="{% url 'hackathon:manage-stage' hackathon.slug %}">
+          取消
+        </a>
+      </div>
+    {% else %}
+      <div class="actions">
+        <form method="post">
+          {% csrf_token %}
+          <button name="action" value="token" class="button secondary">
+            {% if station_status.has_token %}更换连接令牌{% else %}签发连接令牌{% endif %}
+          </button>
+        </form>
+      </div>
     {% endif %}
-    <form method="post">
-      {% csrf_token %}
-      <button class="text-button danger" name="action" value="revoke" data-confirm="确认撤销当前播放助手的访问权限？">
-        撤销播放助手访问
-      </button>
-    </form>
+    {% if station_status.has_token and station_status.state != "expired" %}
+      <form method="post">
+        {% csrf_token %}
+        <button class="text-button danger" name="action" value="revoke" data-confirm="确认撤销当前播放助手的访问权限？">
+          撤销播放助手访问
+        </button>
+      </form>
+    {% endif %}
   </section>
 {% endblock %}

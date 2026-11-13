@@ -2,7 +2,6 @@ import hashlib
 import secrets
 import tempfile
 import zipfile
-from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -121,6 +120,25 @@ APPLICATION_STATE_LABELS = {
     'declined': '已被婉拒',
     'withdrawn': '已撤回',
 }
+# 现场操作做完之后要说清楚结果，别再统一回一句「路演状态已更新」。
+STAGE_ACTION_MESSAGES = {
+    'generate': '已把新通过的作品加入路演队列。',
+    'ready': '已标为准备就绪，设备检查完成后即可开始。',
+    'start': '已开始展示，大屏与播放助手会同步切到本队。',
+    'pause': '已暂停计时。',
+    'resume': '已继续计时。',
+    'finish': '已结束本队展示，并关闭播放助手打开的文稿。',
+    'defer': '已把本队移到队尾，顺延原因已记录。',
+    'up': '已上移一位。',
+    'down': '已下移一位。',
+    'reset': '已把本队退回待候场并清空本场计时，重新排队原因已记录。',
+}
+# 「先看影响、再确认」这件事记在会话里：服务端据此要求先走过预览，
+# 不靠按钮顺序维持。签发出来的明文令牌也只在这个会话里放一次。
+STATION_ROTATION_KEY = 'hackathon_station_rotation'
+STATION_ISSUED_KEY = 'hackathon_station_issued_token'
+STAFF_REMOVAL_KEY = 'hackathon_staff_removal'
+STATION_ISSUED_TTL = 300
 
 
 def navigation_column(route, follow_live=False):
@@ -1345,24 +1363,67 @@ def publish(request):
 def staff(request):
     h = request.hackathon
     form = forms.StaffForm(request.POST or None)
+    removal = None
     if request.method == 'POST':
         with transaction.atomic():
             h = services.lock_event(h)
             if h.results_published:
                 messages.error(request, '成绩已公布，评委与工作人员名单已锁定。')
                 return redirect(url(h, 'staff'))
-            if request.POST.get('action') == 'remove':
+            action = request.POST.get('action')
+            if action == 'remove_prepare':
+                # 先把影响算给主办看，确认之后才真的移除。
                 assignment = get_object_or_404(StaffAssignment, hackathon=h, pk=request.POST.get('assignment'))
-                services.audit(h, request.user, '移除工作人员角色', assignment.user_id, assignment.role)
-                assignment.delete()
-                return redirect(url(h, 'staff'))
-            if form.is_valid():
+                removal = services.judge_removal_impact(h, assignment)
+                request.session[STAFF_REMOVAL_KEY] = assignment.pk
+                form = forms.StaffForm()
+            elif action == 'remove':
+                assignment = get_object_or_404(StaffAssignment, hackathon=h, pk=request.POST.get('assignment'))
+                reason = (request.POST.get('reason') or '').strip()
+                impact = services.judge_removal_impact(h, assignment)
+                if request.session.get(STAFF_REMOVAL_KEY) != assignment.pk:
+                    # 没走过预览就不删：先把影响摆出来，确认之后这一步才会生效。
+                    request.session[STAFF_REMOVAL_KEY] = assignment.pk
+                    messages.error(request, '请先查看移除影响，确认后再执行移除。')
+                    removal = impact
+                    form = forms.StaffForm()
+                elif impact['scoring'] and not reason:
+                    messages.error(request, '移除评委会影响计分资格，请先填写移除原因。')
+                    removal = impact
+                    form = forms.StaffForm()
+                else:
+                    request.session.pop(STAFF_REMOVAL_KEY, None)
+                    # 影响写在原因前面：操作日志页会截断长文本，影响数字不能被截掉。
+                    detail = assignment.role
+                    if impact['scoring']:
+                        detail += (
+                            f" · 影响：{impact['confirmed']} 份已确认评分不再计入统计，"
+                            f"{impact['becoming_incomplete']} 个作品变为缺评"
+                        )
+                    if reason:
+                        detail += f' · 原因：{reason}'
+                    services.audit(h, request.user, '移除工作人员角色', assignment.user_id, detail)
+                    assignment.delete()
+                    if impact['scoring']:
+                        messages.success(
+                            request,
+                            f'已移除该评委：{impact["confirmed"]} 份已确认评分不再计入统计，'
+                            f'{impact["becoming_incomplete"]} 个作品变为缺评。原因已记录。',
+                        )
+                    else:
+                        messages.success(request, '已移除该角色，对方登录后不再看到对应工作台。')
+                    return redirect(url(h, 'staff'))
+            elif form.is_valid():
                 StaffAssignment.objects.get_or_create(hackathon=h, user=form.staff_user, role=form.cleaned_data['role'])
                 services.audit(h, request.user, '分配工作人员角色', form.staff_user.pk, form.cleaned_data['role'])
                 messages.success(request, '角色已分配，对方登录后即可看到对应工作台。')
                 return redirect(url(h, 'staff'))
     return page(
-        request, 'staff', form=form, assignments=StaffAssignment.objects.filter(hackathon=h).select_related('user')
+        request,
+        'staff',
+        form=form,
+        removal=removal,
+        assignments=StaffAssignment.objects.filter(hackathon=h).select_related('user'),
     )
 
 
@@ -1648,39 +1709,65 @@ def stage_state(request):
 def manage_stage(request):
     h = request.hackathon
     token = None
+    token_prepare = False
+    token_nonce = ''
     if request.method == 'POST':
         action = request.POST.get('action')
         try:
             if action == 'generate':
                 services.generate_queue(h, request.user)
             elif action == 'token':
-                token = secrets.token_urlsafe(32)
-                with transaction.atomic():
-                    StationToken.objects.filter(hackathon=h).delete()
-                    StationToken.objects.create(
-                        hackathon=h,
-                        digest=hashlib.sha256(token.encode()).hexdigest(),
-                        expires_at=timezone.now() + timedelta(hours=12),
-                        created_by=request.user,
-                    )
-                    services.audit(h, request.user, '签发播放助手令牌')
+                # 先说清楚更换的影响，确认之后才真的换；点一下不会作废现场正在用的连接。
+                token_nonce = secrets.token_urlsafe(12)
+                request.session[STATION_ROTATION_KEY] = {
+                    'nonce': token_nonce,
+                    'at': timezone.now().timestamp(),
+                }
+                token_prepare = True
+            elif action == 'token_issue':
+                prepared = request.session.pop(STATION_ROTATION_KEY, None)
+                if not prepared or prepared.get('nonce') != request.POST.get('nonce', ''):
+                    raise ValidationError('请先查看更换令牌的影响并确认，再签发新令牌。')
+                token = services.issue_station_token(h, request.user)
+                # 走一次重定向：刷新页面不会重新提交表单，也就不会把刚发出的令牌作废。
+                request.session[STATION_ISSUED_KEY] = {
+                    'value': token,
+                    'at': timezone.now().timestamp(),
+                }
+                messages.success(request, '新令牌已签发，旧令牌已立即失效。请按下方步骤让现场播放助手重新连接。')
+                return redirect(url(h, 'manage-stage'))
             elif action == 'revoke':
+                had_token = StationToken.objects.filter(hackathon=h).exists()
                 StationToken.objects.filter(hackathon=h).delete()
                 services.audit(h, request.user, '撤销播放助手令牌')
+                if had_token:
+                    messages.success(request, '已撤销播放助手访问权限，现场助手会立即断开。')
+                else:
+                    messages.warning(request, '当前没有生效的播放助手令牌，无需撤销。')
             else:
                 slot = get_object_or_404(DemoSlot, hackathon=h, pk=request.POST.get('slot'))
                 services.stage_action(h, request.user, slot, action, request.POST.get('note', ''))
         except ValidationError as error:
             report_validation(request, error)
         else:
-            messages.success(request, '路演状态已更新。')
-        if not token:
+            if action not in {'revoke', 'token', 'token_issue'}:
+                messages.success(request, STAGE_ACTION_MESSAGES.get(action, '路演状态已更新。'))
+        if not token and not token_prepare:
             return redirect(url(h, 'manage-stage'))
+    else:
+        # 新令牌只在签发后第一次打开时显示一次，刷新不会再显示。
+        issued = request.session.pop(STATION_ISSUED_KEY, None)
+        if issued and timezone.now().timestamp() - issued.get('at', 0) < STATION_ISSUED_TTL:
+            token = issued.get('value', '')
     return page(
         request,
         'manage_stage',
         slots=DemoSlot.objects.filter(hackathon=h).select_related('project__team'),
         token=token,
+        token_prepare=token_prepare,
+        token_nonce=token_nonce,
+        token_impact=services.station_rotation_impact(h),
+        station_status=services.station_status(h),
         station_url=request.build_absolute_uri(url(h, 'station-state')),
         data=stage_data(h),
     )
@@ -1709,6 +1796,7 @@ def station_auth(request, hackathon_slug):
 def station_state(request, hackathon_slug):
     h = station_auth(request, hackathon_slug)
     with scope(event=h.event):
+        services.touch_station(h)
         data = stage_data(h)
         queued = (
             DemoSlot.objects.filter(hackathon=h, state__in=['live', 'ready', 'waiting', 'deferred'])

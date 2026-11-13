@@ -18,6 +18,95 @@
     <a class="button secondary" href="{% url 'hackathon:judge-login' hackathon.slug %}">评委登录入口</a>
     <a class="button secondary" href="{% url 'hackathon:scoring-rules' hackathon.slug %}">设置算分规则</a>
   </div>
+  {% if removal %}
+    <section class="panel removal-preview">
+      <h2>
+        确认移除：{{ removal.user.fullname|default:removal.user.email }}
+      </h2>
+      <p>
+        {{ removal.note }}
+      </p>
+      {% if removal.scoring %}
+        <ul>
+          <li>
+            这位评委已确认 {{ removal.confirmed }} 份评分，移除后这些分数不再计入统计。
+          </li>
+          {% if removal.drafts %}
+            <li>
+              另有 {{ removal.drafts }} 份草稿评分，移除后不再作为有效草稿显示。
+            </li>
+          {% endif %}
+          <li>
+            移除后本届有效评委 {{ removal.panel_size }} → {{ removal.new_panel_size }} 人，应评份数
+            {{ removal.expected_before }} → {{ removal.expected_after }}。
+          </li>
+          {% if removal.becoming_incomplete %}
+            <li>
+              {{ removal.becoming_incomplete }} 个原本评分完整的作品将变为缺评。
+            </li>
+          {% endif %}
+          {% if removal.becoming_complete %}
+            <li>
+              {{ removal.becoming_complete }} 个原本缺评的作品将因为应评人数减少而变为完整。
+            </li>
+          {% endif %}
+          {% if removal.still_incomplete %}
+            <li>
+              {{ removal.still_incomplete }} 个作品本来就没有收齐评分。
+            </li>
+          {% endif %}
+        </ul>
+        <table>
+          <thead>
+            <tr>
+              <th>
+                作品 / 队伍
+              </th>
+              <th>
+                这位评委
+              </th>
+              <th>
+                移除后
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in removal.items %}
+              <tr>
+                <td>
+                  {{ item.project.title }}
+                  <small>
+                    {{ item.project.team.name }}
+                  </small>
+                </td>
+                <td>
+                  {% if item.confirmed %}已确认{% elif item.draft %}草稿{% else %}未评分{% endif %}
+                </td>
+                <td>
+                  应评 {{ item.expected_after }} 人，缺 {{ item.missing_after }} 份
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+      <form method="post" class="inline-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="remove">
+        <input type="hidden" name="assignment" value="{{ removal.assignment.pk }}">
+        <label for="removal-reason">
+          移除原因
+        </label>
+        <input id="removal-reason" name="reason" maxlength="250" placeholder="例如：评委临时无法到场 / 评分口径调整" {% if removal.scoring %}required{% endif %}>
+        <button class="button" {% if removal.scoring %}data-confirm="确认移除该评委？移除后已有评分将不再计入统计。"{% endif %}>
+          确认移除
+        </button>
+      </form>
+      <a class="button secondary" href="{% url 'hackathon:staff' hackathon.slug %}">
+        取消
+      </a>
+    </section>
+  {% endif %}
   <div class="two-column">
     <section class="panel">
       <h2>
@@ -38,9 +127,9 @@
           </span>
           <form method="post">
             {% csrf_token %}
-            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="action" value="remove_prepare">
             <input type="hidden" name="assignment" value="{{ assignment.pk }}">
-            <button class="text-button danger" data-confirm="确认移除此人的活动角色？">
+            <button class="text-button danger" data-confirm="移除前会先列出对评分结果的影响，确认继续？">
               移除
             </button>
           </form>

@@ -570,6 +570,12 @@ class StationToken(EventRecord):
     digest = models.CharField(max_length=64, unique=True)
     expires_at = models.DateTimeField()
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    # 现场助手每次拉取状态都会刷新它，主办据此区分「还没接上」「同步正常」「连接中断」。
+    last_seen_at = models.DateTimeField('最近一次同步时间', null=True, blank=True)
+
+    class Meta:
+        # 同一活动同时只应有一枚有效令牌；更换靠「删旧发新」，不留第二枚。
+        constraints = [models.UniqueConstraint(fields=['hackathon'], name='hack_one_station_token')]
 
 
 class MatchingProfile(EventRecord):
