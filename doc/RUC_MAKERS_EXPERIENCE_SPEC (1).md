@@ -486,7 +486,7 @@ P0/P1 是实施次序，附录的 HIGH/MEDIUM 是后果严重度；两者不直�
 
 <a id="finding-10"></a>
 
-- **Agent status：** `fixed`（D 包 #136 已实施（本地，CI 绿），待重挂与合并：保存与确认计分两条动作分开）。
+- **Agent status：** `fixed`（D 包 #136 已并入 main（merge commit `bb23b43`）：保存与确认计分两条动作分开）。
 - **Owner advice：**
 
 #### #[11] [HIGH] 半份评分无法存草稿，断网重登缺少可靠恢复
@@ -500,7 +500,7 @@ P0/P1 是实施次序，附录的 HIGH/MEDIUM 是后果严重度；两者不直�
 
 <a id="finding-11"></a>
 
-- **Agent status：** `fixed`（D 包 #136 已实施（本地，CI 绿），待重挂与合并：半份评分可存草稿，断网重登可恢复）。
+- **Agent status：** `fixed`（D 包 #136 已并入 main（merge commit `bb23b43`）：半份评分可存草稿，断网重登可恢复）。
 - **Owner advice：**
 
 #### #[12] [MEDIUM] 评委目录与主办汇总没有形成缺评任务清单
@@ -514,7 +514,7 @@ P0/P1 是实施次序，附录的 HIGH/MEDIUM 是后果严重度；两者不直�
 
 <a id="finding-12"></a>
 
-- **Agent status：** `fixed`（D 包 #136 已实施（本地，CI 绿），待重挂与合并：评委目录与主办汇总给出缺评任务清单）。
+- **Agent status：** `fixed`（D 包 #136 已并入 main（merge commit `bb23b43`）：评委目录与主办汇总给出缺评任务清单）。
 - **Owner advice：**
 
 #### #[13] [HIGH] 移除评委角色会重算既有结果，影响未事先说明
@@ -556,7 +556,7 @@ P0/P1 是实施次序，附录的 HIGH/MEDIUM 是后果严重度；两者不直�
 
 <a id="finding-15"></a>
 
-- **Agent status：** `fixed`（F 包 #138 已实施（本地，CI 绿），待合并：工单与导出用姓名加本届短编号核对身份，不把邮箱当唯一标识）。
+- **Agent status：** `fixed`（F 包 #138 已并入 main（merge commit `b644735`）：工单与导出用姓名加本届短编号核对身份，不把邮箱当唯一标识）。
 - **Owner advice：**
 
 #### #[16] [MEDIUM] “已签到”按钮实际撤销签到，返回还丢失搜索
@@ -570,7 +570,7 @@ P0/P1 是实施次序，附录的 HIGH/MEDIUM 是后果严重度；两者不直�
 
 <a id="finding-16"></a>
 
-- **Agent status：** `fixed`（F 包 #138 已实施（本地，CI 绿），待合并：签到不再变成撤销签到，列表筛选不因返回丢失）。
+- **Agent status：** `fixed`（F 包 #138 已并入 main（merge commit `b644735`）：签到不再变成撤销签到，列表筛选不因返回丢失；重复签到按条件更新写入，不写第二条审计）。
 - **Owner advice：**
 
 #### #[17] [MEDIUM] 所有身份共享宣传导向首页与大量公共导航
@@ -584,7 +584,7 @@ P0/P1 是实施次序，附录的 HIGH/MEDIUM 是后果严重度；两者不直�
 
 <a id="finding-17"></a>
 
-- **Agent status：** `fixed`（C 包 #140 已实施（本地，CI 绿），待合并：按工作身份分层导航与角色首页，不再共享宣传导向首页）。
+- **Agent status：** `fixed`（C 包 #140 已并入 main（merge commit `ed5af27`）：按工作身份分层导航与角色首页，不再共享宣传导向首页）。
 - **Owner advice：**
 
 #### #[18] [MEDIUM] 关键桌面文字过于紧凑，小时格交互需补充等价方式
@@ -598,7 +598,7 @@ P0/P1 是实施次序，附录的 HIGH/MEDIUM 是后果严重度；两者不直�
 
 <a id="finding-18"></a>
 
-- **Agent status：** `fixed`（C 包 #140 已实施（本地，CI 绿），待合并：字号分级、任务标题与文字时间线；本轮另补齐总控页动作链接的 14px 字号与 44px 触达，浏览器复测仍待安排）。
+- **Agent status：** `fixed`（C 包 #140 已并入 main（merge commit `ed5af27`）：字号分级、任务标题与文字时间线；总控页动作链接的 14px 字号与 44px 触达已补齐，并完成 718px 浏览器实测）。
 - **Owner advice：**
 
 #### #[19] [MEDIUM] 主办成员授权粒度难以对应实际运营分工
@@ -612,7 +612,7 @@ P0/P1 是实施次序，附录的 HIGH/MEDIUM 是后果严重度；两者不直�
 
 <a id="finding-19"></a>
 
-- **Agent status：** `fixed`（F 包 #138 已实施（本地，CI 绿），待合并：权限映射到实际能力，评委/志愿者标签能表达内容维护、签到与只读查看）。
+- **Agent status：** `fixed`（F 包 #138 已并入 main（merge commit `b644735`）：权限映射到实际能力，评委/志愿者标签能表达内容维护、签到与只读查看）。
 - **Owner advice：**
 
 #### #[20] [MEDIUM] 发布开关与普通设置混在一次保存中
