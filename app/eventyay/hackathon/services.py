@@ -168,6 +168,53 @@ def leave_team(hackathon, participant):
     participant.save(update_fields=['team', 'updated'])
 
 
+@transaction.atomic
+def dissolve_team(hackathon, participant):
+    """Let a captain who is alone in the team step out before the freeze.
+
+    A team with other members still needs a handover, and a team that already
+    built a project needs the organizer: dissolving would take the project
+    with it, so the exit stays available only while nothing depends on it.
+    """
+    hackathon = lock_event(hackathon)
+    if hackathon.matching_enabled:
+        raise ValidationError('请在 组队广场按名单政策退出队伍。')
+    require_team_open(hackathon)
+    participant = Participant.objects.select_for_update(of=('self',)).select_related('team').get(pk=participant.pk)
+    team = participant.team
+    if team is None:
+        raise ValidationError('你还没有队伍。')
+    if team.captain_id != participant.pk:
+        raise PermissionDenied
+    if team.members.exclude(pk=participant.pk).exists():
+        raise ValidationError('队伍里还有队友，请先交接队长或让队友离队。')
+    if Project.objects.filter(team=team).exists():
+        raise ValidationError('这支队伍已经建过作品，不能解散。请联系主办方处理。')
+    team.state = 'dissolved'
+    team.recruiting = False
+    team.save(update_fields=['state', 'recruiting', 'updated'])
+    JoinRequest.objects.filter(team=team, state='pending').update(state='declined')
+    participant.team = None
+    participant.looking_for_team = True
+    participant.save(update_fields=['team', 'looking_for_team', 'updated'])
+    audit(hackathon, participant.user, '解散队伍', team.code)
+
+
+@transaction.atomic
+def withdraw_application(hackathon, participant, application):
+    """The applicant can take a pending request back; the captain keeps their own list."""
+    hackathon = lock_event(hackathon)
+    require_team_open(hackathon)
+    application = JoinRequest.objects.select_for_update().get(pk=application.pk, hackathon=hackathon)
+    if application.participant_id != participant.pk:
+        raise PermissionDenied
+    if application.state != 'pending':
+        raise ValidationError('这条申请已经有结果，不能再撤回。')
+    application.state = 'withdrawn'
+    application.save(update_fields=['state', 'updated'])
+    audit(hackathon, participant.user, '撤回组队申请', application.team.code)
+
+
 def submission_errors(project, pending_kinds=()):
     errors = []
     if (

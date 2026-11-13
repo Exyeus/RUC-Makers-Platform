@@ -253,7 +253,12 @@ class JoinRequest(EventRecord):
     state = models.CharField(
         max_length=12,
         default='pending',
-        choices=[('pending', '待处理'), ('accepted', '已加入'), ('declined', '已婉拒')],
+        choices=[
+            ('pending', '待处理'),
+            ('accepted', '已加入'),
+            ('declined', '已婉拒'),
+            ('withdrawn', '已撤回'),
+        ],
     )
 
     class Meta:

@@ -33,6 +33,7 @@ from eventyay.hackathon.models import (
     Asset,
     AuditEntry,
     BonusRule,
+    CommunityPost,
     DemoSlot,
     Hackathon,
     JoinRequest,
@@ -112,6 +113,13 @@ NAVIGATION_ALIASES = {
     'judge-new': 'staff',
     'task-new': 'tasks',
     'task-edit': 'tasks',
+}
+# 申请人看到的申请结果：把「待处理」写成人能判断下一步的说法。
+APPLICATION_STATE_LABELS = {
+    'pending': '等待队长回复',
+    'accepted': '已通过，已加入该队伍',
+    'declined': '已被婉拒',
+    'withdrawn': '已撤回',
 }
 
 
@@ -476,12 +484,42 @@ def teams(request):
     applications = []
     if own and own.captain_id == request.participant.pk:
         applications = JoinRequest.objects.filter(team=own, state='pending').select_related('participant')
+    # 申请人自己的进度：申请之后的结果只有这里能看见，撤回也在这里。
+    my_applications = (
+        JoinRequest.objects.filter(hackathon=h, participant=request.participant).select_related('team')
+        if request.participant
+        else JoinRequest.objects.none()
+    )
+    my_application_by_team = {item.team_id: item for item in my_applications}
+    for item in my_applications:
+        item.label = APPLICATION_STATE_LABELS.get(item.state, item.get_state_display())
+    teams_qs = list(teams_qs)
+    for team in teams_qs:
+        application = my_application_by_team.get(team.pk)
+        team.applied_state = application.state if application else ''
+        team.applied_id = application.pk if application else ''
+        team.applied_label = APPLICATION_STATE_LABELS.get(application.state, '') if application else ''
+    # 自己的交流卡片（含草稿）：草稿只有作者能找回，广场里看不到。
+    my_posts = (
+        CommunityPost.objects.filter(hackathon=h, author=request.participant)
+        if request.participant
+        else CommunityPost.objects.none()
+    )
+    own_solo = bool(
+        own
+        and own.captain_id == request.participant.pk
+        and not own.members.exclude(pk=request.participant.pk).exists()
+    )
     return page(
         request,
         'teams',
         teams=teams_qs,
         own_team=own,
         applications=applications,
+        my_applications=my_applications,
+        my_posts=my_posts,
+        own_solo=own_solo,
+        application_state_labels=APPLICATION_STATE_LABELS,
         own_members=own.members.all() if own else [],
         query=query,
         selected_track=track,
@@ -537,25 +575,36 @@ def team_action(request):
     action = request.POST.get('action')
     if h.matching_enabled:
         return redirect(url(h, 'matching'))
+    message = '组队操作已完成。'
     try:
         with transaction.atomic():
             h = services.lock_event(h)
             services.require_team_open(h)
             if action == 'leave':
                 services.leave_team(h, participant)
+                message = '已离开队伍，可以在组队广场重新申请或发起新队伍。'
+            elif action == 'dissolve':
+                services.dissolve_team(h, participant)
+                message = '队伍已解散，邀请码已作废。你现在是自由状态，可以重新申请其他队伍或发起新队伍。'
             elif action == 'invite':
                 team = get_object_or_404(Team, hackathon=h, invite_code=request.POST.get('code', '').strip())
                 services.join_team(h, participant, team, invite_code=team.invite_code)
+                message = '已加入队伍。'
             elif action == 'apply':
                 if participant.team_id:
                     raise ValidationError('你已在队伍中，无法申请另一支队伍。')
                 team = get_object_or_404(Team, hackathon=h, pk=request.POST.get('team'), recruiting=True)
-                message = request.POST.get('message', '').strip()
-                if not message or len(message) > 300:
+                note = request.POST.get('message', '').strip()
+                if not note or len(note) > 300:
                     raise ValidationError('请填写 1–300 字的申请说明。')
                 JoinRequest.objects.update_or_create(
-                    hackathon=h, participant=participant, team=team, defaults={'message': message, 'state': 'pending'}
+                    hackathon=h, participant=participant, team=team, defaults={'message': note, 'state': 'pending'}
                 )
+                message = '申请已发送。队长的回复会出现在「我发出的申请」里，你也可以随时撤回。'
+            elif action == 'withdraw':
+                application = get_object_or_404(JoinRequest, hackathon=h, pk=request.POST.get('application'))
+                services.withdraw_application(h, participant, application)
+                message = '申请已撤回，队长那边不会再看到这条申请。'
             elif action in {'accept', 'decline'}:
                 application = get_object_or_404(
                     JoinRequest.objects.select_related('team', 'participant'),
@@ -567,9 +616,11 @@ def team_action(request):
                     raise PermissionDenied
                 if action == 'accept':
                     services.join_team(h, application.participant, application.team, application=application)
+                    message = f'已同意 {application.participant.name} 加入，申请人那边会看到结果。'
                 else:
                     application.state = 'declined'
                     application.save(update_fields=['state', 'updated'])
+                    message = f'已婉拒 {application.participant.name} 的申请，申请人那边会看到结果。'
             elif action == 'transfer':
                 team = get_object_or_404(Team, hackathon=h, captain=participant)
                 member = get_object_or_404(Participant, hackathon=h, team=team, pk=request.POST.get('member'))
@@ -577,13 +628,15 @@ def team_action(request):
                 team.roster_version += 1
                 team.save(update_fields=['captain', 'roster_version', 'updated'])
                 services.audit(h, request.user, '转交队长', team.code, member.code)
+                message = f'队长已交接给 {member.name}。'
             elif action == 'rotate':
                 team = get_object_or_404(Team, hackathon=h, captain=participant)
                 team.invite_code = secrets.token_urlsafe(12)
                 team.save(update_fields=['invite_code', 'updated'])
+                message = '邀请码已重新生成，旧邀请码不再有效。'
             else:
                 raise ValidationError('未知组队操作。')
-        messages.success(request, '组队操作已完成。')
+        messages.success(request, message)
     except ValidationError as error:
         report_validation(request, error)
     return redirect(url(h, 'teams'))
