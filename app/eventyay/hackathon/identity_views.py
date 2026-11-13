@@ -22,6 +22,7 @@ from eventyay.hackathon.identity_forms import (
     AccountPreferencesForm,
     AdmissionCSVForm,
     AdmissionGrantForm,
+    AdmissionModeForm,
     ChangeEmailForm,
     IdentifierForm,
     StudentBindingForm,
@@ -45,7 +46,7 @@ def entry(request, template, **context):
             **context,
         },
     )
-    response['Referrer-Policy'] = 'no-referrer'
+    response['Referrer-Policy'] = 'same-origin'
     response['Cache-Control'] = 'private, no-store'
     return response
 
@@ -212,7 +213,7 @@ def unsubscribe(request, hackathon_slug=None):
             'done': done,
         },
     )
-    response['Referrer-Policy'] = 'no-referrer'
+    response['Referrer-Policy'] = 'same-origin'
     response['Cache-Control'] = 'private, no-store'
     return response
 
@@ -280,6 +281,26 @@ def admission_manage(request):
         request.POST if operation == 'preview' else None, request.FILES if operation == 'preview' else None
     )
     grant_form = AdmissionGrantForm(request.POST if operation == 'grant' else None)
+    mode_form = AdmissionModeForm(
+        request.POST if operation == 'mode' else None,
+        initial={'open_testing': identity.open_testing(request.hackathon)},
+        prefix='mode',
+    )
+    if operation == 'mode' and mode_form.is_valid():
+        enabled = mode_form.cleaned_data['open_testing']
+        request.hackathon.admission_required = True
+        request.hackathon.save(update_fields=['admission_required', 'updated'])
+        request.hackathon.event.settings.set('hackathon_open_testing', enabled)
+        audit(
+            request.hackathon,
+            request.user,
+            '切换活动准入模式',
+            request.hackathon.slug,
+            f'open_testing={enabled}; {mode_form.cleaned_data["reason"]}',
+        )
+        messages.success(request, '已开放测试，注册账号可进入活动。' if enabled else '已恢复通过名单筛选准入。')
+        return redirect(route(request, 'admission-manage'))
+
     if operation == 'preview' and upload_form.is_valid():
         try:
             rows = parse_csv(upload_form.cleaned_data['file'])
@@ -321,6 +342,8 @@ def admission_manage(request):
         title='通过名单与准入',
         upload_form=upload_form,
         grant_form=grant_form,
+        mode_form=mode_form,
+        open_testing=identity.open_testing(request.hackathon),
         preview=preview,
         grants=AdmissionGrant.objects.filter(hackathon=request.hackathon).order_by('student_id'),
     )

@@ -48,6 +48,7 @@ def event_view(access='public', auth_shell=False, admission_public=False):
                 raise Http404
             with scope(event=hackathon.event), timezone.override(hackathon.event.timezone):
                 request.hackathon = hackathon
+                request.hackathon_open_testing = identity.open_testing(hackathon)
                 request.hackathon_organizer = is_organizer(request.user, hackathon)
                 request.hackathon_roles = set()
                 request.hackathon_shell = False

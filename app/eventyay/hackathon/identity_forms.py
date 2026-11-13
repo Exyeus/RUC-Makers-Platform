@@ -143,6 +143,15 @@ class AdmissionCSVForm(forms.Form):
         return upload
 
 
+class AdmissionModeForm(forms.Form):
+    open_testing = forms.BooleanField(
+        label='开放测试：已注册账号无需通过名单即可进入活动',
+        required=False,
+        help_text='取消后恢复学号、已验证邮箱及通过名单核验；工作人员角色权限始终单独校验。',
+    )
+    reason = forms.CharField(label='切换原因', max_length=250)
+
+
 class AdmissionGrantForm(forms.Form):
     student_id = forms.CharField(label='学号', max_length=32)
     email = forms.EmailField(label='原报名邮箱', max_length=190, required=False)

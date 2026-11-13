@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 DENIED = '您的学号未通过本届黑客松活动筛选，暂无法进入活动主页。如有疑问，请联系组委会。'
 
 
+def open_testing(hackathon):
+    return hackathon.event.settings.get('hackathon_open_testing', default=False, as_type=bool)
+
+
 def email_verified(user):
     return bool(
         user.is_authenticated
@@ -38,7 +42,7 @@ def email_verified(user):
 def admitted(user, hackathon):
     if not user.is_authenticated or not user.is_active or user.is_spam:
         return False
-    if not hackathon.admission_required:
+    if open_testing(hackathon) or not hackathon.admission_required:
         return True
     if not email_verified(user):
         return False
@@ -57,6 +61,8 @@ def admitted(user, hackathon):
 def public_status(user, hackathon):
     if not user.is_authenticated:
         return ''
+    if open_testing(hackathon):
+        return '当前为开放测试模式，注册后可体验活动功能；建议验证邮箱以便找回账号。'
     if not email_verified(user):
         return '请先验证邮箱；注册账号不代表已取得本届黑客松参赛资格。'
     if not StudentAccount.objects.filter(user=user).exists():

@@ -1,7 +1,11 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
 <section class="page-heading"><div><h1>通过名单与准入</h1><p>先在站外完成报名筛选，再导入本届通过名单。账号注册不代表取得参赛资格。</p></div></section>
-<section class="panel"><h2>当前准入规则</h2><p>{% if hackathon.admission_required %}已启用名单准入。{% else %}本活动未启用名单准入。{% endif %}选手须验证邮箱，绑定学号，并与通过名单中的原报名邮箱匹配；人工核验指定账号除外。工作人员按原角色授权。</p><p>CSV 示例（学号按文本保存，保留前导零）：</p><pre>student_id,email,approved
+<section class="panel"><h2>注册与活动访问模式</h2>
+<p>{% if open_testing %}<strong>当前：开放测试</strong>，注册后可进入活动，无需在通过名单中。{% else %}<strong>当前：通过名单筛选</strong>，注册仍开放，进入活动须通过资格核验。{% endif %}主办方、评委等角色权限不随此开关改变。</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="operation" value="mode">{% include 'hackathon/form_fields.html' with form=mode_form %}<button class="button" type="submit">保存准入模式</button></form>
+</section>
+<section class="panel"><h2>当前准入规则</h2><p>{% if open_testing %}以下名单规则在开放测试期间暂不执行，关闭测试后恢复。{% elif hackathon.admission_required %}已启用名单准入。{% else %}本活动未启用名单准入。{% endif %}选手须验证邮箱，绑定学号，并与通过名单中的原报名邮箱匹配；人工核验指定账号除外。工作人员按原角色授权。</p><p>CSV 示例（学号按文本保存，保留前导零）：</p><pre>student_id,email,approved
 2026000001,student@example.org,true</pre><p>approved=false 撤销资格；导入只更新文件中列出的学号，不会删除其他记录。请勿把尚未筛选的报名表当作通过名单。</p></section>
 <div class="two-column">
 <section class="panel"><h2>导入名单</h2><form method="post" enctype="multipart/form-data">{% csrf_token %}<input type="hidden" name="operation" value="preview">{% include 'hackathon/form_fields.html' with form=upload_form %}<button class="button" type="submit">预览名单</button></form>

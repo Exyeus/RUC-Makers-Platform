@@ -81,6 +81,7 @@
           </nav>
         {% endif %}
         <div class="topbar-actions">
+          {% if request.hackathon_open_testing %}<span class="tag orange">开放测试</span>{% endif %}
           <a class="icon-button topbar-icon" href="{% url 'hackathon:announcements' hackathon.slug %}" aria-label="通知公告" title="通知公告">
             <svg>
               <use href="#i-bell" />
