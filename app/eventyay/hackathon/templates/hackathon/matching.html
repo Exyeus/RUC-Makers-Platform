@@ -1,22 +1,23 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
+<div class="market-refresh">
   <section class="page-heading">
     <div><div class="eyebrow">PEOPLE × IDEA × TEAM</div><h1>{{ title }}</h1><p>发起项目、加入项目、先探索或单人参赛。名单冻结：{{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}。</p></div>
-    <a class="button secondary" href="{% url 'hackathon:matching-profile' hackathon.slug %}">我的匹配资料</a>
+    <a class="button secondary" href="{% url 'hackathon:matching-profile' hackathon.slug %}">匹配资料与隐私设置</a>
   </section>
   <p><a href="{% url 'hackathon:teams' hackathon.slug %}">← 返回组队广场 · 交流与作品池</a></p>
-  <nav class="actions panel" aria-label="组队广场 导航">
+  <nav class="square-tabs panel market-tabs" aria-label="组队广场导航">
     <a href="#ideas">找项目</a><a href="#people">找队友</a><a href="?saved=1#ideas">我的收藏</a><a href="#progress">我的组队进度</a>
-    <a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布 Idea</a>
-    <a href="{% url 'hackathon:proposal-create' hackathon.slug %}">提出完整名单</a>
+    {% if hackathon.matching_idea_min_chars %}<a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布 Idea</a>{% endif %}
+    {% if hackathon.matching_roster_enabled %}<a href="{% url 'hackathon:proposal-create' hackathon.slug %}">提出完整名单</a>{% else %}<a href="{% url 'hackathon:teams' hackathon.slug %}">创建 / 加入队伍</a>{% endif %}
     {% if is_organizer %}<a href="{% url 'hackathon:matching-operations' hackathon.slug %}">运营工作台</a>{% endif %}
   </nav>
   {% if request.GET.saved %}<p class="panel">正在查看收藏。<a href="?">查看全部项目与伙伴</a></p>{% endif %}
   <section aria-labelledby="recommendation-heading">
-    <div class="section-heading outside"><div><h2 id="recommendation-heading">值得聊聊</h2><p>基于双方需求、共同兴趣与时间；推荐不代表成功概率。</p></div><div class="actions"><a href="?target=people">推荐伙伴</a><a href="?target=teams">推荐队伍</a></div></div>
+    <div class="section-heading outside"><div><h2 id="recommendation-heading">值得聊聊</h2><p>基于双方授权的方向、技能、时间、目标与协作偏好；队伍结合现有成员计算，仅推荐开放且有空位的队伍。契合度是规则评分，不代表成功概率。</p></div><div class="actions"><a href="?target=people">推荐伙伴</a><a href="?target=teams">推荐队伍</a></div></div>
     <div class="card-grid">
       {% for result in recommendations.results %}
-        <article class="panel"><h3>{{ result.name }}</h3>
+        <article class="panel"><h3>{{ result.name }}</h3><p><strong>{{ result.compatibility_label }}</strong> · 契合度 {{ result.compatibility }} / 100</p><p class="muted">可用资料覆盖 {{ result.coverage_percent }}% · 只使用双方授权字段</p>
           {% for reason in result.reasons %}<p>{{ reason.public_text }}</p>{% endfor %}
           {% if result.unknown_fields %}<p class="muted">部分资料尚待确认，可先交流。</p>{% endif %}
           {% if result.target_type == 'teams' %}
@@ -30,7 +31,7 @@
     </div>
   </section>
   <section id="ideas" aria-labelledby="ideas-heading">
-    <div class="section-heading outside"><h2 id="ideas-heading">作品池 · 找项目</h2><a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布我的 Idea</a></div>
+    <div class="section-heading outside"><h2 id="ideas-heading">作品池 · 找项目</h2>{% if hackathon.matching_idea_min_chars %}<a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布我的 Idea</a>{% endif %}</div>
     <div class="card-grid">
       {% for idea in ideas %}
         <article class="panel" id="idea-{{ idea.pk }}"><span class="tag lavender">{{ idea.get_mode_display }}</span><h3>{{ idea.title }}</h3><p><strong>问题：</strong>{{ idea.problem }}</p><p><strong>服务谁：</strong>{{ idea.audience }}</p><p><strong>构想：</strong>{{ idea.solution }}</p>
@@ -44,7 +45,7 @@
   </section>
   <section id="people" aria-labelledby="people-heading">
     <div class="section-heading outside"><h2 id="people-heading">找队友</h2></div>
-    <form method="get" class="filter-bar"><label for="market-q">搜索人员</label><input id="market-q" name="q" value="{{ request.GET.q }}" placeholder="姓名、技能、介绍"><button class="button secondary" type="submit">搜索</button></form>
+    <form method="get" class="filter-bar panel market-search"><label for="market-q">搜索人员</label><input id="market-q" name="q" value="{{ request.GET.q }}" placeholder="姓名、技能、介绍"><button class="button secondary" type="submit">搜索</button></form>
     <div class="card-grid">
       {% for person in people %}
         {% if person.id != participant.pk|stringformat:'s' %}
@@ -66,13 +67,13 @@
     <div class="panel"><p>我的成员编号：<code>{{ participant.pk }}</code> · 资格：{{ participant.get_admission_state_display }} · 正式队伍：{{ participant.team.name|default:'尚未加入' }}</p>
       {% if participant.team.captain_id == participant.pk %}
         <a href="{% url 'hackathon:team-edit' hackathon.slug %}">编辑队伍招募资料</a>
-        {% if own_members|length > 1 %}
+        {% if hackathon.matching_roster_enabled and own_members|length > 1 %}
           <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="operation" value="transfer"><input type="hidden" name="idempotency_key" value="{{ request_key }}:transfer"><label for="successor">交接给当前队友</label><select id="successor" name="participant_id">{% for member in own_members %}{% if member.pk != participant.pk %}<option value="{{ member.pk }}">{{ member.name }}</option>{% endif %}{% endfor %}</select><button type="submit" class="button secondary small">确认队长交接</button></form>
         {% endif %}
       {% endif %}
-      {% if participant.team_id %}<form method="post">{% csrf_token %}<input type="hidden" name="operation" value="leave"><input type="hidden" name="idempotency_key" value="{{ request_key }}:leave"><button type="submit" class="text-button danger">按规则退出队伍</button></form>{% endif %}
+      {% if participant.team_id %}{% if hackathon.matching_roster_enabled %}<form method="post">{% csrf_token %}<input type="hidden" name="operation" value="leave"><input type="hidden" name="idempotency_key" value="{{ request_key }}:leave"><button type="submit" class="text-button danger">按规则退出队伍</button></form>{% else %}<a href="{% url 'hackathon:teams' hackathon.slug %}">管理队伍 / 退出队伍</a>{% endif %}{% endif %}
     </div>
-    {% for intent in progress.intents %}
+    {% for intent in progress.intents %}{% if intent.state == 'accepted' %}<p><a href="{% url 'hackathon:social-chat' hackathon.slug intent.id %}">进入已同意的站内会话</a></p>{% endif %}
       <article class="panel"><h3>合作意向 · {{ intent.state_label }}</h3><p>{{ intent.message }}</p><p class="muted">意向编号 {{ intent.id }}</p>
         {% for person_id, contact in intent.contacts.items %}<p>成员 {{ person_id }} 授权的联系方式：{{ contact }}</p>{% endfor %}
         {% if intent.state == 'pending' %}<form method="post" class="actions">{% csrf_token %}<input type="hidden" name="operation" value="intent-decision"><input type="hidden" name="idempotency_key" value="{{ request_key }}:{{ intent.id }}"><input type="hidden" name="intent_id" value="{{ intent.id }}"><input type="hidden" name="version" value="{{ intent.version }}">
@@ -88,4 +89,5 @@
     <form method="post" class="panel">{% csrf_token %}<input type="hidden" name="operation" value="delete-profile"><input type="hidden" name="idempotency_key" value="{{ request_key }}:delete"><p>删除匹配资料将撤销联系方式授权、联系意向和待确认提案，并清除推荐快照。正式名单与同意审计按活动规则保留。</p><button type="submit" class="text-button danger" data-confirm="确认删除匹配资料并退出匹配池？">删除我的匹配资料</button></form>
     <details class="panel"><summary>操作回执</summary>{% for receipt in receipts %}<p><a href="{% url 'hackathon:matching-receipt' hackathon.slug receipt.pk %}">{{ receipt.created|date:'m-d H:i' }} · {{ receipt.operation }} · {{ receipt.status }}</a></p>{% empty %}<p>尚无操作记录。</p>{% endfor %}</details>
   </section>
+</div>
 {% endblock %}

@@ -3,8 +3,14 @@ from django.urls import include, path
 from eventyay.hackathon import identity_views, accounts, community_views, judging_views, matching_views, upload_views, views
 
 
+from eventyay.hackathon import social_views
+
 app_name = 'hackathon'
 event_patterns = [
+    path('messages/', social_views.inbox, name='social-inbox'),
+    path('messages/privacy/', social_views.privacy, name='social-privacy'),
+    path('messages/<uuid:intent_id>/', social_views.conversation, name='social-chat'),
+    path('manage/reports/', social_views.reports, name='social-reports'),
     path('', views.home, name='home'),
     path('account/login/', accounts.student_auth, name='student-login'),
     path('account/organizer/', accounts.organizer_login, name='organizer-login'),

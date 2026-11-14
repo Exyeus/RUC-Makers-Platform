@@ -10,8 +10,8 @@ from django.db.models import Max
 from django.urls import reverse
 from django.utils import timezone
 
-from eventyay.hackathon.calendar import available_half_hours
 from eventyay.hackathon import identity
+from eventyay.hackathon.calendar import available_half_hours
 from eventyay.hackathon.models import (
     Announcement,
     AuditEntry,
@@ -103,14 +103,18 @@ def save_team(hackathon, participant, form):
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
     if hackathon.admission_required and not identity.admitted(participant.user, hackathon):
         raise ValidationError(identity.DENIED)
-    if hackathon.matching_enabled and not form.instance.created:
+    if hackathon.matching_enabled and hackathon.matching_roster_enabled and not form.instance.created:
         raise ValidationError('请在 组队广场提交完整名单并取得全员确认。')
     current = None
     if form.instance.created:
         current = Team.objects.select_for_update().get(pk=form.instance.pk, hackathon=hackathon)
         if current.captain_id != participant.pk:
             raise PermissionDenied
-        if hackathon.matching_enabled and form.cleaned_data['version'] != current.roster_version:
+        if (
+            hackathon.matching_enabled
+            and hackathon.matching_roster_enabled
+            and form.cleaned_data['version'] != current.roster_version
+        ):
             raise ValidationError('队伍已更新，请刷新后再修改招募资料。')
     elif participant.team_id:
         raise ValidationError('你已经加入队伍。请先离队，或由队长管理现有队伍。')
@@ -136,7 +140,7 @@ def save_team(hackathon, participant, form):
 def join_team(hackathon, participant, team, *, invite_code=None, application=None):
     hackathon = lock_event(hackathon)
     require_team_open(hackathon)
-    if hackathon.matching_enabled:
+    if hackathon.matching_enabled and hackathon.matching_roster_enabled:
         raise ValidationError('请在 组队广场提交完整名单并取得全员确认。')
     team = Team.objects.select_for_update().get(pk=team.pk, hackathon=hackathon)
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
@@ -160,7 +164,7 @@ def join_team(hackathon, participant, team, *, invite_code=None, application=Non
 @transaction.atomic
 def leave_team(hackathon, participant):
     hackathon = lock_event(hackathon)
-    if hackathon.matching_enabled:
+    if hackathon.matching_enabled and hackathon.matching_roster_enabled:
         raise ValidationError('请在 组队广场按名单政策退出队伍。')
     require_team_open(hackathon)
     participant = Participant.objects.select_for_update(of=('self',)).select_related('team').get(pk=participant.pk)
@@ -171,6 +175,53 @@ def leave_team(hackathon, participant):
     audit(hackathon, participant.user, '离开队伍', participant.team.code)
     participant.team = None
     participant.save(update_fields=['team', 'updated'])
+
+
+@transaction.atomic
+def dissolve_team(hackathon, participant):
+    """Let a captain who is alone in the team step out before the freeze.
+
+    A team with other members still needs a handover, and a team that already
+    built a project needs the organizer: dissolving would take the project
+    with it, so the exit stays available only while nothing depends on it.
+    """
+    hackathon = lock_event(hackathon)
+    if hackathon.matching_enabled and hackathon.matching_roster_enabled:
+        raise ValidationError('请在 组队广场按名单政策退出队伍。')
+    require_team_open(hackathon)
+    participant = Participant.objects.select_for_update(of=('self',)).select_related('team').get(pk=participant.pk)
+    team = participant.team
+    if team is None:
+        raise ValidationError('你还没有队伍。')
+    if team.captain_id != participant.pk:
+        raise PermissionDenied
+    if team.members.exclude(pk=participant.pk).exists():
+        raise ValidationError('队伍里还有队友，请先交接队长或让队友离队。')
+    if Project.objects.filter(team=team).exists():
+        raise ValidationError('这支队伍已经建过作品，不能解散。请联系主办方处理。')
+    team.state = 'dissolved'
+    team.recruiting = False
+    team.save(update_fields=['state', 'recruiting', 'updated'])
+    JoinRequest.objects.filter(team=team, state='pending').update(state='declined')
+    participant.team = None
+    participant.looking_for_team = True
+    participant.save(update_fields=['team', 'looking_for_team', 'updated'])
+    audit(hackathon, participant.user, '解散队伍', team.code)
+
+
+@transaction.atomic
+def withdraw_application(hackathon, participant, application):
+    """The applicant can take a pending request back; the captain keeps their own list."""
+    hackathon = lock_event(hackathon)
+    require_team_open(hackathon)
+    application = JoinRequest.objects.select_for_update().get(pk=application.pk, hackathon=hackathon)
+    if application.participant_id != participant.pk:
+        raise PermissionDenied
+    if application.state != 'pending':
+        raise ValidationError('这条申请已经有结果，不能再撤回。')
+    application.state = 'withdrawn'
+    application.save(update_fields=['state', 'updated'])
+    audit(hackathon, participant.user, '撤回组队申请', application.team.code)
 
 
 def submission_errors(project, pending_kinds=()):
@@ -222,9 +273,9 @@ def project_status(project, uploads=None):
     state = project.state
     if state == Project.State.QUEUED:
         tasks = project.uploads.filter(state='uploading') if uploads is None else uploads
-        stalled = any(
-            task.expires_at <= timezone.now() for task in tasks
-        ) or project.hackathon.freeze_at <= timezone.now()
+        stalled = (
+            any(task.expires_at <= timezone.now() for task in tasks) or project.hackathon.freeze_at <= timezone.now()
+        )
         if stalled:
             return {
                 'key': 'upload_stalled',
@@ -687,14 +738,38 @@ PUBLISH_ACTIONS = {
 }
 
 PUBLISH_SWITCHES = (
-    ('is_public', '活动公开', 'open-event', 'hide-event', '所有访客与已登录选手',
-     '活动页、日程、通知和教程对所有人可读；关闭后只有主办与工作人员能进。'),
-    ('gallery_open', '作品展厅', 'open-gallery', 'close-gallery', '所有访客',
-     '公开已通过审核且本人同意展示的作品；未勾选同意展示的作品仍然不可见。'),
-    ('judging_open', '评委打分', 'open-judging', 'close-judging', '评委',
-     '评委可进入打分页；关闭后打分页只读，已保存的分数全部保留。'),
-    ('results_published', '成绩公布', 'publish-results', 'unpublish-results',
-     '所有访客与全部评委', '公开名次、平均分与评语；公布后评分、作品审核与路演调度即被锁定。'),
+    (
+        'is_public',
+        '活动公开',
+        'open-event',
+        'hide-event',
+        '所有访客与已登录选手',
+        '活动页、日程、通知和教程对所有人可读；关闭后只有主办与工作人员能进。',
+    ),
+    (
+        'gallery_open',
+        '作品展厅',
+        'open-gallery',
+        'close-gallery',
+        '所有访客',
+        '公开已通过审核且本人同意展示的作品；未勾选同意展示的作品仍然不可见。',
+    ),
+    (
+        'judging_open',
+        '评委打分',
+        'open-judging',
+        'close-judging',
+        '评委',
+        '评委可进入打分页；关闭后打分页只读，已保存的分数全部保留。',
+    ),
+    (
+        'results_published',
+        '成绩公布',
+        'publish-results',
+        'unpublish-results',
+        '所有访客与全部评委',
+        '公开名次、平均分与评语；公布后评分、作品审核与路演调度即被锁定。',
+    ),
 )
 
 PUBLISH_LABELS = {item[0]: item[1] for item in PUBLISH_SWITCHES}
@@ -831,9 +906,16 @@ def date_drift(hackathon):
 
 def publish_readiness(hackathon):
     h = hackathon
-    missing_info = [label for label, value in (
-        ('活动名称', h.name), ('一句话介绍', h.tagline), ('简介', h.description), ('场地', h.venue)
-    ) if not (value or '').strip()]
+    missing_info = [
+        label
+        for label, value in (
+            ('活动名称', h.name),
+            ('一句话介绍', h.tagline),
+            ('简介', h.description),
+            ('场地', h.venue),
+        )
+        if not (value or '').strip()
+    ]
     published_tracks = Track.published(h).count()
     draft_tracks = Track.objects.filter(hackathon=h, state=Track.State.DRAFT).count()
     required_guides = Resource.published(h).filter(required=True).count()

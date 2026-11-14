@@ -558,6 +558,7 @@ function mountLandingScene() {
 
     function mountArtifactControls() {
         const controls = document.querySelector('[data-artifact-controls]');
+        if (!controls) return;
         ARTIFACT_TEMPLATES.forEach((template, index) => {
             const button = document.createElement('button');
             button.type = 'button';
@@ -588,7 +589,7 @@ function mountLandingScene() {
     function updateAnimation() {
         cancelAnimationFrame(frame);
         const controls = document.querySelector('[data-artifact-controls]');
-        controls.hidden = reducedMotion.matches || contextLost;
+        if (controls) controls.hidden = reducedMotion.matches || contextLost;
         if (document.hidden || contextLost) {
             clock.stop();
             return;

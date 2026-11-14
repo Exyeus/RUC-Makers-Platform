@@ -10,6 +10,7 @@ from django.utils import timezone
 from django_scopes import ScopedManager
 
 from eventyay.base.models.mixins import TimestampedModel
+from eventyay.hackathon.matching_privacy import default_matching_fields, default_public_fields
 from eventyay.hackathon.scoring import CRITERIA, weighted_total
 from eventyay.hackathon.storage import PrivateStorage
 
@@ -244,7 +245,12 @@ class JoinRequest(EventRecord):
     state = models.CharField(
         max_length=12,
         default='pending',
-        choices=[('pending', '待处理'), ('accepted', '已加入'), ('declined', '已婉拒')],
+        choices=[
+            ('pending', '待处理'),
+            ('accepted', '已加入'),
+            ('declined', '已婉拒'),
+            ('withdrawn', '已撤回'),
+        ],
     )
 
     class Meta:
@@ -565,6 +571,9 @@ class MatchingProfile(EventRecord):
         PAUSED = 'paused', '暂停匹配 / 单人参赛'
 
     participant = models.OneToOneField(Participant, on_delete=models.CASCADE, related_name='matching_profile')
+    matching_fields = models.JSONField(default=default_matching_fields, blank=True)
+    public_fields = models.JSONField(default=default_public_fields, blank=True)
+    collaboration_style = models.JSONField(default=list, blank=True)
     skills = models.JSONField(default=dict, blank=True)
     needs = models.JSONField(default=dict, blank=True)
     interests = models.JSONField(default=list, blank=True)
@@ -777,6 +786,9 @@ class CommunityPost(EventRecord):
 
 
 class CommunityResponse(EventRecord):
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
+    removed = models.BooleanField(default=False)
+
     post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE, related_name='responses')
     author = models.ForeignKey(Participant, on_delete=models.PROTECT)
     body = models.TextField('我的回应', max_length=1000)
@@ -819,3 +831,44 @@ class BonusClaim(EventRecord):
 
 # Register account-side models after EventRecord is available.
 from eventyay.hackathon.account_models import AccountActionToken, AccountSecurity, AdmissionGrant, UpdateDelivery  # noqa: E402,F401
+
+
+class SocialPreference(EventRecord):
+    participant = models.OneToOneField(Participant, on_delete=models.CASCADE, related_name='social_preference')
+    allow_requests = models.BooleanField(default=True)
+    allow_chat = models.BooleanField(default=True)
+    hidden_fields = models.JSONField(default=list, blank=True)
+    contacts = models.JSONField(default=dict, blank=True)
+
+
+class ChatMessage(EventRecord):
+    intent = models.ForeignKey(MatchIntent, on_delete=models.CASCADE, related_name='chat_messages')
+    author = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    body = models.TextField(max_length=2000)
+    client_id = models.UUIDField()
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['intent', 'author', 'client_id'], name='hack_chat_retry')]
+        indexes = [models.Index(fields=['intent', 'id'], name='hack_chat_cursor')]
+
+
+class ContactGrant(EventRecord):
+    intent = models.ForeignKey(MatchIntent, on_delete=models.CASCADE)
+    owner = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    fields = models.JSONField(default=list)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['intent', 'owner'], name='hack_contact_grant')]
+
+
+class PostReaction(EventRecord):
+    post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE)
+    author = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['post', 'author'], name='hack_post_like')]
+
+
+class SocialReport(EventRecord):
+    reporter = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    target_type = models.CharField(max_length=16)
+    target_id = models.CharField(max_length=64)
+    reason = models.TextField(max_length=1000)
+    resolved = models.BooleanField(default=False)

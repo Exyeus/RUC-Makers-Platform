@@ -125,6 +125,9 @@ def test_contact_is_separate_from_roster_and_private(market):
     assert matching.shared_contacts(market, a, item) == {}
     matching.decide_intent(market, b.user, item.pk, 'accept', 1)
     item.refresh_from_db()
+    assert matching.shared_contacts(market, a, item) == {}
+    from eventyay.hackathon.models import ContactGrant
+    ContactGrant.objects.create(hackathon=market,intent=item,owner=b,fields=['legacy'])
     assert matching.shared_contacts(market, a, item) == {str(b.pk): 'explicit-wechat'}
     a.refresh_from_db()
     assert a.team_id is None

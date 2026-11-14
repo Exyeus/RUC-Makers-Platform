@@ -1,0 +1,5 @@
+{% extends "hackathon/errors/layout.html" %}
+{% block title %}安全验证未通过{% endblock %}
+{% block code %}错误代号 403 · CSRF{% endblock %}
+{% block heading %}安全验证未通过{% endblock %}
+{% block explanation %}<p>403 CSRF 表示提交请求时的安全验证未通过，可能是页面停留过久或浏览器未保存 Cookie。</p><p>回到登录页面并刷新后重新填写；确认浏览器允许本站 Cookie。如果问题持续，请关闭旧标签页后重新打开。</p>{% endblock %}

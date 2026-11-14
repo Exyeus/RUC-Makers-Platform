@@ -28,14 +28,14 @@
       <section class="content-section" id="learning" aria-labelledby="learning-title">
         <div class="section-heading">
           <div><h2 id="learning-title">给创造力，充一点电</h2><p>从零起步也没关系，我们准备好了。</p></div>
-          <a class="text-link" href="{% url 'hackathon:resources' hackathon.slug %}">全部教程</a>
+          <a class="text-link" href="{% url 'hackathon:resources' hackathon.slug %}">全部教程 ↗</a>
         </div>
         <div class="learning-grid">
           {% for resource in featured_resources %}
             <a class="glass-card learning-card" href="{% url 'hackathon:resource' hackathon.slug resource.pk %}">
               <div class="learning-cover" aria-hidden="true">{% cycle '&lt;/&gt;' '⌘' '▷' %}</div>
               <div class="learning-copy">
-                <span class="eyebrow">{{ resource.get_category_display }} · {{ resource.minutes }} MIN READ{% if resource.required %} · 必读{% endif %}</span>
+                <span class="eyebrow">{{ resource.get_category_display }} · 约 {{ resource.minutes }} 分钟{% if resource.required %} · 必读{% endif %}</span>
                 <h3>{{ resource.title }}</h3>
                 <p>{{ resource.summary|truncatechars:100 }}</p>
               </div>
@@ -45,7 +45,7 @@
       </section>
       <section class="content-section updates-grid" id="updates" aria-label="活动动态">
         <section class="glass-card update-card" aria-labelledby="notices-title">
-          <div class="section-heading"><h2 id="notices-title">最新通知</h2><a class="text-link" href="{% url 'hackathon:announcements' hackathon.slug %}" aria-label="查看全部通知">全部通知</a></div>
+          <div class="section-heading"><h2 id="notices-title">最新通知</h2><a class="text-link" href="{% url 'hackathon:announcements' hackathon.slug %}" aria-label="查看全部通知">全部通知 ↗</a></div>
           {% for notice in notices %}
             <a class="notice" href="{% url 'hackathon:announcements' hackathon.slug %}#notice-{{ notice.pk }}">
               <span class="eyebrow">{% if notice.pinned %}<span class="notice-tag">置顶</span> · {% endif %}<time datetime="{{ notice.created|date:'c' }}">{{ notice.created|date:'m.d' }}</time></span>
@@ -57,7 +57,7 @@
           {% endfor %}
         </section>
         <section class="glass-card update-card" aria-labelledby="schedule-title">
-          <div class="section-heading"><h2 id="schedule-title">接下来</h2><a class="text-link" href="{% url 'hackathon:schedule' hackathon.slug %}">完整日程</a></div>
+          <div class="section-heading"><h2 id="schedule-title">接下来</h2><a class="text-link" href="{% url 'hackathon:schedule' hackathon.slug %}">完整日程 ↗</a></div>
           <div class="timeline">
             {% for item in upcoming %}
               <div class="timeline-item">

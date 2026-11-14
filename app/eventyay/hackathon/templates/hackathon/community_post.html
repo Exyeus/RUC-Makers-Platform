@@ -18,16 +18,21 @@
       <p><a href="{% url 'hackathon:post-edit' hackathon.slug post.pk %}">编辑 / 关闭回应 / 设为草稿</a></p>
     {% endif %}
   </article>
+  {% if participant and post.is_public %}<form method="post" class="panel">{% csrf_token %}<span>{{ like_count }} 人点赞</span>{% if liked %}<button name="action" value="unlike">取消点赞</button>{% else %}<button name="action" value="like">点赞</button>{% endif %}</form>{% endif %}
   <div class="section-heading outside"><h2>围绕这件事聊一聊</h2></div>
   {% for response in responses %}
     <article class="panel">
       <strong>{{ response.author.name }}</strong>
       {% if response.private %}<span class="tag">私密回应</span>{% endif %}
-      <p>{{ response.body|linebreaksbr }}</p>
+      {% if response.removed %}<p class="muted">此回应已撤回。</p>{% else %}{% if response.parent_id %}<p class="muted">回复 #{{ response.parent_id }}</p>{% endif %}<p>{{ response.body|linebreaksbr }}</p>
+{% if not response.private and post.is_open and participant %}<details><summary>回复</summary><form method="post">{% csrf_token %}<input type="hidden" name="parent_id" value="{{ response.pk }}"><label>回复内容<textarea name="body" required maxlength="2000"></textarea></label><label><input type="checkbox" name="private" checked>仅帖子作者和我可见</label><button>发送回复</button></form></details>{% endif %}
+{% if response.author_id == participant.pk or is_organizer %}<form method="post">{% csrf_token %}<input type="hidden" name="response_id" value="{{ response.pk }}"><button name="action" value="remove">撤回回应</button></form>{% endif %}
+{% if participant %}<details><summary>举报此回应</summary><form method="post">{% csrf_token %}<input type="hidden" name="response_id" value="{{ response.pk }}"><input type="hidden" name="action" value="report"><textarea name="reason" required maxlength="1000" aria-label="举报说明"></textarea><button>提交举报</button></form></details>{% endif %}{% endif %}
     </article>
   {% empty %}
     <p>还没有回应。可以分享你的经历，给点建议，或一起试试。</p>
   {% endfor %}
+<nav aria-label="评论分页">{% if response_page.has_previous %}<a href="?page={{ response_page.previous_page_number }}">上一页</a>{% endif %} 第 {{ response_page.number }} 页 {% if response_page.has_next %}<a href="?page={{ response_page.next_page_number }}">下一页</a>{% endif %}</nav>
   {% if post.is_open and post.is_public %}
     <form method="post" class="panel form-panel">
       {% csrf_token %}

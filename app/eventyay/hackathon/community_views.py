@@ -1,24 +1,34 @@
 from django import forms
 from django.contrib import messages
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 
-from eventyay.hackathon import services
+from eventyay.hackathon import services, social
 from eventyay.hackathon.forms import CommunityPostForm, CommunityResponseForm
-from eventyay.hackathon.matching import blocked
-from eventyay.hackathon.models import BonusClaim, BonusRule, CommunityPost, CommunityResponse
+from eventyay.hackathon.matching import blocked, excluded_ids
+from eventyay.hackathon.models import (
+    BonusClaim,
+    BonusRule,
+    CommunityPost,
+    CommunityResponse,
+    PostReaction,
+    SocialReport,
+)
 from eventyay.hackathon.permissions import event_view
 from eventyay.hackathon.views import page, url
 
 
 @event_view('login')
 @require_http_methods(['GET', 'POST'])
+@transaction.atomic
 def post_edit(request, post_id=None):
     h, participant = request.hackathon, request.participant
+    if request.method == 'POST':
+        services.lock_event(h)
     if not participant:
         return redirect(url(h, 'register'))
     post = get_object_or_404(CommunityPost, hackathon=h, pk=post_id, author=participant) if post_id else None
@@ -26,6 +36,12 @@ def post_edit(request, post_id=None):
     initial = {'kind': kind} if not post and kind in CommunityPost.Kind.values else {}
     form = CommunityPostForm(request.POST if request.method == 'POST' else None, instance=post, initial=initial)
     if request.method == 'POST' and form.is_valid():
+        if not post:
+            try:
+                social.rate(CommunityPost.objects.filter(hackathon=h, author=participant), 10, 3600)
+            except ValidationError as error:
+                form.add_error(None, error)
+                return page(request, 'form', form=form, title='分享交流卡片', button='保存')
         post = form.save(commit=False)
         post.hackathon, post.author = h, participant
         post.save()
@@ -58,20 +74,95 @@ def post_detail(request, post_id):
     if request.method == 'POST':
         if not participant:
             return redirect(url(h, 'register'))
-        if not post.is_open:
-            form.add_error(None, '这张卡片已关闭回应。')
-        elif not post.is_public:
-            form.add_error(None, '草稿暂不接受回应。')
-        elif form.is_valid():
-            response = form.save(commit=False)
-            response.hackathon, response.post, response.author = h, post, participant
-            response.save()
-            messages.success(request, '回应已送达。你们可以先交流，再决定是否合作。')
-            return redirect(url(h, 'post-detail', post_id=post.pk))
-    responses = CommunityResponse.objects.filter(hackathon=h, post=post).select_related('author')
+        with transaction.atomic():
+            services.lock_event(h)
+            post.refresh_from_db()
+            if blocked(participant, post.author):
+                raise PermissionDenied
+            action = request.POST.get('action', 'comment')
+            for key in ('response_id', 'parent_id'):
+                if request.POST.get(key) and not request.POST[key].isdigit():
+                    raise Http404
+            try:
+                if action == 'remove':
+                    response = get_object_or_404(
+                        CommunityResponse, hackathon=h, post=post, pk=request.POST.get('response_id')
+                    )
+                    if response.author_id != participant.pk and not request.hackathon_organizer:
+                        raise PermissionDenied
+                    response.body = ''
+                    response.removed = True
+                    response.save(update_fields=['body', 'removed'])
+                elif action == 'report':
+                    target = get_object_or_404(
+                        CommunityResponse, hackathon=h, post=post, pk=request.POST.get('response_id'), removed=False
+                    )
+                    if target.private and participant.pk not in {target.author_id, post.author_id}:
+                        raise PermissionDenied
+                    reason = request.POST.get('reason', '').strip()
+                    if not reason or len(reason) > 1000:
+                        raise ValidationError('请填写1–1000字举报说明。')
+                    social.rate(SocialReport.objects.filter(hackathon=h, reporter=participant), 5, 3600)
+                    SocialReport.objects.create(
+                        hackathon=h,
+                        reporter=participant,
+                        target_type='comment',
+                        target_id=str(target.pk),
+                        reason=reason,
+                    )
+                elif not post.is_public or not post.is_open:
+                    raise ValidationError('这张卡片暂不接受互动。')
+                elif action in {'like', 'unlike'}:
+                    if action == 'like':
+                        social.rate(PostReaction.objects.filter(hackathon=h, author=participant), 30, 60)
+                        PostReaction.objects.get_or_create(hackathon=h, post=post, author=participant)
+                    else:
+                        PostReaction.objects.filter(hackathon=h, post=post, author=participant).delete()
+                elif action == 'comment' and form.is_valid():
+                    social.rate(CommunityResponse.objects.filter(hackathon=h, author=participant), 10, 60)
+                    social.rate(CommunityResponse.objects.filter(hackathon=h, author=participant), 100, 86400)
+                    response = form.save(commit=False)
+                    parent_id = request.POST.get('parent_id')
+                    if parent_id:
+                        parent = get_object_or_404(
+                            CommunityResponse, hackathon=h, post=post, pk=parent_id, private=False, removed=False
+                        )
+                        if blocked(participant, parent.author):
+                            raise PermissionDenied
+                        response.parent = parent
+                    response.hackathon, response.post, response.author = h, post, participant
+                    response.save()
+                elif action != 'comment':
+                    raise ValidationError('无效互动操作。')
+                else:
+                    return page(request, 'community_post', post=post, responses=[], form=form, title=post.title)
+            except ValidationError as error:
+                messages.error(request, '；'.join(error.messages))
+            else:
+                messages.success(request, '已保存。')
+        return redirect(url(h, 'post-detail', post_id=post.pk))
+    responses = CommunityResponse.objects.filter(hackathon=h, post=post).select_related('author', 'parent')
+    if participant:
+        responses = responses.exclude(author_id__in=excluded_ids(h, participant))
     if not request.hackathon_organizer and post.author_id != (participant.pk if participant else None):
         responses = responses.filter(Q(private=False) | Q(author=participant))
-    return page(request, 'community_post', post=post, responses=responses, form=form, title=post.title)
+    from django.core.paginator import Paginator
+
+    response_page = Paginator(responses.order_by('-created'), 50).get_page(request.GET.get('page'))
+    likes = PostReaction.objects.filter(hackathon=h, post=post)
+    if participant:
+        likes = likes.exclude(author_id__in=excluded_ids(h, participant))
+    return page(
+        request,
+        'community_post',
+        post=post,
+        responses=response_page,
+        form=form,
+        title=post.title,
+        response_page=response_page,
+        like_count=likes.count(),
+        liked=likes.filter(author=participant).exists() if participant else False,
+    )
 
 
 class ClaimForm(forms.Form):

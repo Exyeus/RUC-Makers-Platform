@@ -18,6 +18,14 @@
       <button class="button" type="submit">{% if signup %}创建账号并验证邮箱{% else %}登录{% endif %}</button>
     </form>
     {% if not signup %}<p class="signup-link"><a href="{{ password_reset_url }}">忘记密码？通过邮箱找回</a></p>{% endif %}
-    <div class="auth-footer"><a href="{% url 'hackathon:organizer-login' hackathon.slug %}">工作人员入口</a><a href="{% url 'hackathon:judge-login' hackathon.slug %}">评委入口</a><a href="{% url 'hackathon:home' hackathon.slug %}">返回宣传页</a></div>
+    <div class="auth-footer">
+      <details class="auth-more">
+        <summary aria-label="更多登录入口" title="更多登录入口"><span aria-hidden="true">•••</span></summary>
+        <nav aria-label="其他身份登录">
+          <a href="{% url 'hackathon:organizer-login' hackathon.slug %}">工作人员入口</a>
+          <a href="{% url 'hackathon:judge-login' hackathon.slug %}">评委入口</a>
+        </nav>
+      </details>
+    </div>
   {% endif %}
 </section>

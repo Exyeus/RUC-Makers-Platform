@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 
 from eventyay.hackathon.calendar import attendance_hours, available_half_hours
 from eventyay.hackathon.constants import KEYWORD_CHOICES
+from eventyay.hackathon.matching_privacy import MATCH_FIELDS, STYLES, default_matching_fields, default_public_fields
 from eventyay.hackathon.models import Idea, MatchingProfile, Track
 from eventyay.hackathon.widgets import CategorizedTags, UnavailableHoursField
 
@@ -63,11 +64,34 @@ class ProfileForm(forms.Form):
     goal = forms.ChoiceField(label='参赛目标', choices=[('', '尚未确定'), *GOALS], required=False)
     async_ok = forms.BooleanField(label='明确接受异步协作', required=False)
     visibility = forms.ChoiceField(label='资料可见范围', choices=MatchingProfile.Visibility.choices)
+    collaboration_style = forms.MultipleChoiceField(
+        label='性格 / 协作偏好（自愿填写）',
+        choices=STYLES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text='仅比较自述偏好，不推断人格，不代表合作成功概率。',
+    )
+    matching_fields = forms.MultipleChoiceField(
+        label='允许参与匹配计算的字段',
+        choices=MATCH_FIELDS,
+        required=False,
+        initial=default_matching_fields,
+        widget=forms.CheckboxSelectMultiple,
+        help_text='逐项取消即停止用于个人推荐、队伍聚合和集中撮合；可以全部取消。个人标签来自“完善个人资料”，仅在勾选后读取。',
+    )
+    public_fields = forms.MultipleChoiceField(
+        label='允许在匹配广场展示的字段',
+        choices=[('skills', '角色能力'), ('interests', '兴趣 / 方向')],
+        required=False,
+        initial=default_public_fields,
+        widget=forms.CheckboxSelectMultiple,
+        help_text='计算与公开分别授权。协作偏好、目标、具体时间、个人标签不会在推荐卡片公开；姓名与原有公开介绍仍按个人资料设置展示。',
+    )
     opt_in = forms.BooleanField(label='同意将以上资料用于本活动匹配', required=False)
     batch_opt_in = forms.BooleanField(label='主动参加本轮集中撮合（7 天内有效，结果仍需本人确认）', required=False)
     help_requested = forms.BooleanField(label='需要工作人员协助找队伍', required=False)
     contact = forms.CharField(label='交流联系方式（单独授权）', max_length=200, required=False)
-    share_on_accept = forms.BooleanField(label='双方同意交流后向对方披露此联系方式', required=False)
+    share_on_accept = forms.BooleanField(label='允许在站内会话中单独授权此联系方式（同意交流不会自动披露）', required=False)
 
     def __init__(self, *args, hackathon=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -146,6 +170,9 @@ def profile_initial(profile, contact) -> dict:
         return {'visibility': 'paused', 'version': 0}
     return {
         'version': profile.version,
+        'matching_fields': profile.matching_fields,
+        'public_fields': profile.public_fields,
+        'collaboration_style': profile.collaboration_style,
         'independent_roles': [k for k, v in profile.skills.items() if v == 1],
         'supported_roles': [k for k, v in profile.skills.items() if v == 0.5],
         'learning_roles': profile.learning_roles,

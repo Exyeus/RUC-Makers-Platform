@@ -149,6 +149,7 @@
             {{ message }}
           </div>
         {% endfor %}
+        {% if participant %}<p class="panel"><a href="{% url 'hackathon:social-inbox' hackathon.slug %}">站内沟通</a> · <a href="{% url 'hackathon:social-privacy' hackathon.slug %}">展示与沟通隐私</a></p>{% endif %}
         {% block content %}
         {% endblock %}
         <footer class="page-footer">

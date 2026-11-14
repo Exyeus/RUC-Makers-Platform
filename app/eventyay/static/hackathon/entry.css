@@ -1,0 +1,108 @@
+/* Public account entrance: readable forms, campaign information and resources. */
+.entry-page { font-size: 16px; }
+.entry-page main, .entry-page .landing-footer, .entry-page .header-inner { width: min(1280px, calc(100% - 80px)); }
+.entry-page .header-inner { padding: 14px 0; }
+.entry-page .header-login { font-size: 15px; padding: 9px 20px; }
+.entry-page .landing-hero { min-height: calc(100svh - 110px); padding: 64px 0; gap: 0; }
+.entry-page .hero-grid { grid-template-columns: minmax(0, 1.35fr) minmax(360px, 1fr); gap: 64px; align-items: center; }
+.entry-page .campaign-mark { width: 252px; height: 72px; margin: 0 0 24px; object-fit: contain; }
+.entry-page .hero-kicker { font-size: 13px; letter-spacing: 1px; }
+.entry-page h1 { font-family: inherit; font-weight: 750; font-size: clamp(36px, 3.2vw, 50px); letter-spacing: -.04em; line-height: 1.4; margin-top: 28px; }
+.event-edition { display: block; font-size: .53em; font-weight: 500; letter-spacing: .06em; margin-bottom: 8px; }
+.entry-page .hero-tagline { font-family: inherit; font-size: clamp(22px, 2.1vw, 30px); font-weight: 650; line-height: 1.45; color: #d9a5f5; max-width: 560px; margin-top: 18px; }
+.entry-page .hero-facts { grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 36px; }
+.entry-page .hero-facts > div { padding: 18px 20px; min-height: 104px; border-radius: 14px; background: #111021dc; }
+.entry-page .hero-facts > div:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+.entry-page .hero-facts span { font-size: 15px; margin-bottom: 8px; }
+.entry-page .hero-facts strong { font-size: 22px; font-weight: 650; line-height: 1.5; }
+.entry-page .hero-facts small { font-size: 20px; color: inherit; }
+.entry-page .auth-card { padding: 32px; max-width: none; width: 100%; backdrop-filter: none; }
+.entry-page .auth-heading h2 { font-size: 24px; }
+.entry-page .auth-heading a, .entry-page .signup-link { font-size: 16px; }
+.entry-page .auth-intro { font-size: 16px; margin: 24px 0; }
+.entry-page .form-field { margin-top: 22px; }
+.entry-page .form-field label { font-size: 16px; }
+.entry-page .form-field input:not([type='checkbox']) { min-height: 54px; font-size: 18px; }
+.entry-page .field-help, .entry-page .field-error { font-size: 14px; }
+.entry-page .auth-card .button { min-height: 54px; font-size: 18px; justify-content: center; }
+.entry-page .auth-footer { justify-content: flex-end; padding-top: 8px; }
+.auth-more { position: relative; }
+.auth-more summary { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 8px; cursor: pointer; list-style: none; color: #d9bfe8; font-size: 20px; letter-spacing: 3px; }
+.auth-more summary::-webkit-details-marker { display: none; }
+.auth-more summary:hover, .auth-more[open] summary { background: #352341; }
+.auth-more nav { position: absolute; z-index: 5; right: 0; bottom: 52px; min-width: 184px; padding: 8px; border: 1px solid #795088; border-radius: 12px; background: #21172e; box-shadow: 0 8px 32px #0008; }
+.auth-more nav a { display: block; padding: 10px 14px; font-size: 16px; border-radius: 6px; }
+.auth-more nav a:hover { background: #3c2850; }
+.entry-page .landing-footer { font-size: 12px; }
+.entry-page .track-card p, .entry-page .section-heading p { font-size: 16px; }
+.entry-page .track-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.entry-page .track-card, .entry-page .track-card:first-child, .entry-page .track-card:nth-child(2) { grid-column: auto; padding: 26px; }
+.entry-page .content-section { padding-top: 80px; }
+.entry-page .section-heading { align-items: flex-end; gap: 24px; margin-bottom: 28px; }
+.entry-page .section-heading.centered { align-items: center; }
+.entry-page .section-heading h2, .entry-page .closing-section h2 { font-family: inherit; font-size: 32px; font-weight: 700; line-height: 1.4; }
+.entry-page .section-heading p { margin-top: 12px; font-size: 17px; }
+.entry-page .text-link { font-size: 16px; line-height: 1.5; }
+.entry-page .section-heading > .text-link { display: inline-flex; align-items: center; min-height: 44px; flex-shrink: 0; }
+.entry-page .learning-grid { gap: 24px; }
+.entry-page .learning-card { display: flex; flex-direction: column; padding: 28px; background: #131126f2; }
+.entry-page .learning-cover { width: 56px; height: 56px; flex-shrink: 0; border: 1px solid var(--line); border-radius: 14px; background: #302044; font-size: 28px; margin-bottom: 24px; }
+.entry-page .learning-copy { padding: 0; flex: 1; display: flex; flex-direction: column; }
+.entry-page .learning-copy .eyebrow { font-size: 13px; letter-spacing: .03em; line-height: 1.7; }
+.entry-page .learning-copy h3 { font-size: 22px; font-weight: 650; line-height: 1.5; margin-top: 12px; margin-bottom: 18px; text-wrap: pretty; }
+.entry-page .learning-copy p { font-size: 16px; line-height: 1.8; margin-top: auto; }
+.entry-page .updates-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.entry-page .update-card { padding: 32px; background: #131126f2; }
+.entry-page .update-card .section-heading { align-items: center; margin-bottom: 12px; }
+.entry-page .update-card .section-heading h2 { font-size: 26px; }
+.entry-page .notice { padding: 24px 0; }
+.entry-page .notice:last-child { padding-bottom: 0; }
+.entry-page .notice .eyebrow, .entry-page .timeline .eyebrow { font-size: 14px; letter-spacing: .04em; line-height: 1.6; }
+.entry-page .notice h3, .entry-page .timeline h3 { font-size: 20px; font-weight: 600; line-height: 1.5; margin: 12px 0; }
+.entry-page .notice p, .entry-page .timeline p { font-size: 16px; line-height: 1.8; }
+.entry-page .timeline { padding: 20px 0 0 8px; }
+.entry-page .timeline-item { padding: 0 0 32px 24px; }
+.entry-page .timeline-item:last-child { padding-bottom: 0; }
+.entry-page .closing-section p { font-size: 18px; }
+@media (max-width: 1050px) {
+  .entry-page .hero-grid { gap: 32px; grid-template-columns: minmax(0, 1.15fr) minmax(340px, 1fr); }
+  .entry-page .auth-card { padding: 26px; }
+  .entry-page .hero-facts strong { font-size: 20px; }
+  .entry-page .learning-grid { grid-template-columns: 1fr; gap: 16px; }
+  .entry-page .learning-card { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 24px; }
+  .entry-page .learning-cover { margin: 0; }
+  .entry-page .learning-copy p { margin-top: 0; }
+}
+@media (max-width: 760px) {
+  .entry-page main, .entry-page .landing-footer, .entry-page .header-inner { width: calc(100% - 40px); }
+  .entry-page .header-inner { padding-block: 12px; gap: 12px; }
+  .entry-page .header-login { font-size: 14px; padding-inline: 12px; }
+  .entry-page .landing-hero { padding: 32px 0 40px; min-height: auto; }
+  .entry-page .hero-grid { grid-template-columns: 1fr; gap: 32px; }
+  .entry-page .hero-copy { padding: 0; text-align: left; }
+  .entry-page .campaign-mark { width: 210px; height: 60px; margin-bottom: 18px; }
+  .entry-page h1 { font-size: clamp(30px, 6.5vw, 44px); margin-top: 22px; }
+  .entry-page .hero-tagline { font-size: 24px; }
+  .entry-page .hero-facts { margin-top: 24px; gap: 10px; }
+  .entry-page .hero-facts > div { padding: 14px 16px; min-height: 90px; }
+  .entry-page .hero-facts span { font-size: 14px; }
+  .entry-page .hero-facts strong, .entry-page .hero-facts small { font-size: 20px; }
+  .entry-page .auth-card { padding: 24px; scroll-margin-top: 110px; }
+  .entry-page .track-grid { grid-template-columns: 1fr; }
+  .entry-page .content-section { padding-top: 48px; }
+  .entry-page .section-heading { flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .entry-page .section-heading h2, .entry-page .closing-section h2 { font-size: 26px; }
+  .entry-page .section-heading p { font-size: 16px; }
+  .entry-page .learning-card { padding: 22px; gap: 16px; grid-template-columns: 44px minmax(0, 1fr); }
+  .entry-page .learning-cover { width: 44px; height: 44px; font-size: 24px; border-radius: 12px; }
+  .entry-page .learning-copy h3 { font-size: 20px; margin-bottom: 12px; }
+  .entry-page .updates-grid { grid-template-columns: 1fr; gap: 20px; }
+  .entry-page .update-card { padding: 24px; }
+  .entry-page .update-card .section-heading h2 { font-size: 24px; }
+}
+@media (max-width: 360px) {
+  .entry-page .association-logo { width: 150px; height: 46px; }
+  .entry-page .brand { flex-basis: 150px; }
+  .entry-page .header-login { font-size: 13px; padding-inline: 10px; }
+  .entry-page .auth-card { padding: 20px; }
+}

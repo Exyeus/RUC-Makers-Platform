@@ -32,6 +32,8 @@
       </div>
     </fieldset>
   </div>
+  <details class="keyword-disclosure"{% if selected_keyword %} open{% endif %}>
+    <summary><span><strong>伙伴关键词</strong><small>按技能或兴趣进一步筛选{% if selected_keyword %} · 已选：{{ selected_keyword }}{% endif %}</small></span><span class="disclosure-icon" aria-hidden="true"></span></summary>
   <fieldset class="team-filter-keywords">
     <legend>伙伴关键词 <small>选择一个最想找的方向</small></legend>
     <label class="team-filter-chip team-filter-all"><input type="radio" name="keyword" value="" {% if not selected_keyword %}checked{% endif %}><span>不限关键词</span></label>
@@ -48,6 +50,7 @@
       {% endfor %}
     </div>
   </fieldset>
+  </details>
   <div class="team-filters-footer">
     <p>关键词筛选公开找队友的伙伴，赛道筛选招募中的队伍。</p>
     <button class="button" type="submit">应用筛选 <svg aria-hidden="true"><use href="#i-arrow" /></svg></button>

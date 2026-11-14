@@ -182,7 +182,7 @@ def read_payload(h, actor, operation, params):
         query = params.get('q', '').strip()
         if query:
             candidates = candidates.filter(
-                Q(name__icontains=query) | Q(bio__icontains=query) | Q(skills__icontains=query)
+                Q(name__icontains=query) | (Q(bio__icontains=query) & ~Q(social_preference__hidden_fields__contains=['bio'])) | (Q(skills__icontains=query) & ~Q(social_preference__hidden_fields__contains=['skills']))
             )
         return {'people': [matching.public_person(candidate, candidate.matching_profile) for candidate in candidates]}
     if operation == 'teams':

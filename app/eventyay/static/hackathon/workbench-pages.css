@@ -354,3 +354,60 @@ body.ruc-app.display-mode .stage-board { border: 0; }
   .ruc-app :is(.switch-row, .check-row) { align-items: stretch; flex-direction: column; }
   .ruc-app .preview-flag { position: static; }
 }
+
+/* Directory shortcuts and a private, faithful preview of the member's card. */
+.ruc-app .team-directory-heading + .square-tabs { display:flex; flex-wrap:wrap; gap:.55rem; align-items:center; padding:.75rem; }
+.ruc-app .square-tabs > a { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; min-height:44px; padding:.55rem .9rem; border:1px solid #47506a; border-radius:.7rem; background:#202539; color:#e6e1f2; text-decoration:none; font-weight:600; transition:background .15s,border-color .15s,transform .15s; }
+.ruc-app .square-tabs > a:hover { background:#34304f; border-color:#c4b1f5; color:#fff; transform:translateY(-1px); }
+.ruc-app .square-tabs > a:focus-visible { outline:3px solid #d6c6ff; outline-offset:3px; }
+.ruc-app .square-tabs > a.square-tabs-action { margin-inline-start:auto; color:#191128; background:#c8b6f8; border-color:#c8b6f8; }
+.ruc-app .square-tabs > a.square-tabs-action:hover { background:#e0d5ff; color:#191128; }
+.ruc-app .team-preview-heading { margin:1.3rem 0 .75rem; }
+.ruc-app .team-preview-heading h3 { margin:0 0 .2rem; }
+.ruc-app .team-preview-heading p { margin:0; color:var(--ruc-secondary); }
+.ruc-app .team-preview-grid { margin-bottom:1rem; }
+.ruc-app .team-card-own { border-color:#b8a2ed; }
+.ruc-app .team-own-label { color:#d3c1ff; font-size:.85rem; }
+@media (max-width:600px) { .ruc-app .square-tabs > a.square-tabs-action { margin-inline-start:0; } }
+
+.ruc-app .team-card .team-own-notice { margin:0 0 1rem; padding:.65rem .8rem; border-radius:.6rem; color:#e1d4f8; background:#302842; font-size:.875rem; line-height:1.5; }
+
+/* Workspace refinements: disclosures, matching and support */
+.ruc-app .keyword-disclosure { margin: .5rem 0 1.25rem; border: 1px solid var(--ruc-border); border-radius: 1rem; background: #181b28; }
+.ruc-app .keyword-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.125rem; cursor: pointer; list-style: none; border-radius: inherit; }
+.ruc-app .keyword-disclosure > summary::-webkit-details-marker { display: none; }
+.ruc-app .keyword-disclosure > summary:hover { background: #222335; }
+.ruc-app .keyword-disclosure > summary:focus-visible, .ruc-app .showcase-guide > summary:focus-visible { outline: 3px solid var(--ruc-focus); outline-offset: 3px; }
+.ruc-app .keyword-disclosure summary strong, .ruc-app .keyword-disclosure summary small { display: block; }
+.ruc-app .keyword-disclosure summary strong { color: var(--ruc-text); font-size: 1rem; }
+.ruc-app .keyword-disclosure summary small { color: var(--ruc-muted); margin-top: .2rem; font-size: .8125rem; }
+.ruc-app .disclosure-icon { display: grid; place-items: center; flex: none; width: 2.25rem; height: 2.25rem; border: 1px solid #554d70; border-radius: .75rem; background: #2b2540; color: #d5c7ff; }
+.ruc-app .disclosure-icon::before { content: '+'; font-size: 1.4rem; line-height: 1; }
+.ruc-app .keyword-disclosure[open] .disclosure-icon::before { content: '−'; }
+.ruc-app .keyword-disclosure .team-filter-keywords { padding: 0 1.125rem 1.125rem; margin: 0; }
+.ruc-app .showcase-guide { margin-top: 1.5rem; padding: .25rem 1rem; border: 1px solid var(--ruc-border); border-radius: 1rem; background: #11141e; }
+.ruc-app .showcase-guide > summary { min-height: 3.25rem; font-weight: 600; color: var(--ruc-text); }
+.ruc-app .showcase-guide[open] { padding-bottom: 1rem; }
+.ruc-app .market-refresh > section, .ruc-app .support-refresh > section { margin-bottom: 2rem; }
+.ruc-app .market-tabs { margin: 1.25rem 0 2rem; }
+.ruc-app .market-refresh .card-grid { align-items: start; }
+.ruc-app .market-refresh .card-grid > .panel { display: flex; flex-direction: column; gap: .8rem; overflow-wrap: anywhere; }
+.ruc-app .market-refresh .card-grid > .panel :is(h3, p) { margin: 0; }
+.ruc-app .market-refresh details > summary { cursor: pointer; color: var(--ruc-accent); font-weight: 600; }
+.ruc-app .market-refresh details form { display: grid; gap: .7rem; margin-top: .8rem; }
+.ruc-app .market-refresh details textarea { width: 100%; }
+.ruc-app .market-refresh .actions { gap: .75rem; flex-wrap: wrap; }
+.ruc-app .market-search { display: flex; align-items: center; margin-bottom: 1rem; }
+.ruc-app .market-search label { font-weight: 600; white-space: nowrap; }
+.ruc-app .support-layout { align-items: start; gap: 1.5rem; }
+.ruc-app .support-list > h2, .ruc-app .support-create > h2 { margin: 0 0 1.25rem; }
+.ruc-app .support-list > .panel { margin-bottom: 1rem; }
+.ruc-app .support-list .inline-form { display: grid; gap: .75rem; margin-top: 1rem; }
+.ruc-app .support-list .inline-form textarea { width: 100%; }
+.ruc-app .support-list .inline-form button { justify-self: start; }
+.ruc-app .support-create .form-field { margin-bottom: 1.125rem; }
+.ruc-app .support-create :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea) { width: 100%; }
+.ruc-app .support-refresh .tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ruc-app .support-refresh .tabs a { padding: .55rem .9rem; border: 1px solid var(--ruc-border); border-radius: 999px; }
+.ruc-app .support-refresh .tabs a.selected { background: #2c2540; color: var(--ruc-accent); border-color: var(--ruc-accent); }
+@media (max-width: 700px) { .ruc-app .market-search { align-items: stretch; flex-direction: column; } .ruc-app .market-search > input { flex: auto; width: 100%; } }

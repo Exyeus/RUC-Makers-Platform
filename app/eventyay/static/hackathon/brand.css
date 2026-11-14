@@ -27,10 +27,10 @@ body { background-color: var(--night); color: var(--ink); }
 .entry-page .header-inner { padding-block: 8px; }
 .campaign-mark { display: block; width: 252px; height: 72px; max-width: 100%; object-fit: cover; margin: 0 0 20px; }
 .sky-glow {
-  background: linear-gradient(135deg, #07091955, #070919b8), url('brand/promotion-background.png') center / cover;
+  background: linear-gradient(135deg, #07091955, #070919b8), url('brand/promotion-background.webp') center / cover;
 }
 .workspace-page {
-  background-image: linear-gradient(#070919c7, #070919e6), url('brand/promotion-background.png');
+  background-image: linear-gradient(#070919c7, #070919e6), url('brand/promotion-background.webp');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
