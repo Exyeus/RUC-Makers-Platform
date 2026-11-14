@@ -105,7 +105,7 @@
                   <span aria-hidden="true">⌄</span>
                 </summary>
                 <nav aria-label="账户操作">
-                  <a href="{% url 'hackathon:register' hackathon.slug %}">个人资料</a>
+                  <a href="{% url 'hackathon:register' hackathon.slug %}" aria-label="个人资料">个人资料</a>
                   <a href="{% url 'hackathon:account' hackathon.slug %}">账号与订阅</a>
                   {% if participant %}
                     <a href="{% url 'hackathon:social-inbox' hackathon.slug %}">站内沟通</a>
@@ -125,6 +125,12 @@
         </div>
       </header>
       <main id="main" tabindex="-1">
+        <noscript>
+          <details class="panel ui-disclosure">
+            <summary>全部导航</summary>
+            {% include 'hackathon/workbench_navigation.html' %}
+          </details>
+        </noscript>
         {% if preview %}
           <div class="preview-flag" role="status">
             <strong>
