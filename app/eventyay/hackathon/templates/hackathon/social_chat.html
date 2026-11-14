@@ -1,1 +1,62 @@
-{% extends 'hackathon/base.html' %}{% load static %}{% block content %}<section class="page-heading"><h1>{{ title }}</h1><a href="{% url 'hackathon:social-inbox' hackathon.slug %}">全部会话</a></section><p>页面打开时每3秒检查新消息。暂停聊天、结束交流或屏蔽后立即停止收发。每分钟最多20条、每天300条。</p><section class="panel" id="chat-log" data-me="{{ participant.pk }}" aria-live="polite">{% for message in chat_messages reversed %}<p data-message-id="{{ message.id }}"><strong>{% if message.author_id == participant.pk %}我{% else %}{{ other.name }}{% endif %}</strong>：{{ message.body }}</p>{% endfor %}</section><p id="chat-status" role="status"></p>{% if can_chat %}<form method="post" class="panel" id="chat-send">{% csrf_token %}<input type="hidden" name="client_id" value="{{ client_id }}"><textarea name="body" maxlength="2000" required aria-label="消息"></textarea><button class="button">发送</button></form>{% else %}<p class="panel">此会话已停止收发。仍可举报、屏蔽或取消全部联系方式授权。</p>{% endif %}<section class="panel"><h2>对方授权的联系方式</h2><div id="chat-contacts">{% for key,value in contacts.items %}<p>{{ key }}：{{ value }}</p>{% empty %}<p>尚未授权联系方式。可以先在站内交流。</p>{% endfor %}</div></section><form method="post" class="panel">{% csrf_token %}<input type="hidden" name="action" value="share"><h2>仅向本会话伙伴展示</h2><p>先在<a href="{% url 'hackathon:social-privacy' hackathon.slug %}">隐私设置</a>填写。取消勾选并保存可撤销；已被对方保存的信息无法收回。</p><label><input type="checkbox" name="fields" value="wechat" {% if 'wechat' in granted %}checked{% endif %}>微信</label><label><input type="checkbox" name="fields" value="phone" {% if 'phone' in granted %}checked{% endif %}>电话</label><label><input type="checkbox" name="fields" value="email" {% if 'email' in granted %}checked{% endif %}>邮箱</label><label><input type="checkbox" name="fields" value="legacy" {% if 'legacy' in granted %}checked{% endif %}>匹配资料中原先填写的联系方式</label><button class="button secondary">更新本会话授权</button></form><form method="post" class="panel">{% csrf_token %}<button name="action" value="close">结束本次交流</button><button name="action" value="block">屏蔽此人</button></form><form method="post" class="panel">{% csrf_token %}<input type="hidden" name="action" value="report"><label>举报骚扰<textarea name="reason" required maxlength="1000"></textarea></label><button>提交给主办方</button><p>举报说明仅主办方可见；请提供具体情况。站内消息不是端到端加密。</p></form>{% if can_chat %}<script type="module" src="{% static 'hackathon/social.js' %}"></script>{% endif %}{% endblock %}
+{% extends 'hackathon/base.html' %}
+{% load static %}
+{% block content %}
+  <section class="page-heading">
+    <h1>{{ title }}</h1>
+    <a href="{% url 'hackathon:social-inbox' hackathon.slug %}">全部会话</a>
+  </section>
+  <p>页面打开时每3秒检查新消息。暂停聊天、结束交流或屏蔽后停止收发。每分钟最多20条、每天300条。</p>
+  {% if can_chat %}
+    <nav class="actions" aria-label="消息历史">
+      {% if has_older %}<a class="button secondary" href="?before={{ oldest_id }}">加载更早消息</a>{% endif %}
+      {% if showing_history %}<a class="button secondary" href="{% url 'hackathon:social-chat' hackathon.slug thread.pk %}">查看最新消息</a>{% endif %}
+    </nav>
+    {% if showing_history %}<p class="muted">当前正在查看较早记录。此页打开后收到的新消息会显示在下方，也可返回最新消息。</p>{% endif %}
+  {% endif %}
+  <section class="panel" id="chat-log" data-me="{{ participant.pk }}" data-after="{{ poll_after }}" aria-live="polite">
+    {% for message in chat_messages reversed %}
+      <p data-message-id="{{ message.id }}"><strong>{% if message.author_id == participant.pk %}我{% else %}{{ other.name }}{% endif %}</strong>：{{ message.body }}</p>
+    {% empty %}<p class="muted">暂无可显示的消息。</p>{% endfor %}
+  </section>
+  <p id="chat-status" role="status"></p>
+  {% if can_chat %}
+    <form method="post" class="panel" id="chat-send">
+      {% csrf_token %}
+      <input type="hidden" name="client_id" value="{{ client_id }}">
+      <textarea name="body" maxlength="2000" required aria-label="消息"></textarea>
+      <button class="button">发送</button>
+    </form>
+  {% else %}
+    <p class="panel">此会话已停止收发。仍可举报、屏蔽或取消全部联系方式授权。</p>
+  {% endif %}
+  <section class="panel">
+    <h2>对方授权的联系方式</h2>
+    <div id="chat-contacts">
+      {% for key,value in contacts.items %}<p>{{ key }}：{{ value }}</p>{% empty %}<p>尚未授权联系方式。可以先在站内交流。</p>{% endfor %}
+    </div>
+  </section>
+  <form method="post" class="panel">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="share">
+    <h2>仅向本会话伙伴展示</h2>
+    <p>先在<a href="{% url 'hackathon:social-privacy' hackathon.slug %}">隐私设置</a>填写。取消勾选并保存可撤销；已被对方保存的信息无法收回。</p>
+    <label><input type="checkbox" name="fields" value="wechat" {% if 'wechat' in granted %}checked{% endif %}>微信</label>
+    <label><input type="checkbox" name="fields" value="phone" {% if 'phone' in granted %}checked{% endif %}>电话</label>
+    <label><input type="checkbox" name="fields" value="email" {% if 'email' in granted %}checked{% endif %}>邮箱</label>
+    <label><input type="checkbox" name="fields" value="legacy" {% if 'legacy' in granted %}checked{% endif %}>匹配资料中原先填写的联系方式</label>
+    <button class="button secondary">更新本会话授权</button>
+  </form>
+  <form method="post" class="panel">
+    {% csrf_token %}
+    <button name="action" value="close">结束本次交流</button>
+    <button name="action" value="block">屏蔽此人</button>
+  </form>
+  <form method="post" class="panel">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="report">
+    <label>举报骚扰<textarea name="reason" required maxlength="1000"></textarea></label>
+    <button>提交给主办方</button>
+    <p>举报说明仅主办方可见。核查本次举报时，主办方可查看本会话截至举报时的消息；后续消息不会自动加入本次证据。站内消息不是端到端加密。</p>
+  </form>
+  {% if can_chat %}<script type="module" src="{% static 'hackathon/social.js' %}"></script>{% endif %}
+{% endblock %}

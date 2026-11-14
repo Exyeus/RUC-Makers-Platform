@@ -1,0 +1,21 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+<section class="page-heading"><div><h1>路演顺序申请与回执</h1><p>有事情需要靠前、靠后或避开特定时段，请说明原因并提交证明。提交不代表获准，主办会核查后给出安排。</p></div><a class="button secondary" href="{% url 'hackathon:stage' hackathon.slug %}">查看路演队列</a></section>
+{% if own_slot %}<p class="panel">本队当前候场位置：第 {{ own_slot.position }} 位 · {{ own_slot.get_state_display }}。请按当前安排说明需要调整的原因。</p>{% endif %}
+{% if has_team %}
+<form method="post" enctype="multipart/form-data" class="panel form-panel">
+{% csrf_token %}{% include 'hackathon/form_fields.html' %}<button class="button">提交申请与证明</button>
+<p>申请绑定提交时的队伍；转队后请重新申请。证明和具体原因仅本人及主办可见，本队队长只能看到申请状态。可在下方撤回尚未处理的申请。</p>
+</form>
+{% else %}<section class="panel"><p>你尚未组队。请先<a href="{% url 'hackathon:teams' hackathon.slug %}">加入或创建队伍</a>，再提交路演顺序申请。报名里的个人缺席时段仍会显示给主办。</p></section>{% endif %}
+<section class="reading-width"><h2>申请记录</h2>
+{% for item in requests %}<article class="panel"><h3>{{ item.team.name }} · {{ item.participant.name }}</h3><p>{{ item.get_preference_display }} · {{ item.get_state_display }}</p><p>{{ item.created|date:'m月d日 H:i' }}</p>
+{% if item.private_detail %}<p>{{ item.time_constraint }}</p><p>{{ item.reason|linebreaksbr }}</p>
+{% if item.evidence %}<a href="{% url 'hackathon:stage-request-evidence' hackathon.slug item.pk %}">下载本人提交的证明</a>{% endif %}
+{% if item.evidence_url %}<p><a href="{{ item.evidence_url }}" target="_blank" rel="noopener noreferrer">本人提交的证明链接</a></p>{% endif %}
+{% if item.decision_note %}<div class="message"><strong>主办回执：</strong>{{ item.decision_note|linebreaksbr }}<p>{{ item.decided_at|date:'m月d日 H:i' }}</p></div>{% endif %}
+{% if item.state == 'pending' %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="withdraw"><input type="hidden" name="request_id" value="{{ item.pk }}"><button class="button secondary" data-confirm="确认撤回这条路演顺序申请？">撤回申请</button></form>{% endif %}
+{% else %}<p class="muted">这是队员的个人申请；具体原因、证明及私人回复仅本人和主办可见。</p>{% endif %}
+{% if item.applied_position %}<p>处理时调整至第 {{ item.applied_position }} 位；后续以<a href="{% url 'hackathon:stage' hackathon.slug %}">当前队列</a>为准。</p>{% endif %}
+</article>{% empty %}<div class="panel">暂时没有申请。</div>{% endfor %}</section>
+{% endblock %}

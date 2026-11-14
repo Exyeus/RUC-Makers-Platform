@@ -6,7 +6,7 @@ from datetime import timedelta
 from itertools import combinations
 from uuid import UUID
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -26,15 +26,18 @@ from eventyay.hackathon.models import (
     MatchingReceipt,
     MatchIntent,
     Participant,
+    Project,
     ProposalConsent,
     RecommendationRun,
     Team,
     TeamMembership,
     TeamProposal,
     Track,
+    invitation_code,
 )
 from eventyay.hackathon.permissions import is_organizer
-from eventyay.hackathon.services import audit, lock_event
+from eventyay.hackathon.services import audit, close_join_requests, lock_event
+from eventyay.hackathon.services import transfer_captain as transfer_team_captain
 
 
 ALGORITHM_VERSION = f'idea-market-1.0/{core.ALGORITHM_VERSION}'
@@ -119,8 +122,8 @@ def public_person(p, profile=None) -> dict:
     return {
         'id': str(p.pk),
         'name': p.name,
-        'tagline': p.tagline,
-        'bio': p.bio,
+        'tagline': p.tagline if p.looking_for_team else '',
+        'bio': p.bio if p.looking_for_team else '',
         'skills': profile.skills
         if profile and 'skills' in profile.public_fields and 'skills' not in social.hidden(p)
         else {},
@@ -413,6 +416,11 @@ def consent_proposal(h, actor, proposal_id, proposal_hash, decision):
         return {'error': 'PROPOSAL_EXPIRED', 'state': 'expired'}
     if decision not in {'accept', 'decline'}:
         raise MatchingError('INVALID_DECISION', '请选择同意或拒绝。', 422)
+    if decision == 'accept' and not (team and team.track_id == item.track_id):
+        if not Track.published(h).filter(pk=item.track_id).exists():
+            item.state = 'stale'
+            item.save(update_fields=['state', 'updated'])
+            return {'error': 'TRACK_NOT_AVAILABLE', 'state': 'stale', 'message': '该赛道已关闭，请重新选择已发布赛道。'}
     try:
         current = snapshot_roster(h, members, Idea.objects.get(hackathon=h, pk=item.idea_id), team)
     except MatchingError as error:
@@ -442,9 +450,10 @@ def consent_proposal(h, actor, proposal_id, proposal_hash, decision):
         for member in members:
             TeamMembership.objects.get_or_create(hackathon=h, participant=member, team=team, left_at=None)
         Participant.objects.filter(hackathon=h, pk__in=ids).update(team=team, looking_for_team=False)
+        close_join_requests(h, members)
         team.roster_version += 1
-        team.recruiting = len(members) < h.team_size
-        team.state = 'recruiting' if team.recruiting else 'ready'
+        team.recruiting = team.recruiting and len(members) < h.team_size
+        team.state = 'recruiting' if len(members) < h.team_size else 'ready'
         team.save(update_fields=['name', 'track', 'roster_version', 'recruiting', 'state', 'updated'])
         item.target_team, item.state = team, 'confirmed'
         IdeaImplementation.objects.get_or_create(hackathon=h, idea=item.idea, team=team)
@@ -480,13 +489,19 @@ def leave(h, actor):
         raise MatchingError('NOT_IN_TEAM', '当前尚未入队。')
     if team.captain_id == p.pk and team.members.count() > 1:
         raise MatchingError('CAPTAIN_TRANSFER_REQUIRED', '队长需先交接队伍管理权限。')
+    if team.members.count() == 1 and Project.objects.filter(hackathon=h, team=team).exists():
+        raise MatchingError(
+            'PROJECT_HANDOVER_REQUIRED', '队伍已有作品，最后一名成员不能退出。请联系主办方处理或先交接。'
+        )
     TeamMembership.objects.filter(hackathon=h, participant=p, left_at=None).update(left_at=timezone.now())
     p.team = None
     p.save(update_fields=['team', 'updated'])
     team.roster_version += 1
     team.state = 'dissolved' if not team.members.exists() else 'recruiting'
-    team.recruiting = team.state == 'recruiting'
-    team.save(update_fields=['roster_version', 'state', 'recruiting', 'updated'])
+    team.recruiting = team.recruiting and team.state == 'recruiting'
+    if team.state == 'dissolved':
+        team.invite_code = invitation_code()
+    team.save(update_fields=['roster_version', 'state', 'recruiting', 'invite_code', 'updated'])
     emit(h, 'TeamMemberLeft', {'participant_id': str(p.pk), 'team_id': str(team.pk)})
     audit(h, actor, '退出正式名单', team.code)
     return {'state': 'left'}
@@ -1007,9 +1022,9 @@ def transfer_captain(h, actor, participant_id):
     successor = next((p for p in members if p.pk == participant_id and p.pk != leader.pk), None)
     if successor is None:
         raise MatchingError('NOT_AVAILABLE', '请选择当前队伍中的另一位成员。', 404)
-    team.captain = successor
-    team.roster_version += 1
-    team.save(update_fields=['captain', 'roster_version', 'updated'])
+    try:
+        team = transfer_team_captain(h, leader, successor)
+    except ValidationError as error:
+        raise MatchingError('TRANSFER_BLOCKED', '；'.join(error.messages)) from error
     emit(h, 'TeamCaptainTransferred', {'team_id': str(team.pk), 'captain_id': str(successor.pk)})
-    audit(h, actor, '转交队长', team.code, successor.code)
     return {'state': 'transferred', 'captain_id': str(successor.pk)}

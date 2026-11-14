@@ -21,7 +21,7 @@
   {% if participant and post.is_public %}<form method="post" class="panel">{% csrf_token %}<span>{{ like_count }} 人点赞</span>{% if liked %}<button name="action" value="unlike">取消点赞</button>{% else %}<button name="action" value="like">点赞</button>{% endif %}</form>{% endif %}
   <div class="section-heading outside"><h2>围绕这件事聊一聊</h2></div>
   {% for response in responses %}
-    <article class="panel">
+    <article class="panel" id="response-{{ response.pk }}">
       <strong>{{ response.author.name }}</strong>
       {% if response.private %}<span class="tag">私密回应</span>{% endif %}
       {% if response.removed %}<p class="muted">此回应已撤回。</p>{% else %}{% if response.parent_id %}<p class="muted">回复 #{{ response.parent_id }}</p>{% endif %}<p>{{ response.body|linebreaksbr }}</p>

@@ -29,6 +29,7 @@ from eventyay.hackathon.models import (
     Team,
     Track,
     UploadSession,
+    invitation_code,
 )
 from eventyay.hackathon.permissions import is_organizer
 from eventyay.hackathon.scoring import aggregate, is_trimmed
@@ -96,6 +97,46 @@ def save_participant(hackathon, user, form):
     return participant
 
 
+def close_join_requests(hackathon, participants, *, accepted=None):
+    """Membership makes the applicant's other pending applications unavailable."""
+    pending = JoinRequest.objects.filter(hackathon=hackathon, participant__in=participants, state='pending')
+    if accepted is not None:
+        pending = pending.exclude(pk=accepted.pk)
+    pending.update(state='unavailable', updated=timezone.now())
+
+
+@transaction.atomic
+def transfer_captain(hackathon, participant, successor):
+    """Transfer management only when no upload is still owned by the old captain."""
+    hackathon = lock_event(hackathon)
+    require_team_open(hackathon)
+    participant = Participant.objects.select_for_update().get(hackathon=hackathon, pk=participant.pk)
+    team = (
+        Team.objects.select_for_update()
+        .filter(hackathon=hackathon, pk=participant.team_id, captain=participant)
+        .first()
+    )
+    if team is None or team.state == 'dissolved':
+        raise PermissionDenied
+    successor = (
+        Participant.objects.select_for_update()
+        .filter(hackathon=hackathon, team=team, pk=successor.pk)
+        .exclude(pk=participant.pk)
+        .first()
+    )
+    if successor is None:
+        raise ValidationError('请选择当前队伍中的另一位成员。')
+    if UploadSession.objects.filter(
+        hackathon=hackathon, project__team=team, state='uploading', expires_at__gt=timezone.now()
+    ).exists():
+        raise ValidationError('队伍还有材料正在上传。请先完成或取消上传，再交接队长；已有上传凭证仍由原队长处理。')
+    team.captain = successor
+    team.roster_version += 1
+    team.save(update_fields=['captain', 'roster_version', 'updated'])
+    audit(hackathon, participant.user, '转交队长', team.code, successor.code)
+    return team
+
+
 @transaction.atomic
 def save_team(hackathon, participant, form):
     hackathon = lock_event(hackathon)
@@ -108,7 +149,7 @@ def save_team(hackathon, participant, form):
     current = None
     if form.instance.created:
         current = Team.objects.select_for_update().get(pk=form.instance.pk, hackathon=hackathon)
-        if current.captain_id != participant.pk:
+        if current.captain_id != participant.pk or participant.team_id != current.pk or current.state == 'dissolved':
             raise PermissionDenied
         if (
             hackathon.matching_enabled
@@ -132,6 +173,7 @@ def save_team(hackathon, participant, form):
     participant.team = team
     participant.looking_for_team = False
     participant.save(update_fields=['team', 'looking_for_team', 'updated'])
+    close_join_requests(hackathon, [participant])
     audit(hackathon, participant.user, '保存队伍', team.code)
     return team
 
@@ -146,8 +188,15 @@ def join_team(hackathon, participant, team, *, invite_code=None, application=Non
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
     if hackathon.admission_required and not identity.admitted(participant.user, hackathon):
         raise ValidationError(identity.DENIED)
-    if invite_code != team.invite_code and application is None:
-        raise PermissionDenied
+    if team.state not in {'recruiting', 'ready'}:
+        raise ValidationError('这支队伍已解散、冻结或结束，不能加入。')
+    if application is None:
+        if invite_code != team.invite_code:
+            raise PermissionDenied
+    elif not JoinRequest.objects.filter(
+        hackathon=hackathon, pk=application.pk, participant=participant, team=team, state='pending'
+    ).exists():
+        raise ValidationError('这条申请已失效，请刷新后再处理。')
     if participant.team_id:
         raise ValidationError('此选手已经加入队伍，不能重复加入。')
     if team.members.count() >= hackathon.team_size:
@@ -155,7 +204,9 @@ def join_team(hackathon, participant, team, *, invite_code=None, application=Non
     participant.team = team
     participant.looking_for_team = False
     participant.save(update_fields=['team', 'looking_for_team', 'updated'])
-    JoinRequest.objects.filter(participant=participant, state='pending').update(state='declined')
+    close_join_requests(hackathon, [participant], accepted=application)
+    team.roster_version += 1
+    team.save(update_fields=['roster_version', 'updated'])
     if application:
         JoinRequest.objects.filter(pk=application.pk, team=team, participant=participant).update(state='accepted')
     audit(hackathon, participant.user, '加入队伍', team.code)
@@ -167,7 +218,11 @@ def leave_team(hackathon, participant):
     if hackathon.matching_enabled and hackathon.matching_roster_enabled:
         raise ValidationError('请在 组队广场按名单政策退出队伍。')
     require_team_open(hackathon)
-    participant = Participant.objects.select_for_update(of=('self',)).select_related('team').get(pk=participant.pk)
+    participant = (
+        Participant.objects.select_for_update(of=('self',))
+        .select_related('team')
+        .get(pk=participant.pk, hackathon=hackathon)
+    )
     if not participant.team_id:
         raise ValidationError('你还没有加入队伍。')
     if participant.team.captain_id == participant.pk:
@@ -189,7 +244,11 @@ def dissolve_team(hackathon, participant):
     if hackathon.matching_enabled and hackathon.matching_roster_enabled:
         raise ValidationError('请在 组队广场按名单政策退出队伍。')
     require_team_open(hackathon)
-    participant = Participant.objects.select_for_update(of=('self',)).select_related('team').get(pk=participant.pk)
+    participant = (
+        Participant.objects.select_for_update(of=('self',))
+        .select_related('team')
+        .get(pk=participant.pk, hackathon=hackathon)
+    )
     team = participant.team
     if team is None:
         raise ValidationError('你还没有队伍。')
@@ -201,7 +260,9 @@ def dissolve_team(hackathon, participant):
         raise ValidationError('这支队伍已经建过作品，不能解散。请联系主办方处理。')
     team.state = 'dissolved'
     team.recruiting = False
-    team.save(update_fields=['state', 'recruiting', 'updated'])
+    team.invite_code = invitation_code()
+    team.roster_version += 1
+    team.save(update_fields=['state', 'recruiting', 'invite_code', 'roster_version', 'updated'])
     JoinRequest.objects.filter(team=team, state='pending').update(state='declined')
     participant.team = None
     participant.looking_for_team = True

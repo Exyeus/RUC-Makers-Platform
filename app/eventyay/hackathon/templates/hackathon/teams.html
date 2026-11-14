@@ -1,5 +1,6 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
+  {% if participant %}<p class="panel"><a href="{% url 'hackathon:stage-requests' hackathon.slug %}">路演时段 / 顺序申请与回执</a> · 需要调整时请说明原因并提交相关证明。</p>{% endif %}
   <section class="page-heading team-directory-heading">
     <div>
       <h1>
@@ -50,6 +51,7 @@
         <p>
           {{ own_team.intro }}
         </p>
+        <p>招募展示：{% if own_team.recruiting %}公开招募{% else %}已关闭公开招募{% endif %}。队长可在“管理队伍”中调整。</p>
         <div class="member-list">
           {% for member in own_members %}
             <span class="tag">
@@ -112,7 +114,7 @@
                 我一个人，退出这支队伍
               </summary>
               <p>
-                解散后邀请码立即作废，队伍里的待回复申请会被关闭；已经建好的作品不受影响。你会回到自由状态，可以重新申请其他队伍或发起新队伍。
+                解散后邀请码立即作废，队伍里的待回复申请会被关闭；已创建作品的队伍需要联系主办方处理，不能直接解散。你会回到自由状态，可以重新申请其他队伍或发起新队伍。
               </p>
               <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
                 {% csrf_token %}

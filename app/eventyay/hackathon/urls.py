@@ -1,12 +1,23 @@
 from django.urls import include, path
 
-from eventyay.hackathon import identity_views, accounts, community_views, judging_views, matching_views, upload_views, views
+from eventyay.hackathon import (
+    accounts,
+    community_views,
+    identity_views,
+    judging_views,
+    matching_views,
+    social_views,
+    stage_requests,
+    upload_views,
+    views,
+)
 
-
-from eventyay.hackathon import social_views
 
 app_name = 'hackathon'
 event_patterns = [
+    path('stage/requests/', stage_requests.requests, name='stage-requests'),
+    path('manage/stage/requests/', stage_requests.manage, name='stage-requests-manage'),
+    path('stage/requests/<uuid:request_id>/evidence/', stage_requests.evidence, name='stage-request-evidence'),
     path('messages/', social_views.inbox, name='social-inbox'),
     path('messages/privacy/', social_views.privacy, name='social-privacy'),
     path('messages/<uuid:intent_id>/', social_views.conversation, name='social-chat'),

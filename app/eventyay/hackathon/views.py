@@ -1,4 +1,3 @@
-from eventyay.hackathon import social
 import hashlib
 import secrets
 import tempfile
@@ -13,7 +12,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, Max, Q
 from django.http import Http404, HttpResponse, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import filesizeformat
@@ -22,7 +21,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_safe
 from django_scopes import scope
 
-from eventyay.hackathon import forms, identity, services
+from eventyay.hackathon import forms, identity, services, social
 from eventyay.hackathon.archive import zip_preview
 from eventyay.hackathon.calendar import absence_summary, schedule_heatmap, schedule_timeline
 from eventyay.hackathon.community import square_context
@@ -56,6 +55,7 @@ from eventyay.hackathon.models import (
     VolunteerTask,
 )
 from eventyay.hackathon.permissions import event_view, is_organizer
+from eventyay.hackathon.reviewing import fingerprint
 from eventyay.hackathon.scoring import rule_description
 from eventyay.hackathon.storage import STORAGE_ERRORS
 from eventyay.hackathon.team_showcase import COMMUNITY_EXAMPLES, POOL_EXAMPLES, SEEKER_EXAMPLES
@@ -96,6 +96,7 @@ ORGANIZER_ROUTES = {
     'participants',
     'submissions',
     'manage-stage',
+    'stage-requests-manage',
     'publish',
     'content',
     'staff',
@@ -140,6 +141,7 @@ APPLICATION_STATE_LABELS = {
     'accepted': '已通过，已加入该队伍',
     'declined': '已被婉拒',
     'withdrawn': '已撤回',
+    'unavailable': '已组队，申请已关闭',
 }
 
 
@@ -486,11 +488,13 @@ def teams(request):
     own = request.participant.team if request.participant else None
     seekers = Participant.objects.filter(hackathon=h, looking_for_team=True, team__isnull=True)
     if h.matching_enabled:
-        teams_qs = teams_qs.filter(state='recruiting', captain__matching_profile__opt_in=True).exclude(
-            captain__matching_profile__visibility='paused'
-        )
+        teams_qs = teams_qs.filter(state='recruiting')
         seekers = Participant.objects.filter(
-            hackathon=h, team__isnull=True, matching_profile__opt_in=True, matching_profile__visibility='event'
+            hackathon=h,
+            looking_for_team=True,
+            team__isnull=True,
+            matching_profile__opt_in=True,
+            matching_profile__visibility='event',
         )
         if request.participant:
             excluded = excluded_ids(h, request.participant)
@@ -672,15 +676,12 @@ def team_action(request):
                     application.save(update_fields=['state', 'updated'])
                     message = f'已婉拒 {application.participant.name} 的申请，申请人那边会看到结果。'
             elif action == 'transfer':
-                team = get_object_or_404(Team, hackathon=h, captain=participant)
+                team = get_object_or_404(Team, hackathon=h, pk=participant.team_id, captain=participant)
                 member = get_object_or_404(Participant, hackathon=h, team=team, pk=request.POST.get('member'))
-                team.captain = member
-                team.roster_version += 1
-                team.save(update_fields=['captain', 'roster_version', 'updated'])
-                services.audit(h, request.user, '转交队长', team.code, member.code)
+                services.transfer_captain(h, participant, member)
                 message = f'队长已交接给 {member.name}。'
             elif action == 'rotate':
-                team = get_object_or_404(Team, hackathon=h, captain=participant)
+                team = get_object_or_404(Team, hackathon=h, pk=participant.team_id, captain=participant)
                 team.invite_code = secrets.token_urlsafe(12)
                 team.save(update_fields=['invite_code', 'updated'])
                 message = '邀请码已重新生成，旧邀请码不再有效。'
@@ -1115,20 +1116,40 @@ def review(request, project_id):
         with transaction.atomic():
             current_hackathon = services.lock_event(h)
             current_project = Project.objects.select_for_update().get(pk=item.pk, hackathon=h)
+            if form.cleaned_data['version'] != current_project.revision or form.cleaned_data[
+                'review_token'
+            ] != fingerprint(current_project):
+                form.add_error(None, '作品或检查结果已更新，请刷新并重新核对当前版本；本次没有写入检查结果。')
             if current_hackathon.results_published and form.cleaned_data['state'] != current_project.state:
                 form.add_error('state', '成绩已公布，不能变更参评作品状态。')
-            if form.cleaned_data['state'] == 'approved':
+            if form.cleaned_data['state'] in {'submitted', 'approved'} and (
+                not current_project.submitted_at
+                or current_project.state in {Project.State.DRAFT, Project.State.QUEUED}
+                or (
+                    current_project.state == Project.State.CHANGES
+                    and current_project.state_reason != Project.StateReason.REVIEW
+                )
+            ):
+                form.add_error('state', '当前修改尚未正式提交，请队长重新提交后再检查；异常情况请走补录入口。')
+            if form.cleaned_data.get('state') == 'approved':
                 errors = services.submission_errors(current_project)
                 if not current_project.submitted_at:
                     errors.append('队长尚未正式提交作品。')
                 if errors:
                     form.add_error(None, ValidationError(errors))
             if not form.errors:
+                old_state, old_reason = current_project.state, current_project.state_reason
                 for field in form.Meta.fields:
                     setattr(current_project, field, form.cleaned_data[field])
-                current_project.state_reason = (
-                    Project.StateReason.REVIEW if current_project.state == Project.State.CHANGES else ''
-                )
+                if current_project.state == Project.State.CHANGES:
+                    current_project.state_reason = (
+                        Project.StateReason.REVIEW
+                        if old_state in {Project.State.SUBMITTED, Project.State.APPROVED}
+                        or old_reason == Project.StateReason.REVIEW
+                        else old_reason
+                    )
+                else:
+                    current_project.state_reason = ''
                 current_project.save(update_fields=[*form.Meta.fields, 'state_reason', 'updated'])
                 if current_project.state != 'approved' or not current_project.equipment_checked:
                     DemoSlot.objects.filter(project=current_project, state='ready').update(state='waiting')
@@ -1575,6 +1596,7 @@ def support(request):
             messages.error(request, '请先填写要补充的内容。')
             return redirect(back)
         with transaction.atomic():
+            ticket = SupportTicket.objects.select_for_update().get(pk=ticket.pk, hackathon=h, user=request.user)
             TicketMessage.objects.create(
                 hackathon=h, ticket=ticket, author=request.user, from_staff=False, body=note_form.cleaned_data['body']
             )
@@ -1613,26 +1635,32 @@ def support_reply(request, ticket_id):
     query_state = request.GET.get('state', '')
     state = query_state if query_state in SupportTicket.State.values else ''
     back = f'{url(h, "support")}?{urlencode({"state": state})}' if state else url(h, 'support')
-    form = forms.ReplyForm(request.POST or None)
+    last_message_id = item.messages.aggregate(value=Max('id'))['value'] or 0
+    form = forms.ReplyForm(request.POST or None, initial={'last_message_id': last_message_id})
     if request.method == 'POST':
         if request.POST.get('action') != 'reply':
             messages.error(request, '没有识别这个操作，工单没有被改动。')
             return redirect(back)
         if form.is_valid():
             with transaction.atomic():
-                TicketMessage.objects.create(
-                    hackathon=h,
-                    ticket=item,
-                    author=request.user,
-                    from_staff=True,
-                    body=form.cleaned_data['body'],
-                )
-                item.state = form.cleaned_data['state']
-                item.handler = request.user
-                item.save(update_fields=['state', 'handler', 'updated'])
-                services.audit(h, request.user, '处理支持工单', item.pk, item.get_state_display())
-            messages.success(request, f'已回复工单 #{item.pk}，此前的每一轮说明都还保留。')
-            return redirect(back)
+                item = SupportTicket.objects.select_for_update().get(pk=item.pk, hackathon=h)
+                latest = item.messages.aggregate(value=Max('id'))['value'] or 0
+                if form.cleaned_data['last_message_id'] != latest:
+                    form.add_error(None, '工单有新消息，请刷新阅读后再处理；本轮回复未发送，处理状态未改变。')
+                else:
+                    TicketMessage.objects.create(
+                        hackathon=h,
+                        ticket=item,
+                        author=request.user,
+                        from_staff=True,
+                        body=form.cleaned_data['body'],
+                    )
+                    item.state, item.handler = form.cleaned_data['state'], request.user
+                    item.save(update_fields=['state', 'handler', 'updated'])
+                    services.audit(h, request.user, '处理支持工单', item.pk, item.get_state_display())
+            if not form.errors:
+                messages.success(request, f'已回复工单 #{item.pk}，此前的每一轮说明都还保留。')
+                return redirect(back)
     attach_ticket_threads(h, [item])
     return page(request, 'ticket', ticket=item, form=form, filter_state=state, title=item.subject)
 
@@ -1707,6 +1735,8 @@ def stage_state(request):
 
 @event_view('organizer')
 def manage_stage(request):
+    from eventyay.hackathon.stage_requests import manage_context
+
     h = request.hackathon
     token = None
     if request.method == 'POST':
@@ -1744,6 +1774,7 @@ def manage_stage(request):
         token=token,
         station_url=request.build_absolute_uri(url(h, 'station-state')),
         data=stage_data(h),
+        **manage_context(h),
     )
 
 

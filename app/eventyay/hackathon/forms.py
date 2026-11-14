@@ -32,6 +32,7 @@ from eventyay.hackathon.models import (
     Track,
     VolunteerTask,
 )
+from eventyay.hackathon.reviewing import fingerprint
 from eventyay.hackathon.scoring import CRITERIA, weights
 from eventyay.hackathon.widgets import CategorizedTags, TagsField, UnavailableHoursField
 
@@ -56,6 +57,7 @@ class OrganizerLoginForm(LoginForm):
 
 class StudentPasswordResetRequestForm(forms.Form):
     """Form for students to request a password reset by entering their student ID."""
+
     student_id = forms.RegexField(
         r'^[A-Za-z0-9]{4,32}$',
         label='学号',
@@ -70,9 +72,7 @@ class StudentPasswordResetRequestForm(forms.Form):
     def get_user(self):
         """Return the User associated with this student_id, or None."""
         try:
-            account = StudentAccount.objects.select_related('user').get(
-                student_id=self.cleaned_data['student_id']
-            )
+            account = StudentAccount.objects.select_related('user').get(student_id=self.cleaned_data['student_id'])
             return account.user
         except StudentAccount.DoesNotExist:
             return None
@@ -80,6 +80,7 @@ class StudentPasswordResetRequestForm(forms.Form):
 
 class StudentPasswordResetForm(forms.Form):
     """Form for students to enter a new password after clicking the reset link."""
+
     password = forms.CharField(
         label='新密码',
         min_length=10,
@@ -281,6 +282,11 @@ class ParticipantForm(forms.ModelForm):
 
 class TeamForm(forms.ModelForm):
     version = forms.IntegerField(min_value=1, required=False, widget=forms.HiddenInput)
+    recruiting = forms.BooleanField(
+        label='在组队目录公开展示并招募队友',
+        required=False,
+        help_text='只控制本队招募卡片，不会开启队长个人资料展示或匹配计算授权。',
+    )
     track = forms.ModelChoiceField(label='赛道', queryset=None)
 
     class Meta:
@@ -694,6 +700,8 @@ class SupportForm(forms.ModelForm):
 class ReplyForm(forms.Form):
     """一次处理 = 追加一条说明 + 明确接下来等谁，旧说明继续留在线程里。"""
 
+    last_message_id = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
+
     state = forms.ChoiceField(label='接下来', choices=SupportTicket.State.choices)
     body = forms.CharField(label='本轮说明', max_length=5000, widget=forms.Textarea(attrs={'rows': 4}))
 
@@ -703,6 +711,14 @@ class TicketNoteForm(forms.Form):
 
 
 class ReviewForm(forms.ModelForm):
+    version = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
+    review_token = forms.CharField(widget=forms.HiddenInput)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.initial['version'] = self.instance.revision
+        self.initial['review_token'] = fingerprint(self.instance)
+
     class Meta:
         model = Project
         fields = ['state', 'review_note', 'equipment_checked', 'award']

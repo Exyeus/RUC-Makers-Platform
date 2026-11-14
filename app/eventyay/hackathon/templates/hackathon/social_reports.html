@@ -1,1 +1,46 @@
-{% extends 'hackathon/base.html' %}{% block content %}<h1>{{ title }}</h1>{% for report in reports %}<article class="panel"><p>{{ report.reporter.name }} · {{ report.target_type }} · {{ report.target_id }}</p><p>{{ report.reason }}</p><form method="post">{% csrf_token %}<input type="hidden" name="report_id" value="{{ report.pk }}"><button>标记已处理</button></form></article>{% empty %}<p>暂无待处理举报。</p>{% endfor %}{% endblock %}
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <h1>{{ title }}</h1>
+  {% if selected_report %}
+    <section class="panel">
+      <h2>举报 #{{ selected_report.pk }}</h2>
+      <p>{{ selected_report.reporter.name }} · {{ selected_report.created|date:'m月d日 H:i' }}</p>
+      <p>{{ selected_report.reason|linebreaksbr }}</p>
+      <p class="muted">以下内容仅供核查本次举报，查看与处理会记录操作日志。</p>
+      {% if evidence.available %}
+        {% if evidence.kind == 'comment' %}
+          <h3>被举报回应 · {{ evidence.comment.post.title }}</h3>
+          <p>{{ evidence.comment.author.name }}{% if evidence.comment.private %} · 私密回应{% endif %}</p>
+          {% if evidence.comment.removed %}<p>此回应已撤回。</p>{% else %}<p>{{ evidence.comment.body|linebreaksbr }}</p>{% endif %}
+          <a href="{{ evidence.target_url }}">定位到这条回应</a>
+        {% elif evidence.kind == 'chat' %}
+          <h3>被举报会话 · {{ evidence.intent.sender.name }} / {{ evidence.intent.recipient.name }}</h3>
+          <p>仅显示截至本次举报时的会话记录。</p>
+          {% if evidence.has_older %}<a href="?report_id={{ selected_report.pk }}&amp;before={{ evidence.oldest_id }}">加载更早证据</a>{% endif %}
+          {% for message in evidence.chat_messages reversed %}
+            <p><strong>{{ message.author.name }}</strong> · {{ message.created|date:'m月d日 H:i' }}<br>{{ message.body|linebreaksbr }}</p>
+          {% empty %}<p>举报前没有可核查的文字消息。</p>{% endfor %}
+        {% endif %}
+      {% else %}<p>目标已不可用，或与举报人没有可验证的关联。请核对举报说明后处理。</p>{% endif %}
+      {% if selected_report.resolved %}
+        <p class="tag mint">已处理</p>
+        {% for record in resolution_history %}<p><strong>{{ record.actor.fullname|default:"主办方" }}</strong> · {{ record.created|date:"m月d日 H:i" }}<br>{{ record.detail|linebreaksbr }}</p>{% endfor %}
+      {% else %}
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="report_id" value="{{ selected_report.pk }}">
+          <label>处理说明<textarea name="resolution" required maxlength="2000"></textarea></label>
+          <button class="button">记录处理结果并关闭举报</button>
+        </form>
+      {% endif %}
+    </section>
+  {% endif %}
+  <h2>待处理举报</h2>
+  {% for report in reports %}
+    <article class="panel">
+      <p>{{ report.reporter.name }} · {{ report.get_target_type_display|default:report.target_type }} · #{{ report.pk }}</p>
+      <p>{{ report.reason|linebreaksbr }}</p>
+      <a href="?report_id={{ report.pk }}">查看举报与相关证据</a>
+    </article>
+  {% empty %}<p>暂无待处理举报。</p>{% endfor %}
+{% endblock %}

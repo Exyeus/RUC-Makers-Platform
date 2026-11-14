@@ -1,0 +1,10 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+<section class="page-heading"><div><h1>处理路演顺序申请</h1><p>先核查原因和证明，再选择实际候场位置。同意后立即调整队列并给申请人回执；不能满足时请说明原因。</p></div><a class="button secondary" href="{% url 'hackathon:manage-stage' hackathon.slug %}">返回路演调度</a></section>
+{% include 'hackathon/stage_request_summary.html' %}
+{% for item in requests %}<article class="panel"><h2>{{ item.team.name }} · {{ item.participant.name }}</h2><p>{{ item.get_preference_display }} · {{ item.get_state_display }} · {{ item.created|date:'m月d日 H:i' }}</p>{% if item.current_slot %}<p>当前队列：第 {{ item.current_slot.position }} 位 · {{ item.current_slot.get_state_display }}</p>{% else %}<p>尚未加入路演队列；可先核查证明，接受并调整前须完成作品审核与排队。</p>{% endif %}<p>{{ item.time_constraint }}</p><p>{{ item.reason|linebreaksbr }}</p>
+{% if item.evidence %}<p><a href="{% url 'hackathon:stage-request-evidence' hackathon.slug item.pk %}">下载证明：{{ item.evidence_name }}</a></p>{% endif %}
+{% if item.evidence_url %}<p><a href="{{ item.evidence_url }}" target="_blank" rel="noopener noreferrer">查看选手提交的证明链接 ↗</a></p>{% endif %}
+{% if item.state == 'pending' %}<form method="post" class="form-panel">{% csrf_token %}{% include 'hackathon/form_fields.html' with form=item.decision_form %}<button class="button">保存决定与实际安排</button></form>{% else %}<p>{{ item.decision_note|linebreaksbr }}</p>{% if item.applied_position %}<p>处理时安排：第 {{ item.applied_position }} 位。</p>{% endif %}<p>{{ item.decided_at|date:'m月d日 H:i' }} {{ item.decided_by.fullname }}</p>{% endif %}
+</article>{% empty %}<section class="panel">尚无路演顺序申请。</section>{% endfor %}
+{% endblock %}

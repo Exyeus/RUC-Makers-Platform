@@ -239,9 +239,12 @@ def test_edit_after_submission_stops_claiming_the_current_version(client, hackat
     project.refresh_from_db()
     assert (project.state, project.state_reason) == ('changes', 'edited')
     revision = project.revision
-    assert client.post(
-        endpoint(hackathon, 'project'), project_data(title='改个标题', version=revision, action='submit')
-    ).status_code == 302
+    assert (
+        client.post(
+            endpoint(hackathon, 'project'), project_data(title='改个标题', version=revision, action='submit')
+        ).status_code
+        == 302
+    )
     project.refresh_from_db()
     assert (project.state, project.state_reason) == ('submitted', '')
     assert services.project_status(project)['key'] == 'submitted'
@@ -285,12 +288,19 @@ def test_ajax_errors_split_field_messages_from_the_headline(client, hackathon, t
 def test_organizer_review_records_why_the_project_needs_work(client, hackathon, team, organizer_user):
     project = approved_project(hackathon, team)
     client.force_login(organizer_user)
-    data = {'state': 'changes', 'review_note': '缺少实机演示录屏', 'equipment_checked': 'on', 'award': ''}
+    data = {
+        'state': 'changes',
+        'review_note': '缺少实机演示录屏',
+        'equipment_checked': 'on',
+        'award': '',
+        **{k: forms.ReviewForm(instance=project).initial[k] for k in ('version', 'review_token')},
+    }
     assert client.post(endpoint(hackathon, 'review', project_id=project.pk), data).status_code == 302
     project.refresh_from_db()
     assert (project.state, project.state_reason) == ('changes', 'review')
     status = services.project_status(project)
     assert (status['key'], status['detail']) == ('review', '缺少实机演示录屏')
+    data.update({k: forms.ReviewForm(instance=project).initial[k] for k in ('version', 'review_token')})
     data['state'] = 'submitted'
     assert client.post(endpoint(hackathon, 'review', project_id=project.pk), data).status_code == 302
     project.refresh_from_db()
@@ -914,6 +924,7 @@ def test_up_down_reorders_queue(hackathon, team, organizer_user):
         project.submitted_at = base + timedelta(seconds=index)
         project.save()
     services.generate_queue(hackathon, organizer_user)
+
     def order():
         return [slot.project_id for slot in DemoSlot.objects.order_by('position')]
 

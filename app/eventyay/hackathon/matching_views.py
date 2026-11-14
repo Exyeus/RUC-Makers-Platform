@@ -182,7 +182,17 @@ def read_payload(h, actor, operation, params):
         query = params.get('q', '').strip()
         if query:
             candidates = candidates.filter(
-                Q(name__icontains=query) | (Q(bio__icontains=query) & ~Q(social_preference__hidden_fields__contains=['bio'])) | (Q(skills__icontains=query) & ~Q(social_preference__hidden_fields__contains=['skills']))
+                Q(name__icontains=query)
+                | (
+                    Q(looking_for_team=True)
+                    & Q(bio__icontains=query)
+                    & ~Q(social_preference__hidden_fields__contains=['bio'])
+                )
+                | (
+                    Q(looking_for_team=True)
+                    & Q(skills__icontains=query)
+                    & ~Q(social_preference__hidden_fields__contains=['skills'])
+                )
             )
         return {'people': [matching.public_person(candidate, candidate.matching_profile) for candidate in candidates]}
     if operation == 'teams':
@@ -197,11 +207,9 @@ def read_payload(h, actor, operation, params):
                     'remaining': h.team_size - t.member_count,
                     'roster_version': t.roster_version,
                     'recipient_id': str(t.captain_id),
+                    'contact_available': matching.visible_to(p, t.captain),
                 }
-                for t in Team.objects.filter(
-                    hackathon=h, recruiting=True, state='recruiting', captain__matching_profile__opt_in=True
-                )
-                .exclude(captain__matching_profile__visibility='paused')
+                for t in Team.objects.filter(hackathon=h, recruiting=True, state='recruiting')
                 .exclude(members__pk__in=excluded)
                 .annotate(member_count=Count('members'))
                 .select_related('captain')
@@ -423,6 +431,11 @@ def market(request):
         'matching',
         title='匹配推荐与组队进度',
         own_members=Participant.objects.filter(hackathon=h, team_id=p.team_id) if p.team_id else [],
+        eligibility_label=(
+            '开放测试体验（非录用确认）'
+            if request.hackathon_open_testing
+            else ('已通过本届资格核验' if request.hackathon_admitted else '尚未通过本届资格核验')
+        ),
         people=people,
         market_teams=teams,
         ideas=ideas,

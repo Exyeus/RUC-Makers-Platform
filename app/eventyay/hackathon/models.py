@@ -250,6 +250,7 @@ class JoinRequest(EventRecord):
             ('accepted', '已加入'),
             ('declined', '已婉拒'),
             ('withdrawn', '已撤回'),
+            ('unavailable', '已组队，申请已关闭'),
         ],
     )
 
@@ -830,7 +831,12 @@ class BonusClaim(EventRecord):
 
 
 # Register account-side models after EventRecord is available.
-from eventyay.hackathon.account_models import AccountActionToken, AccountSecurity, AdmissionGrant, UpdateDelivery  # noqa: E402,F401
+from eventyay.hackathon.account_models import (  # noqa: E402,F401
+    AccountActionToken,
+    AccountSecurity,
+    AdmissionGrant,
+    UpdateDelivery,
+)
 
 
 class SocialPreference(EventRecord):
@@ -846,6 +852,7 @@ class ChatMessage(EventRecord):
     author = models.ForeignKey(Participant, on_delete=models.PROTECT)
     body = models.TextField(max_length=2000)
     client_id = models.UUIDField()
+
     class Meta:
         constraints = [models.UniqueConstraint(fields=['intent', 'author', 'client_id'], name='hack_chat_retry')]
         indexes = [models.Index(fields=['intent', 'id'], name='hack_chat_cursor')]
@@ -855,6 +862,7 @@ class ContactGrant(EventRecord):
     intent = models.ForeignKey(MatchIntent, on_delete=models.CASCADE)
     owner = models.ForeignKey(Participant, on_delete=models.CASCADE)
     fields = models.JSONField(default=list)
+
     class Meta:
         constraints = [models.UniqueConstraint(fields=['intent', 'owner'], name='hack_contact_grant')]
 
@@ -862,6 +870,7 @@ class ContactGrant(EventRecord):
 class PostReaction(EventRecord):
     post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE)
     author = models.ForeignKey(Participant, on_delete=models.CASCADE)
+
     class Meta:
         constraints = [models.UniqueConstraint(fields=['post', 'author'], name='hack_post_like')]
 
@@ -872,3 +881,6 @@ class SocialReport(EventRecord):
     target_id = models.CharField(max_length=64)
     reason = models.TextField(max_length=1000)
     resolved = models.BooleanField(default=False)
+
+
+from eventyay.hackathon.stage_models import StageOrderRequest  # noqa: E402,F401

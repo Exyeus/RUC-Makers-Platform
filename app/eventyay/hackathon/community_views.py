@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import Http404
@@ -68,18 +69,19 @@ def post_detail(request, post_id):
         and post.author_id != (participant.pk if participant else None)
     ):
         raise Http404
-    if participant and blocked(participant, post.author):
+    if participant and not request.hackathon_organizer and blocked(participant, post.author):
         raise Http404
     form = CommunityResponseForm(request.POST if request.method == 'POST' else None)
     if request.method == 'POST':
-        if not participant:
+        action = request.POST.get('action', 'comment')
+        moderation = action == 'remove' and request.hackathon_organizer
+        if not participant and not moderation:
             return redirect(url(h, 'register'))
         with transaction.atomic():
             services.lock_event(h)
             post.refresh_from_db()
-            if blocked(participant, post.author):
+            if participant and not moderation and blocked(participant, post.author):
                 raise PermissionDenied
-            action = request.POST.get('action', 'comment')
             for key in ('response_id', 'parent_id'):
                 if request.POST.get(key) and not request.POST[key].isdigit():
                     raise Http404
@@ -88,11 +90,14 @@ def post_detail(request, post_id):
                     response = get_object_or_404(
                         CommunityResponse, hackathon=h, post=post, pk=request.POST.get('response_id')
                     )
-                    if response.author_id != participant.pk and not request.hackathon_organizer:
+                    if not request.hackathon_organizer and response.author_id != participant.pk:
                         raise PermissionDenied
                     response.body = ''
                     response.removed = True
                     response.save(update_fields=['body', 'removed'])
+                    services.audit(
+                        h, request.user, '撤回交流回应', response.pk, '主办处理' if moderation else '本人撤回'
+                    )
                 elif action == 'report':
                     target = get_object_or_404(
                         CommunityResponse, hackathon=h, post=post, pk=request.POST.get('response_id'), removed=False
@@ -142,13 +147,11 @@ def post_detail(request, post_id):
                 messages.success(request, '已保存。')
         return redirect(url(h, 'post-detail', post_id=post.pk))
     responses = CommunityResponse.objects.filter(hackathon=h, post=post).select_related('author', 'parent')
-    if participant:
+    if participant and not request.hackathon_organizer:
         responses = responses.exclude(author_id__in=excluded_ids(h, participant))
     if not request.hackathon_organizer and post.author_id != (participant.pk if participant else None):
         responses = responses.filter(Q(private=False) | Q(author=participant))
-    from django.core.paginator import Paginator
-
-    response_page = Paginator(responses.order_by('-created'), 50).get_page(request.GET.get('page'))
+    response_page = Paginator(responses.order_by('-created', '-id'), 50).get_page(request.GET.get('page'))
     likes = PostReaction.objects.filter(hackathon=h, post=post)
     if participant:
         likes = likes.exclude(author_id__in=excluded_ids(h, participant))

@@ -18,6 +18,7 @@ from eventyay.hackathon.models import (
     TicketMessage,
     VolunteerTask,
 )
+from eventyay.hackathon.reviewing import fingerprint
 from tests.hackathon.test_workflows import approved_project, endpoint
 
 
@@ -77,7 +78,7 @@ def test_check_in_keeps_the_current_search(client, hackathon, participant, organ
     )
     client.force_login(organizer_user)
     response = client.post(
-        f"{endpoint(hackathon, 'participants')}?q=%E5%88%9B%E9%80%A0%E8%80%85",
+        f'{endpoint(hackathon, "participants")}?q=%E5%88%9B%E9%80%A0%E8%80%85',
         {'participant': participant.pk, 'action': 'check_in'},
         follow=True,
     )
@@ -101,8 +102,20 @@ def test_ticket_replies_accumulate_instead_of_overwriting(client, hackathon, use
     ticket = make_ticket(hackathon, user)
     client.force_login(organizer_user)
     path = endpoint(hackathon, 'support-reply', ticket_id=ticket.pk)
-    client.post(path, {'action': 'reply', 'state': 'waiting_user', 'body': '先看一眼浏览器控制台的报错。'}, follow=True)
-    client.post(path, {'action': 'reply', 'state': 'resolved', 'body': '问题已修复，感谢配合。'})
+    client.post(
+        path,
+        {'action': 'reply', 'state': 'waiting_user', 'body': '先看一眼浏览器控制台的报错。', 'last_message_id': 0},
+        follow=True,
+    )
+    client.post(
+        path,
+        {
+            'action': 'reply',
+            'state': 'resolved',
+            'body': '问题已修复，感谢配合。',
+            'last_message_id': ticket.messages.latest('id').pk,
+        },
+    )
     ticket.refresh_from_db()
     assert (ticket.state, ticket.handler) == (SupportTicket.State.RESOLVED, organizer_user)
     assert list(TicketMessage.objects.filter(ticket=ticket).values_list('body', flat=True)) == [
@@ -169,9 +182,7 @@ def test_new_ticket_requires_the_create_action(client, hackathon, user):
     assert SupportTicket.objects.filter(hackathon=hackathon, subject='不该被建出来').exists()
 
 
-def test_organizer_sees_stable_identity_label(
-    client, hackathon, participant, team, user, organizer_user
-):
+def test_organizer_sees_stable_identity_label(client, hackathon, participant, team, user, organizer_user):
     make_ticket(hackathon, user)
     client.force_login(organizer_user)
     content = client.get(endpoint(hackathon, 'support')).content.decode()
@@ -250,7 +261,7 @@ def test_manage_ticket_kpi_counts_only_what_the_organizer_must_do(client, hackat
     assert overview.context['tickets'] == 1
     assert overview.context['waiting_tickets'] == 1
     # 卡片数字与点进去的列表必须是同一份筛选结果。
-    assert f"{endpoint(hackathon, 'support')}?state=open" in overview.content.decode()
+    assert f'{endpoint(hackathon, "support")}?state=open' in overview.content.decode()
     listed = client.get(endpoint(hackathon, 'support'), {'state': 'open'})
     assert len(listed.context['tickets']) == overview.context['tickets']
 
@@ -308,7 +319,7 @@ def test_tickets_export_carries_identity_and_thread_count(client, hackathon, par
     client.force_login(organizer_user)
     client.post(
         endpoint(hackathon, 'support-reply', ticket_id=ticket.pk),
-        {'action': 'reply', 'state': 'waiting_user', 'body': '请提供浏览器版本。'},
+        {'action': 'reply', 'state': 'waiting_user', 'body': '请提供浏览器版本。', 'last_message_id': 0},
     )
     rows = rows_from(client.get(endpoint(hackathon, 'export', kind='tickets')))
     header, row = rows[0], rows[1]
@@ -340,7 +351,7 @@ def test_ticket_without_a_project_still_finds_the_person(client, hackathon, part
     client.force_login(organizer_user)
     content = client.get(endpoint(hackathon, 'support')).content.decode()
     assert '在名单中查找本人' in content
-    assert f"{endpoint(hackathon, 'participants')}?q={participant.code}" in content
+    assert f'{endpoint(hackathon, "participants")}?q={participant.code}' in content
 
 
 def test_tickets_export_marks_unregistered_openers(client, hackathon, user, organizer_user):
@@ -395,12 +406,14 @@ def test_review_returns_to_the_same_filter(client, hackathon, team, organizer_us
             'review_note': '缺少实机演示录屏',
             'equipment_checked': 'on',
             'award': '',
+            'version': project.revision,
+            'review_token': fingerprint(project),
             'filter_state': 'changes',
             'filter_reason': 'review',
         },
     )
     assert response.status_code == 302
-    assert response['Location'].endswith(f"{endpoint(hackathon, 'submissions')}?state=changes&reason=review")
+    assert response['Location'].endswith(f'{endpoint(hackathon, "submissions")}?state=changes&reason=review')
 
 
 def test_foreign_filter_values_are_dropped_from_the_return_link(client, hackathon, team, organizer_user):
@@ -413,6 +426,8 @@ def test_foreign_filter_values_are_dropped_from_the_return_link(client, hackatho
             'review_note': '',
             'equipment_checked': 'on',
             'award': '',
+            'version': project.revision,
+            'review_token': fingerprint(project),
             'filter_state': '../../evil',
             'filter_reason': 'not-a-reason',
         },
