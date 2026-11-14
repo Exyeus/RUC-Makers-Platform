@@ -1,8 +1,13 @@
-<section class="hour-calendar panel" aria-label="活动时间线与小时历">
+<section class="hour-calendar panel" aria-label="{% if grid_only %}活动时段色块历{% else %}活动时间线与小时历{% endif %}">
   <div class="section-heading">
     <div>
-      <h2>活动时间线与小时历</h2>
-      <p class="muted">按时间排列的全部安排与截止 · 时间以 {{ hackathon.event.timezone }} 为准</p>
+      {% if grid_only %}
+        <h2>活动时段色块历</h2>
+        <p class="muted">每格 1 小时 · 按活动日排列的色块 · 时间以 {{ hackathon.event.timezone }} 为准</p>
+      {% else %}
+        <h2>活动时间线与小时历</h2>
+        <p class="muted">按时间排列的全部安排与截止 · 时间以 {{ hackathon.event.timezone }} 为准</p>
+      {% endif %}
     </div>
     <a href="{% url 'hackathon:schedule' hackathon.slug %}">完整日程</a>
   </div>
@@ -10,7 +15,7 @@
     <ol class="calendar-timeline">
       {% for entry in calendar_timeline %}
         <li class="calendar-entry {{ entry.level }}">
-          <time datetime="{{ entry.starts_at|date:'c' }}">{{ entry.starts_at|date:'m.d H:i' }}{% if entry.ends_at %}–{{ entry.ends_at|date:'H:i' }}{% endif %}</time>
+          <time datetime="{{ entry.starts_at|date:'c' }}">{{ entry.starts_at|date:'m.d H:i' }}{% if entry.ends_at %}–{% if entry.ends_at|date:'Y-m-d' != entry.starts_at|date:'Y-m-d' %}{{ entry.ends_at|date:'m.d H:i' }}{% else %}{{ entry.ends_at|date:'H:i' }}{% endif %}{% endif %}</time>
           <span class="tag">{{ entry.kind }}</span>
           <span class="calendar-entry-title">{{ entry.title }}</span>
           {% if entry.location %}<span class="muted">{{ entry.location }}</span>{% endif %}

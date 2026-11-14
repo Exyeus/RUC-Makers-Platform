@@ -373,6 +373,9 @@ def landing_context(request):
         else None
     )
     current_task = next_task(h, participant, project, unread, timezone.now(), status, waiting_ticket)
+    # 已发布日程取一次：首页的「接下来」与两套日历用的是同一份数据。
+    now = timezone.now()
+    schedule_items = list(ScheduleItem.published(h))
     checklist = [
         {
             'title': '完善参赛信息',
@@ -419,10 +422,10 @@ def landing_context(request):
             hackathon=h, state__in=[Project.State.SUBMITTED, Project.State.APPROVED]
         ).count(),
         'notices': Announcement.published(h).filter(audience='all')[:3],
-        'upcoming': ScheduleItem.published(h).filter(ends_at__gte=timezone.now())[:3],
+        'upcoming': [item for item in schedule_items if item.ends_at >= now][:3],
         'featured_resources': Resource.published(h)[:3],
-        'calendar_days': schedule_heatmap(h),
-        'calendar_timeline': schedule_timeline(h),
+        'calendar_days': schedule_heatmap(h, schedule_items),
+        'calendar_timeline': schedule_timeline(h, schedule_items),
     }
 
 
@@ -1011,21 +1014,15 @@ def participants(request):
         person = get_object_or_404(Participant, hackathon=h, pk=request.POST.get('participant'))
         action = request.POST.get('action')
         if action == 'check_in':
-            if person.checked_in:
-                messages.info(request, f'{person.name}（{person.code}）此前已签到，状态没有变化。')
-            else:
-                person.checked_in = True
-                person.save(update_fields=['checked_in', 'updated'])
-                services.audit(h, request.user, '签到', person.code)
+            if services.set_check_in(h, request.user, person, True):
                 messages.success(request, f'{person.name}（{person.code}）已签到。')
-        elif action == 'uncheck':
-            if not person.checked_in:
-                messages.info(request, f'{person.name}（{person.code}）本来就没有签到记录。')
             else:
-                person.checked_in = False
-                person.save(update_fields=['checked_in', 'updated'])
-                services.audit(h, request.user, '撤销签到', person.code)
+                messages.info(request, f'{person.name}（{person.code}）此前已签到，状态没有变化。')
+        elif action == 'uncheck':
+            if services.set_check_in(h, request.user, person, False):
                 messages.success(request, f'已撤销 {person.name}（{person.code}）的签到记录。')
+            else:
+                messages.info(request, f'{person.name}（{person.code}）本来就没有签到记录。')
         else:
             messages.error(request, '没有识别这个操作，签到状态保持不变。')
         return redirect(back)
@@ -1519,12 +1516,15 @@ def attach_ticket_threads(hackathon, tickets):
         project = team_projects.get(person.team_id) if person and person.team_id else None
         if project:
             # 开单人属于哪一队，主办就能从工单直接走到那份作品。
-            ticket.work_reference = (f'{project.code} · 当前作品', url(hackathon, 'review', project_id=project.pk))
+            ticket.work_reference = {
+                'label': f'{project.code} · 当前作品',
+                'url': url(hackathon, 'review', project_id=project.pk),
+            }
         elif person:
-            ticket.work_reference = (
-                '在名单中查找本人',
-                f"{url(hackathon, 'participants')}?{urlencode({'q': person.code})}",
-            )
+            ticket.work_reference = {
+                'label': '在名单中查找本人',
+                'url': f"{url(hackathon, 'participants')}?{urlencode({'q': person.code})}",
+            }
         else:
             ticket.work_reference = None
         thread = [

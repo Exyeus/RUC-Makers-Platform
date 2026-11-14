@@ -43,6 +43,20 @@ def lock_event(hackathon):
     return Hackathon.objects.select_for_update().get(pk=hackathon.pk)
 
 
+def set_check_in(hackathon, actor, person, checked_in):
+    """按条件更新签到状态，返回是否真的改动了。
+
+    两个主办同时点签到时，只有真正把状态改过来的那一个写审计；另一个人
+    拿到的影响行数是 0，不会再写一条「看起来像操作了两次」的日志。
+    """
+    updated = Participant.objects.filter(pk=person.pk, checked_in=not checked_in).update(
+        checked_in=checked_in, updated=timezone.now()
+    )
+    if updated:
+        audit(hackathon, actor, '签到' if checked_in else '撤销签到', person.code)
+    return bool(updated)
+
+
 def require_team_open(hackathon):
     if not hackathon.teams_open:
         raise ValidationError('队伍名单已冻结。如有特殊情况，请提交支持工单。')
