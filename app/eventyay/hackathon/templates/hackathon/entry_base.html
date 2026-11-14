@@ -1,4 +1,4 @@
-{% load static %}
+{% load static hackathon_static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
@@ -10,6 +10,9 @@
     <link rel="stylesheet" href="{% static 'hackathon/landing.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/brand.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/entry.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-components.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-refactor.css' %}">
+    <script type="module" src="{% versioned_static 'hackathon/ui.js' %}"></script>
     <script type="module" src="{% static 'hackathon/landing.js' %}"></script>
     <script type="module" src="{% static 'hackathon/account.js' %}"></script>
     <meta name="referrer" content="same-origin">

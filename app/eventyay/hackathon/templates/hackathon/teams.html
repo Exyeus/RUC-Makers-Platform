@@ -1,6 +1,5 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
-  {% if participant %}<p class="panel"><a href="{% url 'hackathon:stage-requests' hackathon.slug %}">路演时段 / 顺序申请与回执</a> · 需要调整时请说明原因并提交相关证明。</p>{% endif %}
   <section class="page-heading team-directory-heading">
     <div>
       <h1>
@@ -18,6 +17,7 @@
       </a>
     {% endif %}
   </section>
+  {% if participant %}<aside class="ui-context-link"><a href="{% url 'hackathon:stage-requests' hackathon.slug %}">路演时段 / 顺序申请与回执 <span aria-hidden="true">↗</span></a><span>需要调整时请说明原因并提交相关证明。</span></aside>{% endif %}
   <nav class="square-tabs panel" aria-label="组队广场栏目">
     <a href="#community">交流与共创</a>
     <a href="#work-pool">作品池</a>

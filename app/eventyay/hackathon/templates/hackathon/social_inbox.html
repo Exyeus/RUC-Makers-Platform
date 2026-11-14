@@ -1,1 +1,27 @@
-{% extends 'hackathon/base.html' %}{% block content %}<section class="page-heading"><h1>站内沟通</h1><a href="{% url 'hackathon:social-privacy' hackathon.slug %}">展示与沟通隐私</a></section><p>先在匹配页面发送交流申请，对方同意后可以私聊。不同意或屏蔽后不能继续发消息。</p><p><a href="{% url 'hackathon:matching' hackathon.slug %}#progress">处理交流申请</a> · <a href="{% url 'hackathon:teams' hackathon.slug %}">回到组队广场</a></p>{% for thread in threads %}<article class="panel"><a href="{% url 'hackathon:social-chat' hackathon.slug thread.id %}">与 {{ thread.name }} 交流</a></article>{% empty %}<p class="panel">暂无已获双方同意的会话。</p>{% endfor %}{% if is_organizer %}<a href="{% url 'hackathon:social-reports' hackathon.slug %}">处理举报</a>{% endif %}<nav aria-label="会话分页">{% if thread_page.has_previous %}<a href="?page={{ thread_page.previous_page_number }}">上一页</a>{% endif %} 第 {{ thread_page.number }} 页 {% if thread_page.has_next %}<a href="?page={{ thread_page.next_page_number }}">下一页</a>{% endif %}</nav>{% endblock %}
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div><h1>站内沟通</h1><p>先在匹配页面发送交流申请，对方同意后可以私聊。</p></div>
+    <a class="button secondary" href="{% url 'hackathon:social-privacy' hackathon.slug %}">展示与沟通隐私</a>
+  </section>
+  <nav class="actions" aria-label="沟通入口">
+    <a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}#progress">处理交流申请</a>
+    <a class="button secondary" href="{% url 'hackathon:teams' hackathon.slug %}">回到组队广场</a>
+    {% if is_organizer %}<a class="button secondary" href="{% url 'hackathon:social-reports' hackathon.slug %}">处理举报</a>{% endif %}
+  </nav>
+  <section class="panel ui-conversation-list" aria-labelledby="conversations-title">
+    <div class="section-heading"><h2 id="conversations-title">我的会话</h2><span class="muted">不同意或屏蔽后不能继续发消息。</span></div>
+    {% for thread in threads %}
+      <article class="ui-conversation-item">
+        <a href="{% url 'hackathon:social-chat' hackathon.slug thread.id %}"><span class="avatar" aria-hidden="true">{{ thread.name|slice:':1' }}</span><span>与 {{ thread.name }} 交流</span><span aria-hidden="true">↗</span></a>
+      </article>
+    {% empty %}
+      <div class="empty"><h3>暂无已获双方同意的会话。</h3><p>从认识一位队友开始，双方同意后即可在这里交流。</p><a class="button" href="{% url 'hackathon:matching' hackathon.slug %}">寻找交流伙伴</a></div>
+    {% endfor %}
+  </section>
+  <nav class="actions" aria-label="会话分页">
+    {% if thread_page.has_previous %}<a class="button secondary" href="?page={{ thread_page.previous_page_number }}">上一页</a>{% endif %}
+    <span class="muted">第 {{ thread_page.number }} 页</span>
+    {% if thread_page.has_next %}<a class="button secondary" href="?page={{ thread_page.next_page_number }}">下一页</a>{% endif %}
+  </nav>
+{% endblock %}

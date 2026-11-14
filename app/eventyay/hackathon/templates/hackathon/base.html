@@ -16,6 +16,9 @@
     <link rel="icon" href="{% static 'hackathon/brand/favicon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/workbench.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/workbench-pages.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-components.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-refactor.css' %}">
+    <script type="module" src="{% versioned_static 'hackathon/ui.js' %}"></script>
     <script type="module" src="{% static 'hackathon/hub.js' %}">
     </script>
     <script type="module" src="{% static 'hackathon/upload.js' %}"></script>
@@ -92,38 +95,29 @@
               <svg aria-hidden="true"><use href="#i-settings" /></svg>
               <span>主办方后台</span>
             </a>
-          {% else %}
-            <a class="organizer-login-link" href="{% url 'hackathon:organizer-login' hackathon.slug %}">主办方登录</a>
           {% endif %}
           {% if request.user.is_authenticated %}
-            <a class="button secondary small" href="{% url 'hackathon:account' hackathon.slug %}">账号与订阅</a>
-            <a class="user-chip" href="{% url 'hackathon:register' hackathon.slug %}" aria-label="个人资料">
-              <span class="avatar">
-                {{ request.user.fullname|default:request.user.email|slice:':1'|upper }}
-              </span>
-              <span>
-                {{ participant.name|default:request.user.fullname|default:'我的账户' }}
-                <small>
-                  {% if working_identity %}
-                    {{ working_identity }}
-                  {% elif is_organizer %}
-                    主办方
-                  {% elif is_judge %}
-                    评委
-                  {% elif is_staff_member %}
-                    志愿者
-                  {% else %}
-                    创造者
+            <div data-ui-account data-label="{{ participant.name|default:request.user.fullname|default:'我的账户' }}" data-subtitle="{{ working_identity|default:'创造者' }}">
+              <details class="ui-account-fallback">
+                <summary class="user-chip" aria-label="打开账户菜单">
+                  <span class="avatar" aria-hidden="true">{{ request.user.fullname|default:request.user.email|slice:':1'|upper }}</span>
+                  <span>{{ participant.name|default:request.user.fullname|default:'我的账户' }}<small>{{ working_identity|default:'创造者' }}</small></span>
+                  <span aria-hidden="true">⌄</span>
+                </summary>
+                <nav aria-label="账户操作">
+                  <a href="{% url 'hackathon:register' hackathon.slug %}">个人资料</a>
+                  <a href="{% url 'hackathon:account' hackathon.slug %}">账号与订阅</a>
+                  {% if participant %}
+                    <a href="{% url 'hackathon:social-inbox' hackathon.slug %}">站内沟通</a>
+                    <a href="{% url 'hackathon:social-privacy' hackathon.slug %}">展示与沟通隐私</a>
                   {% endif %}
-                </small>
-              </span>
-            </a>
-            <form method="post" action="{% url 'hackathon:logout' hackathon.slug %}" class="logout-form">
-              {% csrf_token %}
-              <button type="submit" class="icon-button topbar-icon logout-button" aria-label="退出登录" title="退出登录">
-                <svg aria-hidden="true"><use href="#i-log-out" /></svg>
-              </button>
-            </form>
+                  <form method="post" action="{% url 'hackathon:logout' hackathon.slug %}" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="text-button">退出登录</button>
+                  </form>
+                </nav>
+              </details>
+            </div>
           {% else %}
             <a class="button small" href="{% url 'hackathon:student-login' hackathon.slug %}?next={{ request.get_full_path|urlencode }}">
               学号登录 / 注册            </a>
@@ -149,7 +143,6 @@
             {{ message }}
           </div>
         {% endfor %}
-        {% if participant %}<p class="panel"><a href="{% url 'hackathon:social-inbox' hackathon.slug %}">站内沟通</a> · <a href="{% url 'hackathon:social-privacy' hackathon.slug %}">展示与沟通隐私</a></p>{% endif %}
         {% block content %}
         {% endblock %}
         <footer class="page-footer">
@@ -171,5 +164,6 @@
       </main>
     </div>
     {% include 'hackathon/mobile_nav.html' %}
+    <div data-ui-navigation></div>
   </body>
 </html>
