@@ -289,6 +289,8 @@
 }
 @media (max-width: 25rem) {
   .ruc-app .card-grid { grid-template-columns: minmax(0, 1fr); }
+  .ruc-app .topbar-actions { max-width: 100%; flex-shrink: 1; }
+  .ruc-app .topbar .hu-account-trigger:not(.hu-login-trigger) .hu-account-copy { display: none; }
   .ruc-app .identity-switch-label { display: none; }
   .ruc-app .identity-option { padding-inline: 0.625rem; }
   .entry-page main, .entry-page .landing-footer, .entry-page .header-inner { width: calc(100% - 2rem); }
