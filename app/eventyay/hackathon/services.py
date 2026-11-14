@@ -1,12 +1,13 @@
 import hashlib
 import json
 import math
+import secrets
 import uuid
 from datetime import timedelta
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -25,6 +26,7 @@ from eventyay.hackathon.models import (
     ScheduleItem,
     Score,
     StaffAssignment,
+    StationToken,
     Team,
     Track,
     UploadSession,
@@ -613,6 +615,107 @@ def stage_action(hackathon, user, slot, action, note=''):
     audit(hackathon, user, f'路演：{action}', slot.project.code, note)
 
 
+# 现场助手连续多久没有拉取状态就算「连接中断」。
+STATION_STALE_SECONDS = 90
+# 助手轮询很密，最近同步时间按这个间隔落库，避免每次轮询都写一行。
+STATION_TOUCH_SECONDS = 30
+
+
+def issue_station_token(hackathon, user):
+    """签发新的播放助手令牌：旧令牌立即失效，明文只在这一次返回。
+
+    先锁活动行再换，保证同一活动同时只有一枚有效令牌：两个主办同时点
+    「确认更换令牌」时，后一个会看到前一个刚签发的那枚被作废，而不是
+    两枚同时有效。服务端只保存摘要；调用方负责把明文只展示一次。
+    """
+    token = secrets.token_urlsafe(32)
+    with transaction.atomic():
+        hackathon = lock_event(hackathon)
+        StationToken.objects.filter(hackathon=hackathon).delete()
+        station = StationToken.objects.create(
+            hackathon=hackathon,
+            digest=hashlib.sha256(token.encode()).hexdigest(),
+            expires_at=timezone.now() + timedelta(hours=12),
+            created_by=user,
+        )
+        audit(hackathon, user, '签发播放助手令牌', station.pk, '旧令牌已立即失效，现场助手需要重新连接')
+    return token
+
+
+def touch_station(hackathon):
+    """现场助手拉取状态时刷新「最近同步时间」。"""
+    now = timezone.now()
+    StationToken.objects.filter(hackathon=hackathon).filter(
+        Q(last_seen_at__isnull=True) | Q(last_seen_at__lt=now - timedelta(seconds=STATION_TOUCH_SECONDS))
+    ).update(last_seen_at=now)
+
+
+def station_status(hackathon):
+    """播放助手的连接状态：未连接 / 最近同步正常 / 连接中断 / 已过期。"""
+    station = StationToken.objects.filter(hackathon=hackathon).first()
+    now = timezone.now()
+    status = {
+        'state': 'none',
+        'label': '未连接',
+        'detail': '还没有签发播放助手令牌。',
+        'tone': '',
+        'has_token': False,
+        'last_seen_at': None,
+        'expires_at': None,
+    }
+    if not station:
+        return status
+    status['has_token'] = True
+    status['expires_at'] = station.expires_at
+    status['last_seen_at'] = station.last_seen_at
+    if station.expires_at <= now:
+        status.update(
+            state='expired',
+            label='已过期',
+            tone='warning',
+            detail='令牌已过期，现场助手需要用新令牌重新连接。',
+        )
+    elif station.last_seen_at is None:
+        status.update(detail='令牌已签发，但还没有现场助手连上来。')
+    elif (now - station.last_seen_at).total_seconds() > STATION_STALE_SECONDS:
+        status.update(
+            state='stale',
+            label='连接中断',
+            tone='warning',
+            detail='现场助手已经有一段时间没有同步。',
+        )
+    else:
+        status.update(
+            state='ok',
+            label='最近同步正常',
+            tone='success',
+            detail='现场助手正在正常拉取队列与材料。',
+        )
+    return status
+
+
+def station_rotation_impact(hackathon):
+    """更换令牌前先说清楚会发生什么，别让现场的人事后才发现连接断了。"""
+    station = StationToken.objects.filter(hackathon=hackathon).first()
+    if not station:
+        return {
+            'state': 'none',
+            'text': '当前没有生效的播放助手令牌，本次签发不会让任何连接失效。',
+        }
+    if station.expires_at <= timezone.now():
+        return {
+            'state': 'expired',
+            'text': '当前令牌已经过期，现场助手本就无法连接；更换不会额外影响任何正在工作的连接。',
+        }
+    return {
+        'state': 'active',
+        'text': (
+            '现场助手正在使用当前令牌。更换后旧令牌立即失效，'
+            '现场电脑需要填入新令牌重新连接，才能继续拉取材料与状态。'
+        ),
+    }
+
+
 def judge_panel(hackathon):
     """Active judges and the teams each of them has to avoid — the single source of 'who owes which score'."""
     assignments = list(
@@ -707,6 +810,88 @@ def review_progress(hackathon):
         )
     rows.sort(key=lambda row: (row['complete'], -len(row['outstanding']), row['user'].fullname or row['user'].email))
     return rows
+
+
+def judge_removal_impact(hackathon, assignment):
+    """移除一位工作人员前先算清楚影响：计分资格、已有评分、缺评数量。
+
+    统计口径与 results() / review_progress() 一致：有效评委集合、回避规则、
+    只认已确认的评分。特别注意「回避」：评委与某支队伍同队时，他对该作品
+    本来就不算应评、他的评分本来就不进统计——这种评分既不能算成「移除后
+    少掉的分数」，也不该让作品看起来变缺评。这里不改任何数据，只回答
+    「移除之后会少什么、会不会缺评」。
+    """
+    impact = {
+        'assignment': assignment,
+        'user': assignment.user,
+        'role': assignment.role,
+        'scoring': assignment.role == 'judge',
+        'items': [],
+        'confirmed': 0,
+        'drafts': 0,
+        'expected_before': 0,
+        'expected_after': 0,
+        'panel_size': 0,
+        'new_panel_size': 0,
+        'becoming_incomplete': 0,
+        'becoming_complete': 0,
+        'still_incomplete': 0,
+        'in_panel': False,
+        'note': '',
+    }
+    if assignment.role != 'judge':
+        impact['note'] = '志愿者不参与计分，移除不会改变评分结果，也不会改变缺评检查。'
+        return impact
+    assignments, conflicts = judge_panel(hackathon)
+    panel = {item.user_id for item in assignments}
+    impact['panel_size'] = len(panel)
+    impact['in_panel'] = assignment.user_id in panel
+    impact['new_panel_size'] = len(panel) - 1 if impact['in_panel'] else len(panel)
+    if not impact['in_panel']:
+        impact['note'] = '这位评委当前不在有效计分集合里（账号停用或被标记），移除只影响访问权限，不改变评分结果。'
+    projects = list(Project.objects.filter(hackathon=hackathon, state='approved').select_related('team'))
+    confirmed_by_project = {}
+    for project_id, judge_id in Score.objects.filter(hackathon=hackathon, final=True).values_list(
+        'project_id', 'judge_id'
+    ):
+        confirmed_by_project.setdefault(project_id, set()).add(judge_id)
+    mine = {score.project_id: score for score in Score.objects.filter(hackathon=hackathon, judge=assignment.user)}
+    for project in projects:
+        eligible = panel - conflicts.get(project.team_id, set())
+        score = mine.get(project.pk)
+        # 这位评委对这个作品是否算应评：被回避时不算，他的评分本来也不进统计。
+        judge_counts = assignment.user_id in eligible
+        counted_final = judge_counts and score is not None and score.final
+        confirmed_before = len(confirmed_by_project.get(project.pk, set()) & eligible)
+        eligible_after = eligible - {assignment.user_id}
+        confirmed_after = confirmed_before - (1 if counted_final else 0)
+        missing_before = max(0, len(eligible) - confirmed_before)
+        missing_after = max(0, len(eligible_after) - confirmed_after)
+        impact['expected_before'] += len(eligible)
+        impact['expected_after'] += len(eligible_after)
+        if counted_final:
+            impact['confirmed'] += 1
+        elif judge_counts and score is not None:
+            impact['drafts'] += 1
+        if missing_after > 0:
+            if missing_before == 0:
+                impact['becoming_incomplete'] += 1
+            else:
+                impact['still_incomplete'] += 1
+        elif missing_before > 0:
+            # 应评人数变少、已确认份数没变，这个作品反而变完整了。
+            impact['becoming_complete'] += 1
+        impact['items'].append(
+            {
+                'project': project,
+                'confirmed': counted_final,
+                'draft': judge_counts and score is not None and not score.final,
+                'counted': judge_counts,
+                'expected_after': len(eligible_after),
+                'missing_after': missing_after,
+            }
+        )
+    return impact
 
 
 def event_url(hackathon, name, **kwargs):

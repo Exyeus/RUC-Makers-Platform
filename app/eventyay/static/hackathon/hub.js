@@ -9,8 +9,8 @@ document.querySelectorAll('[data-copy]').forEach((button) => {
       await navigator.clipboard.writeText(button.dataset.copy);
       button.textContent = '已复制 ✓';
     } catch (error) {
-      console.error('Could not copy team invitation code', error);
-      button.textContent = '请手动选中邀请码复制';
+      console.error('Could not copy', error);
+      button.textContent = button.dataset.copyFailed || '请手动选中后复制';
     }
   });
 });
