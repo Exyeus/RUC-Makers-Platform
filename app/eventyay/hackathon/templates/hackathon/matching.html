@@ -5,11 +5,11 @@
     <div><div class="eyebrow">PEOPLE × IDEA × TEAM</div><h1>{{ title }}</h1><p>发起项目、加入项目、先探索或单人参赛。名单冻结：{{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}。</p></div>
     <a class="button secondary" href="{% url 'hackathon:matching-profile' hackathon.slug %}">匹配资料与隐私设置</a>
   </section>
-  <p><a href="{% url 'hackathon:teams' hackathon.slug %}">← 返回组队广场 · 交流与作品池</a></p>
-  <nav class="square-tabs panel market-tabs" aria-label="组队广场导航">
+  <p><a href="{% url 'hackathon:team-directory' hackathon.slug %}">← 参与队伍</a> · <a href="{% url 'hackathon:idea-exchange' hackathon.slug %}">想法交流</a></p>
+  <nav class="square-tabs panel market-tabs" aria-label="匹配推荐导航">
     <a href="#ideas">找项目</a><a href="#people">找队友</a><a href="?saved=1#ideas">我的收藏</a><a href="#progress">我的组队进度</a>
     {% if hackathon.matching_idea_min_chars %}<a href="{% url 'hackathon:idea-create' hackathon.slug %}">发布 Idea</a>{% endif %}
-    {% if hackathon.matching_roster_enabled %}<a href="{% url 'hackathon:proposal-create' hackathon.slug %}">提出完整名单</a>{% else %}<a href="{% url 'hackathon:teams' hackathon.slug %}">创建 / 加入队伍</a>{% endif %}
+    {% if hackathon.matching_roster_enabled %}<a href="{% url 'hackathon:proposal-create' hackathon.slug %}">提出完整名单</a>{% else %}<a href="{% url 'hackathon:team-directory' hackathon.slug %}">参与队伍</a>{% endif %}
     {% if is_organizer %}<a href="{% url 'hackathon:matching-operations' hackathon.slug %}">运营工作台</a>{% endif %}
   </nav>
   {% if request.GET.saved %}<p class="panel">正在查看收藏。<a href="?">查看全部项目与伙伴</a></p>{% endif %}
@@ -59,7 +59,7 @@
     </div>
     <div class="section-heading outside"><h2>招募队伍</h2></div>
     <div class="card-grid">
-      {% for team in market_teams %}<article class="panel"><h3>{{ team.name }}</h3><p>{{ team.intro }}</p><p>需要：{{ team.needs }}</p><p>已有 {{ team.member_count }} 人 · 剩余 {{ team.remaining }} 个名额</p>{% if team.contact_available %}{% include 'hackathon/matching_intent_form.html' with recipient_id=team.recipient_id team_id=team.id context_id='teams' %}{% else %}<p>此队伍公开招募；队长未开放个人匹配交流。</p><a href="{% url 'hackathon:teams' hackathon.slug %}#team-results">查看队伍与入队申请</a>{% endif %}</article>{% empty %}<div class="panel"><p>暂无公开招募的队伍。</p></div>{% endfor %}
+      {% for team in market_teams %}<article class="panel"><h3>{{ team.name }}</h3><p>{{ team.intro }}</p><p>需要：{{ team.needs }}</p><p>已有 {{ team.member_count }} 人 · 剩余 {{ team.remaining }} 个名额</p>{% if team.contact_available %}{% include 'hackathon/matching_intent_form.html' with recipient_id=team.recipient_id team_id=team.id context_id='teams' %}{% else %}<p>此队伍公开招募；队长未开放个人匹配交流。</p><a href="{% url 'hackathon:team-directory' hackathon.slug %}#team-results">查看队伍与入队申请</a>{% endif %}</article>{% empty %}<div class="panel"><p>暂无公开招募的队伍。</p></div>{% endfor %}
     </div>
   </section>
   <section id="progress" aria-labelledby="progress-heading">

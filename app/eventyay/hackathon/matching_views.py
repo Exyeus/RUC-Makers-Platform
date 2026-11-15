@@ -532,13 +532,15 @@ def idea_edit(request, idea_id=None):
             lambda locked: matching.save_idea(locked, request.user, form, idea_id),
         )
         if receipt:
-            return redirect(url(h, 'matching'))
+            return redirect(url(h, 'idea-exchange'))
     return page(
         request,
         'matching_form',
         form=form,
         title='发布 / 编辑 Idea',
         subtitle='组队型保留作者；揭榜型允许多个团队独立实现，作者不会自动占用名额。',
+        back_url=url(h, 'idea-exchange'),
+        back_label='返回想法交流',
         request_key=uuid.uuid4().hex,
     )
 

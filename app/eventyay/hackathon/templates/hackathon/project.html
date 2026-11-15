@@ -33,8 +33,8 @@
       <p>
         请先完成报名，然后创建或加入队伍。一人参赛也需要创建队伍。
       </p>
-      <a class="button" href="{% url 'hackathon:teams' hackathon.slug %}">
-        前往组队广场      </a>
+      <a class="button" href="{% url 'hackathon:team-directory' hackathon.slug %}">
+        寻找或创建队伍      </a>
     </div>
   {% else %}
     {% if project %}

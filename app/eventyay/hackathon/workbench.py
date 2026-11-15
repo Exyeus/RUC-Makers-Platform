@@ -92,7 +92,8 @@ def next_task(
                 'team-closed', '队伍名单已冻结', '如需处理组队异常，请联系支持团队。', '咨询组队安排', 'support'
             )
         return task(
-            'team', '找到你的队友', '去组队广场认识伙伴，或按活动规则创建自己的队伍。', '寻找或创建队伍', 'teams'
+            'team', '找到你的队友', '去“参与队伍”认识伙伴，或按活动规则创建自己的队伍。',
+            '寻找或创建队伍', 'team-directory',
         )
     if status['key'] == 'queued':
         return task(

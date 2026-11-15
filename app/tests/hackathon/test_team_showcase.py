@@ -10,16 +10,17 @@ pytestmark = pytest.mark.django_db
 
 
 def test_empty_directory_examples_are_guidance_without_creating_records(client, hackathon):
-    response = client.get(endpoint(hackathon, 'teams'))
+    response = client.get(endpoint(hackathon, 'team-directory'))
     assert response.status_code == 200
     assert not response.context['seekers']
-    assert not response.context['community_posts']
-    assert not response.context['pool_posts']
+    exchange = client.get(endpoint(hackathon, 'idea-exchange'))
+    assert not exchange.context['community_posts']
+    assert not exchange.context['pool_posts']
     assert not Participant.objects.exists()
     assert not CommunityPost.objects.exists()
-    soup = BeautifulSoup(response.content, 'html.parser')
     for section_id in ['people', 'community', 'work-pool']:
-        section = soup.select_one(f'#{section_id}')
+        source = response if section_id == 'people' else exchange
+        section = BeautifulSoup(source.content, 'html.parser').select_one(f'#{section_id}')
         assert not section.select('.showcase-results article')
         assert not section.select_one('details').has_attr('open')
         examples = section.select('.showcase-example')
@@ -80,7 +81,7 @@ def test_intro_action_edits_actual_intro_in_both_modes(client, hackathon, partic
     hackathon.matching_enabled = matching_enabled
     hackathon.save()
     client.force_login(participant.user)
-    response = client.get(endpoint(hackathon, 'teams'))
+    response = client.get(endpoint(hackathon, 'team-directory'))
     soup = BeautifulSoup(response.content, 'html.parser')
     link = soup.select_one('#people .showcase-publish')['href']
     assert link == endpoint(hackathon, 'register')
@@ -109,12 +110,14 @@ def test_real_entries_are_separate_from_examples_and_private_fields_stay_hidden(
             body='项目已有原型',
             is_public=public,
         )
-    response = client.get(endpoint(hackathon, 'teams'))
+    response = client.get(endpoint(hackathon, 'team-directory'))
     soup = BeautifulSoup(response.content, 'html.parser')
     assert list(response.context['seekers']) == [participant]
     assert '真实公开介绍' in soup.select_one('#people .showcase-results').text
-    assert '真实作品进展' in soup.select_one('#work-pool .showcase-results').text
+    exchange = client.get(endpoint(hackathon, 'idea-exchange'))
+    exchange_soup = BeautifulSoup(exchange.content, 'html.parser')
+    assert '真实作品进展' in exchange_soup.select_one('#work-pool .showcase-results').text
     assert not soup.select('.showcase-results .showcase-example')
-    text = soup.text
+    text = soup.text + exchange_soup.text
     for private in [hidden.name, participant.contact, participant.availability, 'PRIVATE_DRAFT']:
         assert private not in text

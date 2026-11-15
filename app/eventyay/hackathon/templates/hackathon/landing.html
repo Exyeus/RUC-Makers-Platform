@@ -13,7 +13,7 @@
         </div>
         <div class="track-grid">
           {% for track in tracks %}
-            <a class="glass-card track-card" href="{% url 'hackathon:teams' hackathon.slug %}?track={{ track.pk }}">
+            <a class="glass-card track-card" href="{% url 'hackathon:team-directory' hackathon.slug %}?track={{ track.pk }}">
               <div class="card-top"><span class="track-symbol" aria-hidden="true">{% cycle '✳' '⌘' '↗' '◇' %}</span><span class="eyebrow">{{ forloop.counter|stringformat:'02d' }} / TRACK</span></div>
               <h3>{{ track.name }}</h3>
               <p>{{ track.description }}</p>
@@ -23,7 +23,7 @@
             <div class="glass-card empty">赛道即将公布，先去认识未来的队友。</div>
           {% endfor %}
         </div>
-        <a class="text-link section-link" href="{% url 'hackathon:teams' hackathon.slug %}">寻找队友</a>
+        <a class="text-link section-link" href="{% url 'hackathon:team-directory' hackathon.slug %}">寻找队友</a>
       </section>
       <section class="content-section" id="learning" aria-labelledby="learning-title">
         <div class="section-heading">

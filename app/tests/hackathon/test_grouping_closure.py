@@ -40,7 +40,7 @@ def test_applicant_sees_the_result_after_the_captain_answers(client, hackathon, 
     application = JoinRequest.objects.get(team=team, participant=applicant)
     assert application.state == 'pending'
 
-    page = client.get(endpoint(hackathon, 'teams'))
+    page = client.get(endpoint(hackathon, 'team-directory'))
     mine = BeautifulSoup(page.content, 'html.parser').select_one('#my-applications')
     assert mine is not None
     assert team.name in mine.text
@@ -52,7 +52,8 @@ def test_applicant_sees_the_result_after_the_captain_answers(client, hackathon, 
     assert application.state == 'declined'
 
     client.force_login(applicant.user)
-    mine = BeautifulSoup(client.get(endpoint(hackathon, 'teams')).content, 'html.parser').select_one('#my-applications')
+    content = client.get(endpoint(hackathon, 'team-directory')).content
+    mine = BeautifulSoup(content, 'html.parser').select_one('#my-applications')
     assert '已被婉拒' in mine.text
 
 
@@ -94,7 +95,7 @@ def test_pending_application_replaces_the_second_apply_button(client, hackathon,
     client.force_login(applicant.user)
     apply_to(client, hackathon, team)
 
-    soup = BeautifulSoup(client.get(endpoint(hackathon, 'teams')).content, 'html.parser')
+    soup = BeautifulSoup(client.get(endpoint(hackathon, 'team-directory')).content, 'html.parser')
     card = soup.select_one('.team-card')
     assert '已申请，等待队长回复' in card.text
     assert not card.select('input[value="apply"]')
@@ -198,7 +199,7 @@ def test_own_draft_is_findable_and_stays_private(client, hackathon, participant)
         is_public=False,
     )
     client.force_login(participant.user)
-    soup = BeautifulSoup(client.get(endpoint(hackathon, 'teams')).content, 'html.parser')
+    soup = BeautifulSoup(client.get(endpoint(hackathon, 'idea-exchange')).content, 'html.parser')
     mine = soup.select_one('#my-posts')
     assert mine is not None
     assert '我的草稿' in mine.text
@@ -207,4 +208,4 @@ def test_own_draft_is_findable_and_stays_private(client, hackathon, participant)
 
     other = make_person(hackathon, 'other@example.org', '别人')
     client.force_login(other.user)
-    assert '我的草稿' not in client.get(endpoint(hackathon, 'teams')).content.decode()
+    assert '我的草稿' not in client.get(endpoint(hackathon, 'idea-exchange')).content.decode()

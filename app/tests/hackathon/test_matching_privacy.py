@@ -133,7 +133,9 @@ def test_recommendations_only_preserve_existing_team_flow(market, client):
     assert response.status_code == 200
     response = client.get(reverse('hackathon:teams', args=[market.slug]))
     assert response.status_code == 200
-    assert '匹配推荐与组队进度' in response.content.decode()
+    directory = client.get(reverse('hackathon:team-directory', args=[market.slug]))
+    assert directory.status_code == 200
+    assert '匹配推荐与组队进度' in directory.content.decode()
     assert '完整名单需每位成员同意' not in response.content.decode()
     track = Track.objects.create(hackathon=market, name='方向', state='published')
     form = TeamForm(

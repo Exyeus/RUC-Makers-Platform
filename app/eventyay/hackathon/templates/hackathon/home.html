@@ -49,8 +49,8 @@
         <section class="ruc-panel" aria-labelledby="team-title">
           <h2 id="team-title"><svg aria-hidden="true"><use href="#i-users" /></svg> 我的队伍</h2>
           {% if team %}<span class="ruc-pill ruc-pill--success">已组队</span><h3>{{ team.name }}</h3><p class="ruc-secondary">{{ team.track.name }} · {{ team.get_state_display }}</p>
-          {% else %}<span class="ruc-pill">尚未组队</span><p class="ruc-secondary">在组队广场寻找伙伴，或查看当前组队安排。</p>{% endif %}
-          <a class="ruc-text-link" href="{% url 'hackathon:teams' hackathon.slug %}">查看队伍与组队广场<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
+          {% else %}<span class="ruc-pill">尚未组队</span><p class="ruc-secondary">在“参与队伍”寻找伙伴，或发起自己的队伍。</p>{% endif %}
+          <a class="ruc-text-link" href="{% if team %}{% url 'hackathon:teams' hackathon.slug %}{% else %}{% url 'hackathon:team-directory' hackathon.slug %}{% endif %}">{% if team %}管理我的队伍{% else %}寻找或创建队伍{% endif %}<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
         </section>
         <section class="ruc-panel" aria-labelledby="project-title">
           <h2 id="project-title"><svg aria-hidden="true"><use href="#i-folder" /></svg> 我的作品</h2>
@@ -68,7 +68,7 @@
       <div class="ruc-activity-strip" aria-label="本活动统计"><span>本活动累计</span><span><strong>{{ participant_count }}</strong> 位报名选手</span><span><strong>{{ team_count }}</strong> 支队伍</span><span><strong>{{ project_count }}</strong> 个当前已正式提交的作品</span></div>
       <details class="ruc-panel ruc-tracks">
         <summary>查看活动赛道</summary>
-        {% for track in tracks %}<a class="ruc-resource-row" href="{% url 'hackathon:teams' hackathon.slug %}?track={{ track.pk }}"><span><strong>{{ track.name }}</strong><small>{{ track.description }}</small></span><svg aria-hidden="true"><use href="#i-arrow" /></svg></a>{% empty %}<p class="ruc-secondary">赛道待公布。</p>{% endfor %}
+        {% for track in tracks %}<a class="ruc-resource-row" href="{% url 'hackathon:team-directory' hackathon.slug %}?track={{ track.pk }}"><span><strong>{{ track.name }}</strong><small>{{ track.description }}</small></span><svg aria-hidden="true"><use href="#i-arrow" /></svg></a>{% empty %}<p class="ruc-secondary">赛道待公布。</p>{% endfor %}
       </details>
       <details class="ruc-calendar"><summary>展开活动时间线与小时历</summary>{% include 'hackathon/hour_calendar.html' %}</details>
     </div>

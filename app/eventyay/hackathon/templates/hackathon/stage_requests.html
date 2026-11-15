@@ -7,7 +7,7 @@
 {% csrf_token %}{% include 'hackathon/form_fields.html' %}<button class="button">提交申请与证明</button>
 <p>申请绑定提交时的队伍；转队后请重新申请。证明和具体原因仅本人及主办可见，本队队长只能看到申请状态。可在下方撤回尚未处理的申请。</p>
 </form>
-{% else %}<section class="panel"><p>你尚未组队。请先<a href="{% url 'hackathon:teams' hackathon.slug %}">加入或创建队伍</a>，再提交路演顺序申请。报名里的个人缺席时段仍会显示给主办。</p></section>{% endif %}
+{% else %}<section class="panel"><p>你尚未组队。请先<a href="{% url 'hackathon:team-directory' hackathon.slug %}">加入或创建队伍</a>，再提交路演顺序申请。报名里的个人缺席时段仍会显示给主办。</p></section>{% endif %}
 <section class="reading-width"><h2>申请记录</h2>
 {% for item in requests %}<article class="panel"><h3>{{ item.team.name }} · {{ item.participant.name }}</h3><p>{{ item.get_preference_display }} · {{ item.get_state_display }}</p><p>{{ item.created|date:'m月d日 H:i' }}</p>
 {% if item.private_detail %}<p>{{ item.time_constraint }}</p><p>{{ item.reason|linebreaksbr }}</p>

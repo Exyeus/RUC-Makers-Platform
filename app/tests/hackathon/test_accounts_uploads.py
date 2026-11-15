@@ -421,12 +421,14 @@ def test_profile_keywords_and_public_search(client, hackathon, participant, user
     participant.refresh_from_db()
     assert participant.keywords == ['Python', 'UI / UX']
     client.logout()
-    body = client.get(endpoint(hackathon, 'teams'), {'keyword': 'Python', 'q': '食堂'}).content.decode()
+    body = client.get(endpoint(hackathon, 'team-directory'), {'keyword': 'Python', 'q': '食堂'}).content.decode()
     assert participant.name in body and participant.tagline in body and 'PRIVATE_PHONE' not in body
-    assert participant.name not in client.get(endpoint(hackathon, 'teams'), {'keyword': '前端'}).content.decode()
+    response = client.get(endpoint(hackathon, 'team-directory'), {'keyword': '前端'})
+    assert participant.name not in response.content.decode()
     participant.looking_for_team = False
     participant.save()
-    assert participant.name not in client.get(endpoint(hackathon, 'teams'), {'keyword': 'Python'}).content.decode()
+    response = client.get(endpoint(hackathon, 'team-directory'), {'keyword': 'Python'})
+    assert participant.name not in response.content.decode()
 
 
 def test_profile_rejects_unknown_keywords_and_allows_many_known_keywords():

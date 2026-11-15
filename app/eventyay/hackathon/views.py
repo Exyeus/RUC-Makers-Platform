@@ -107,19 +107,21 @@ ORGANIZER_ROUTES = {
 }
 JUDGE_ROUTES = {'judging', 'judge-live', 'score'}
 VOLUNTEER_ROUTES = {'tasks'}
-# 详情页沿用所属栏目：这些路由的侧栏入口是「我的队伍」。
-TEAM_ROUTES = {
+# 详情页保留所属任务栏目，而不是全部高亮「我的队伍」。
+DIRECTORY_ROUTES = {
     'matching',
     'matching-profile',
-    'idea-create',
-    'idea-edit',
     'proposal-create',
     'matching-receipt',
+}
+IDEA_ROUTES = {
+    'idea-create',
+    'idea-edit',
     'post-new',
     'post-edit',
     'post-detail',
-    'team-edit',
 }
+TEAM_ROUTES = {'team-edit'}
 # 别名只决定侧栏高亮哪一栏，不再决定工作身份与浏览器标题。
 NAVIGATION_ALIASES = {
     'register': 'home',
@@ -149,6 +151,10 @@ def navigation_column(route, follow_live=False):
     """The sidebar entry a route belongs to; detail pages keep their column."""
     if route in TEAM_ROUTES:
         return 'teams'
+    if route in DIRECTORY_ROUTES:
+        return 'team-directory'
+    if route in IDEA_ROUTES:
+        return 'idea-exchange'
     if route == 'score':
         return 'judge-live' if follow_live else 'judging'
     return NAVIGATION_ALIASES.get(route, route)
@@ -188,6 +194,7 @@ def workspace_navigation(request, hackathon, identity):
     reference = [('resources', '学习与指南', 'book'), ('gallery', '作品展厅', 'spark')]
     help_entry = ('support', '帮助与支持', 'help')
     contestant_entries = [('teams', '我的队伍', 'users'), ('project', '我的作品', 'folder')]
+    collaboration_entries = [('team-directory', '参与队伍', 'users'), ('idea-exchange', '想法交流', 'spark')]
     stage_entry = ('stage', '路演现场', 'play')
     judge_entries = [('judging', '评委工作台', 'chart'), ('judge-live', '当前路演', 'play')]
     results_entry = ('results', '评审与成绩', 'chart')
@@ -220,6 +227,7 @@ def workspace_navigation(request, hackathon, identity):
             help_entry,
             ('home', '参赛总览', 'grid'),
             *contestant_entries,
+            *collaboration_entries,
             stage_entry,
             *activity,
             *reference,
@@ -231,12 +239,21 @@ def workspace_navigation(request, hackathon, identity):
         groups = [
             ('我的评审', [*judge_entries, results_entry]),
             ('活动与帮助', [*activity, help_entry]),
-            ('参考', [*reference, stage_entry, *contestant_entries, ('home', '参赛总览', 'grid')]),
+            (
+                '参考',
+                [*reference, stage_entry, *contestant_entries, *collaboration_entries, ('home', '参赛总览', 'grid')],
+            ),
         ]
     elif identity == 'volunteer':
         groups = [
             ('我的工作', [('tasks', '志愿者工作台', 'badge'), *activity, help_entry]),
-            ('参考', [*reference, stage_entry, *contestant_entries, results_entry, ('home', '参赛总览', 'grid')]),
+            (
+                '参考',
+                [
+                    *reference, stage_entry, *contestant_entries, *collaboration_entries,
+                    results_entry, ('home', '参赛总览', 'grid'),
+                ],
+            ),
         ]
     elif identity == 'participant':
         groups = [
@@ -247,6 +264,7 @@ def workspace_navigation(request, hackathon, identity):
                     *contestant_entries,
                 ],
             ),
+            ('伙伴与交流', collaboration_entries),
             ('活动与帮助', [*activity, help_entry]),
             ('学习与展示', [*reference, stage_entry, results_entry]),
         ]
@@ -257,7 +275,7 @@ def workspace_navigation(request, hackathon, identity):
                 '入口',
                 [
                     stage_entry,
-                    ('teams', '组队广场', 'users'),
+                    *collaboration_entries,
                     help_entry,
                     ('judge-login', '评委入口', 'chart'),
                 ],
@@ -306,8 +324,8 @@ def page(request, template, **context):
         'latest_notice': Announcement.published(hackathon).filter(audience='all').first(),
     }
     common.update(context)
-    if common['active'] in TEAM_ROUTES:
-        common['active'] = 'teams'
+    if common['active'] in TEAM_ROUTES | DIRECTORY_ROUTES | IDEA_ROUTES:
+        common['active'] = navigation_column(common['active'])
     common['navigation_active'] = navigation_column(route, common.get('follow_live'))
     identity = working_identity(request, route, common['navigation_active'])
     navigation_groups = workspace_navigation(request, hackathon, identity)
@@ -399,7 +417,7 @@ def landing_context(request):
             'title': '找到你的队友',
             'detail': f'每队最多 {h.team_size} 人，参赛人数以活动规则为准',
             'done': bool(team),
-            'url': url(h, 'teams'),
+            'url': url(h, 'teams' if team else 'team-directory'),
         },
         {
             'title': '读完参赛必读',
@@ -465,14 +483,35 @@ def register(request):
         'form',
         form=form,
         title='个人资料 · 让队友认识你',
-        subtitle='选择你的关键词，用一句话介绍你想做什么。开启公开展示后，其他选手可在组队广场找到你。学号与联系方式不会公开。',
+        subtitle='选择你的关键词，用一句话介绍你想做什么。开启公开展示后，其他选手可在“参与队伍”找到你。学号与联系方式不会公开。',
         button='保存参赛信息',
+    )
+
+
+@event_view('login')
+@require_GET
+def teams(request):
+    h, participant = request.hackathon, request.participant
+    own = participant.team if participant else None
+    applications = (
+        JoinRequest.objects.filter(hackathon=h, team=own, state='pending').select_related('participant')
+        if own and own.captain_id == participant.pk
+        else JoinRequest.objects.none()
+    )
+    return page(
+        request,
+        'teams',
+        title='我的队伍',
+        own_team=own,
+        applications=applications,
+        own_members=own.members.all() if own else [],
+        own_solo=bool(own and own.captain_id == participant.pk and not own.members.exclude(pk=participant.pk).exists()),
     )
 
 
 @event_view()
 @require_GET
-def teams(request):
+def team_directory(request):
     h = request.hackathon
     query = request.GET.get('q', '').strip()
     teams_qs = (
@@ -502,19 +541,11 @@ def teams(request):
             seekers = seekers.exclude(pk__in=excluded)
         else:
             teams_qs, seekers = teams_qs.none(), seekers.none()
-    # Show members their own card even when privacy, status or filters hide it
-    # from the public directory; do not relax visibility for other users.
-    own_preview = None
-    own_in_results = False
+    # Your team is managed separately; this directory only lists other teams.
     if own:
-        own_in_results = teams_qs.filter(pk=own.pk).exists()
-        own_preview = (
-            Team.objects.filter(pk=own.pk, hackathon=h)
-            .select_related('track')
-            .annotate(member_count=Count('members'))
-            .first()
-        )
         teams_qs = teams_qs.exclude(pk=own.pk)
+    if request.participant:
+        seekers = seekers.exclude(pk=request.participant.pk)
     keyword = request.GET.get('keyword', '')
     if keyword:
         seekers = seekers.filter(keywords__contains=[keyword]).exclude(
@@ -531,9 +562,6 @@ def teams(request):
     keyword_categories = KEYWORD_CATEGORIES
     if keyword and keyword not in KEYWORDS:
         keyword_categories += (('自定义关键词', (keyword,)),)
-    applications = []
-    if own and own.captain_id == request.participant.pk:
-        applications = JoinRequest.objects.filter(team=own, state='pending').select_related('participant')
     # 申请人自己的进度：申请之后的结果只有这里能看见，撤回也在这里。
     my_applications = (
         JoinRequest.objects.filter(hackathon=h, participant=request.participant).select_related('team')
@@ -549,28 +577,14 @@ def teams(request):
         team.applied_state = application.state if application else ''
         team.applied_id = application.pk if application else ''
         team.applied_label = APPLICATION_STATE_LABELS.get(application.state, '') if application else ''
-    # 自己的交流卡片（含草稿）：草稿只有作者能找回，广场里看不到。
-    my_posts = (
-        CommunityPost.objects.filter(hackathon=h, author=request.participant)
-        if request.participant
-        else CommunityPost.objects.none()
-    )
-    own_solo = bool(
-        own and own.captain_id == request.participant.pk and not own.members.exclude(pk=request.participant.pk).exists()
-    )
     return page(
         request,
-        'teams',
+        'team_directory',
+        title='参与队伍',
         teams=teams_qs,
-        own_preview=own_preview,
-        own_in_results=own_in_results,
         own_team=own,
-        applications=applications,
         my_applications=my_applications,
-        my_posts=my_posts,
-        own_solo=own_solo,
         application_state_labels=APPLICATION_STATE_LABELS,
-        own_members=own.members.all() if own else [],
         query=query,
         selected_track=track,
         tracks=Track.published(h),
@@ -578,9 +592,25 @@ def teams(request):
         keyword_categories=keyword_categories,
         selected_keyword=keyword,
         seeker_examples=SEEKER_EXAMPLES,
+        seeker_profile_url=url(h, 'register'),
+    )
+
+
+@event_view()
+@require_GET
+def idea_exchange(request):
+    h, participant = request.hackathon, request.participant
+    return page(
+        request,
+        'idea_exchange',
+        title='想法交流',
+        query=request.GET.get('q', '').strip(),
+        my_posts=(
+            CommunityPost.objects.filter(hackathon=h, author=participant)
+            if participant else CommunityPost.objects.none()
+        ),
         community_examples=COMMUNITY_EXAMPLES,
         pool_examples=POOL_EXAMPLES,
-        seeker_profile_url=url(h, 'register'),
         **square_context(h, request.participant, request.GET),
     )
 
@@ -617,6 +647,8 @@ def team_edit(request):
         title='管理我的队伍' if team else '发起一支队伍',
         subtitle='队伍冻结前可以调整成员；公开招募不会公开联系方式。',
         button='保存队伍',
+        back_url=url(request.hackathon, 'teams'),
+        back_label='返回我的队伍',
     )
 
 
@@ -636,7 +668,7 @@ def team_action(request):
             services.require_team_open(h)
             if action == 'leave':
                 services.leave_team(h, participant)
-                message = '已离开队伍，可以在组队广场重新申请或发起新队伍。'
+                message = '已离开队伍，可以在“参与队伍”重新申请，或在“我的队伍”发起新队伍。'
             elif action == 'dissolve':
                 services.dissolve_team(h, participant)
                 message = '队伍已解散，邀请码已作废。你现在是自由状态，可以重新申请其他队伍或发起新队伍。'
@@ -690,7 +722,12 @@ def team_action(request):
         messages.success(request, message)
     except ValidationError as error:
         report_validation(request, error)
-    return redirect(url(h, 'teams'))
+    destination = (
+        'team-directory'
+        if action in {'apply', 'withdraw'} or (action == 'invite' and not participant.team_id)
+        else 'teams'
+    )
+    return redirect(url(h, destination))
 
 
 @event_view('login')

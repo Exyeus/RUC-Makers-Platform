@@ -96,7 +96,10 @@ def local_moment(value):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    'name', ['home', 'schedule', 'announcements', 'resources', 'teams', 'gallery', 'stage', 'results']
+    'name', [
+        'home', 'schedule', 'announcements', 'resources', 'team-directory', 'idea-exchange',
+        'gallery', 'stage', 'results',
+    ]
 )
 def test_public_pages_render(client, hackathon, name):
     response = client.get(endpoint(hackathon, name))
@@ -390,7 +393,7 @@ def test_private_assets_and_gallery_consent(client, hackathon, team, user):
 
 @pytest.mark.django_db
 def test_public_team_cards_never_leak_contact_or_invite(client, hackathon, team, participant):
-    body = client.get(endpoint(hackathon, 'teams')).content.decode()
+    body = client.get(endpoint(hackathon, 'team-directory')).content.decode()
     assert team.invite_code not in body
     assert participant.contact not in body
     assert participant.availability not in body

@@ -36,15 +36,16 @@ def test_combined_filters_preserve_selections_and_target_results(client, hackath
         )
         for kind in ['question', 'showcase']
     ]
-    values = {'q': '协作', 'keyword': 'Python', 'track': str(team.track_id), 'kind': 'question'}
-    response = client.get(endpoint(hackathon, 'teams'), values)
+    values = {'q': '协作', 'keyword': 'Python', 'track': str(team.track_id)}
+    response = client.get(endpoint(hackathon, 'team-directory'), values)
     assert response.status_code == 200
     assert list(response.context['teams']) == [team]
     assert list(response.context['seekers']) == [people[0]]
-    assert list(response.context['community_posts']) == [posts[0]]
+    exchange = client.get(endpoint(hackathon, 'idea-exchange'), {'q': '协作', 'kind': 'question'})
+    assert list(exchange.context['community_posts']) == [posts[0]]
     soup = BeautifulSoup(response.content, 'html.parser')
     form = soup.select_one('form.team-filters')
-    # One GET submission carries every selection instead of losing the other form's state.
+    # Discovery keeps its own selections, independently of the exchange filter.
     submitted = {control['name']: control['value'] for control in form.select('input:checked, input[name="q"]')}
     assert submitted == values
     assert form['method'] == 'get'
@@ -54,7 +55,7 @@ def test_combined_filters_preserve_selections_and_target_results(client, hackath
 
 @pytest.mark.parametrize('keyword', ['空间数据 / GIS', '<img src=x onerror=alert(1)>'])
 def test_custom_keyword_remains_selected_and_escaped(client, hackathon, keyword):
-    response = client.get(endpoint(hackathon, 'teams'), {'keyword': keyword})
+    response = client.get(endpoint(hackathon, 'team-directory'), {'keyword': keyword})
     assert response.status_code == 200
     soup = BeautifulSoup(response.content, 'html.parser')
     checked = soup.select_one('.team-filters input[name="keyword"]:checked')

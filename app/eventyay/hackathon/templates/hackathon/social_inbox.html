@@ -6,7 +6,7 @@
   </section>
   <nav class="actions" aria-label="沟通入口">
     <a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}#progress">处理交流申请</a>
-    <a class="button secondary" href="{% url 'hackathon:teams' hackathon.slug %}">回到组队广场</a>
+    <a class="button secondary" href="{% url 'hackathon:team-directory' hackathon.slug %}">参与队伍</a>
     {% if is_organizer %}<a class="button secondary" href="{% url 'hackathon:social-reports' hackathon.slug %}">处理举报</a>{% endif %}
   </nav>
   <section class="panel ui-conversation-list" aria-labelledby="conversations-title">
