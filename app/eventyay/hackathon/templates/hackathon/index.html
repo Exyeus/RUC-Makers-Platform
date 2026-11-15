@@ -1,4 +1,4 @@
-{% load static %}
+{% load static hackathon_static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
@@ -7,15 +7,19 @@
     <title>
       活动工作台 · 人大创协
     </title>
+    <meta name="theme-color" content="#070919" data-theme-light="#f3edf8">
+    <script src="{% versioned_static 'hackathon/theme-init.js' %}"></script>
     <link rel="stylesheet" href="{% static 'hackathon/hub.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/responsive.css' %}">
-    <meta name="theme-color" content="#070919">
     <link rel="icon" href="{% static 'hackathon/brand/favicon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'hackathon/brand.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-components.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/theme.css' %}">
+    <script type="module" src="{% versioned_static 'hackathon/ui.js' %}"></script>
   </head>
   <body class="workspace-page">
     <main class="edition-index">
-      <a class="brand" href="/">{% include 'hackathon/brand.html' %}</a>
+      <header class="standalone-header"><a class="brand" href="/">{% include 'hackathon/brand.html' %}</a>{% include 'hackathon/theme_control.html' %}</header>
       <div class="eyebrow">
         YOUR NEXT BIG IDEA STARTS HERE
       </div>

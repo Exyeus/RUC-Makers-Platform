@@ -51,6 +51,36 @@ Radix provides modal focus trapping, Escape dismissal and keyboard navigation;
 focus returns to the original opener. Failed enhancement restores the legacy
 controls' ARIA references.
 
+## Appearance selector
+
+Load `hackathon/theme-init.js` as a synchronous script in the document head,
+before the page stylesheets. It resolves a saved `rucmakers-theme` preference
+(`light`, `dark`, or `system`; default `system`) and sets the root `data-theme`
+and native `color-scheme` before styling. It retains the current page's choice
+when browser storage is unavailable, reacts to system appearance changes and
+synchronizes choices across tabs. It is also bundled idempotently in `ui.js`
+so a failed early-script request can recover once the main bundle loads.
+
+Place a native `select[data-theme-select]` inside `[data-ui-theme]`, initially
+disabled; the bootstrap enables it when switching is available. Its options
+are `light`, `dark`, and `system`; it remains functional through the bootstrap
+controller even if the React bundle fails. After successful rendering, the
+native fallback is replaced by the actual shadcn Button and DropdownMenu radio
+items. The selector is a 44px icon button with an accessible current-state name;
+it does not submit business forms. A render failure restores the native control.
+
+The controller is `window.rucmakersTheme`: `getPreference()`, `getResolved()`,
+`setPreference(value)`, and `subscribe(listener)` (returns an unsubscribe
+function). Notifications also dispatch `rucmakers:themechange` with
+`{preference, resolved}`. The root stores the preference in
+`data-theme-preference` and the resolved appearance in `data-theme`.
+`meta[name="theme-color"]` can supply `data-theme-light` and `data-theme-dark`;
+otherwise the original dark color and light `#f3edf8` are used.
+
+This follows the
+[shadcn appearance provider and mode-toggle pattern](https://ui.shadcn.com/docs/dark-mode/vite),
+while keeping the existing Django page lifecycle and native fallbacks.
+
 ## Source and license
 
 `upstream/` contains unmodified source downloaded on 2026-11-14 from:
@@ -70,6 +100,7 @@ the generated assets. esbuild preserves bundled dependency license comments.
 
 The component styles resolve workbench colors from the existing `--ruc-*`
 tokens. Public entry components reuse the existing purple colors and `--text`.
-Page backgrounds, artwork, particle canvas, and brand assets are untouched.
+The separate `theme.css` defines light appearance colors and surfaces; component
+geometry does not replace artwork, particle canvases, or brand assets.
 Controls have 44px minimum targets, visible focus, safe-area support, and
 reduced-motion overrides.

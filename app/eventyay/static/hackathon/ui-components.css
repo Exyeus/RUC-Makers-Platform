@@ -60,6 +60,15 @@
 .hu-sheet-close {position:absolute;inset-block-start:1rem;inset-inline-end:1rem;min-width:2.75rem;min-height:2.75rem}
 .hu .sr-only {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 [data-ui-account] > form[hidden], [data-ui-account] [hidden] {display:none!important}
+[data-ui-theme] {flex-shrink:0}
+[data-ui-theme] [hidden] {display:none!important}
+.hu-theme-mount {display:flex}
+.hu-theme-trigger {flex-shrink:0}
+.hu-theme-menu {min-width:11.5rem}
+.hu-theme-option {gap:.625rem}
+.hu-theme-option > span:first-child {display:grid;place-items:center;flex-shrink:0;width:.75rem;height:1rem}
+.hu-theme-option > span:first-child svg {width:.5rem;height:.5rem;fill:currentColor}
+.hu-theme-option[data-state='checked'] {font-weight:650}
 @keyframes hu-menu-in {from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
 @keyframes hu-sheet-in {from{transform:translateX(-100%)}to{transform:translateX(0)}}
 @keyframes hu-overlay-in {from{opacity:0}to{opacity:1}}

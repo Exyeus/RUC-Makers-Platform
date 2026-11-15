@@ -4,7 +4,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#070919">
+    <meta name="theme-color" content="#070919" data-theme-light="#f3edf8">
+    <script src="{% versioned_static 'hackathon/theme-init.js' %}"></script>
     <title>{% block page_title %}{{ hackathon.name }} · 黑客松{% endblock %}</title>
     <link rel="icon" href="{% static 'hackathon/brand/favicon-64.png' %}" type="image/png">
     <link rel="stylesheet" href="{% static 'hackathon/landing.css' %}">
@@ -12,6 +13,7 @@
     <link rel="stylesheet" href="{% static 'hackathon/entry.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-components.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-refactor.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/theme.css' %}">
     <script type="module" src="{% versioned_static 'hackathon/ui.js' %}"></script>
     <script type="module" src="{% static 'hackathon/landing.js' %}"></script>
     <script type="module" src="{% static 'hackathon/account.js' %}"></script>
@@ -28,7 +30,10 @@
     <header class="landing-header">
       <div class="header-inner">
         <a class="brand" href="{% url 'hackathon:home' hackathon.slug %}" aria-label="创协活动主页">{% include 'hackathon/brand.html' %}</a>
-        {% if request.user.is_authenticated %}<a class="header-login" href="{% url 'hackathon:account' hackathon.slug %}">账号与订阅</a>{% else %}<a class="header-login" href="{% url 'hackathon:student-login' hackathon.slug %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}#join">登录 / 注册</a>{% endif %}
+        <div class="header-actions">
+          {% include 'hackathon/theme_control.html' %}
+          {% if request.user.is_authenticated %}<a class="header-login" href="{% url 'hackathon:account' hackathon.slug %}">账号与订阅</a>{% else %}<a class="header-login" href="{% url 'hackathon:student-login' hackathon.slug %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}#join">登录 / 注册</a>{% endif %}
+        </div>
       </div>
     </header>
     <main id="main" tabindex="-1">
@@ -39,6 +44,10 @@
         <div class="hero-grid">
           <div class="hero-copy">
             <img class="campaign-mark" src="{% static 'hackathon/brand/build-with-care.webp' %}" width="252" height="72" alt="造物有心 · Build with Care">
+            <span class="campaign-light-lockup" aria-label="造物有心 · Build with Care">
+              <span class="campaign-symbol" aria-hidden="true"><img src="{% static 'hackathon/brand/build-with-care.webp' %}" width="252" height="72" alt=""></span>
+              <span class="campaign-wordmark">造物有心<small>Build with Care</small></span>
+            </span>
             <div class="hero-kicker">
               <span class="status-dot" aria-hidden="true"></span>
               {% if hackathon.submissions_open %}正在集结{% else %}创造进行时{% endif %}

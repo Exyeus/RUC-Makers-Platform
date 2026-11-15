@@ -4,7 +4,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#0b0d14">
+    <meta name="theme-color" content="#0b0d14" data-theme-light="#f3edf8">
+    <script src="{% versioned_static 'hackathon/theme-init.js' %}"></script>
     <title>
       {% block title %}
         {% if page_title %}{{ page_title }} · {% endif %}{{ hackathon.name }}
@@ -18,6 +19,7 @@
     <link rel="stylesheet" href="{% versioned_static 'hackathon/workbench-pages.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-components.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-refactor.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/theme.css' %}">
     <script type="module" src="{% versioned_static 'hackathon/ui.js' %}"></script>
     <script type="module" src="{% static 'hackathon/hub.js' %}">
     </script>
@@ -84,6 +86,7 @@
           </nav>
         {% endif %}
         <div class="topbar-actions">
+          {% include 'hackathon/theme_control.html' %}
           {% if request.hackathon_open_testing %}<span class="tag orange">开放测试</span>{% endif %}
           <a class="icon-button topbar-icon" href="{% url 'hackathon:announcements' hackathon.slug %}" aria-label="通知公告" title="通知公告">
             <svg>

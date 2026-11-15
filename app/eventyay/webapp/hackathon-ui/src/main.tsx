@@ -6,6 +6,7 @@ import { Badge } from './components/ui/badge'
 import { Separator } from './components/ui/separator'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './components/ui/sheet'
+import { ThemeMenu } from './theme-menu'
 
 type Link = {label: string; href: string; current: boolean; icon?: string}
 const readLink = (node: HTMLAnchorElement): Link => ({
@@ -138,6 +139,18 @@ for (const host of document.querySelectorAll<HTMLElement>('[data-ui-account]')) 
   try {
     createRoot(mount).render(<FallbackBoundary onFailure={restore}><Enhance ready={() => {fallback.forEach(node => node.hidden = true); mount.hidden = false; host.dataset.uiReady = 'true'}}><AccountMenu host={host} links={links} form={form} /></Enhance></FallbackBoundary>)
   } catch (error) { restore(); console.error('UI enhancement unavailable', error) }
+}
+
+for (const host of document.querySelectorAll<HTMLElement>('[data-ui-theme]')) {
+  const fallback = [...host.children] as HTMLElement[]
+  const mount = document.createElement('div')
+  mount.className = 'hu-theme-mount'
+  mount.hidden = true
+  host.append(mount)
+  const restore = () => {fallback.forEach(node => node.hidden = false); mount.hidden = true; delete host.dataset.uiReady}
+  try {
+    createRoot(mount).render(<FallbackBoundary onFailure={restore}><Enhance ready={() => {fallback.forEach(node => node.hidden = true); mount.hidden = false; host.dataset.uiReady = 'true'}}><ThemeMenu /></Enhance></FallbackBoundary>)
+  } catch (error) { restore(); console.error('Appearance menu unavailable', error) }
 }
 
 const navigationHost = document.querySelector<HTMLElement>('[data-ui-navigation]')

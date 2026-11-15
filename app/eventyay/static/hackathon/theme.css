@@ -1,0 +1,321 @@
+/* Light appearance for the existing RUC Makers components.
+ * Scoped to the resolved theme so the original dark appearance stays intact.
+ * Brand backgrounds pass through a white midpoint; controls use solid fills
+ * to keep text contrast independent of a gradient's position.
+ */
+.brand-logo-light,
+.campaign-light-lockup { display: none; }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; min-width: 0; }
+.standalone-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 4.375rem; }
+.standalone-header .brand { min-width: 0; }
+.error-page > header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+.theme-control select { min-height: 2.75rem; max-width: 7.5rem; border-radius: 0.625rem; padding: 0.5rem 0.625rem; font: inherit; font-size: 0.875rem; }
+
+html[data-theme='light'],
+html[data-theme='light'] .ruc-app {
+  color-scheme: light;
+  --ruc-bg: #f1eafa;
+  --ruc-sidebar: #f1eaf7;
+  --ruc-surface: #faf7fd;
+  --ruc-surface-hover: #ebe1f3;
+  --ruc-border: #d7c9df;
+  --ruc-control-border: #8e7b9e;
+  --ruc-text: #292335;
+  --ruc-secondary: #5e536c;
+  --ruc-muted: #6d6077;
+  --ruc-accent: #743c99;
+  --ruc-accent-hover: #633181;
+  --ruc-on-accent: #fff;
+  --ruc-focus: #793d9b;
+  --ruc-success: #206044;
+  --ruc-warning: #865011;
+  --night: #f1eafa;
+  --bg: #f1eafa;
+  --surface: #faf7fd;
+  --surface-raised: #ebe1f3;
+  --text: #292335;
+  --ink: #292335;
+  --muted: #6d6077;
+  --line: #d7c9df;
+  --purple: #743c99;
+  --purple-soft: #ebe1f3;
+  --violet: #743c99;
+  --rose: #a92d68;
+  --green: #206044;
+  --orange: #865011;
+  --shadow: 0 10px 30px rgb(86 46 113 / 7%);
+  color: var(--text);
+  background-color: var(--night);
+}
+
+html[data-theme='light'] body {
+  color-scheme: light;
+  color: var(--ink);
+  background: linear-gradient(115deg, #f1eafa 0%, #fff 50%, #fcebf2 100%);
+  background-attachment: fixed;
+}
+html[data-theme='light'] .entry-page { background: transparent; }
+html[data-theme='light'] .brand-logo-dark { display: none; }
+html[data-theme='light'] .brand-logo-light { display: block; object-fit: cover; object-position: center; }
+html[data-theme='light'] .entry-page .campaign-mark { display: none; }
+html[data-theme='light'] .campaign-light-lockup { display: flex; align-items: center; gap: 0.625rem; width: 15.75rem; max-width: 100%; min-height: 4.5rem; margin: 0 0 1.5rem; }
+html[data-theme='light'] .campaign-symbol { display: block; position: relative; overflow: hidden; flex: 0 0 5rem; width: 5rem; height: 4.5rem; }
+html[data-theme='light'] .campaign-symbol img { display: block; position: absolute; inset: 0 auto auto 0; width: 15.75rem; max-width: none; height: 4.5rem; object-fit: contain; }
+html[data-theme='light'] .campaign-wordmark { color: #292335; font-size: 1.75rem; font-weight: 700; line-height: 1.3; letter-spacing: 0.08em; white-space: nowrap; }
+html[data-theme='light'] .campaign-wordmark small { display: block; margin-top: 0.375rem; color: #5e536c; font-size: 0.6875rem; letter-spacing: 0.16em; font-weight: 500; }
+html[data-theme='light'] .sky-glow {
+  background: linear-gradient(115deg, #f1eafa 0%, #fff 50%, #fcebf2 100%);
+}
+html[data-theme='light'] #canvas-container { opacity: 0.22; }
+html[data-theme='light'] .astrolabe { border-color: rgb(116 60 153 / 20%); }
+html[data-theme='light'] .astrolabe::before,
+html[data-theme='light'] .astrolabe::after,
+html[data-theme='light'] .astrolabe-outer { border-color: rgb(169 45 104 / 16%); }
+html[data-theme='light'] ::selection { background: #e4c9ee; color: #292335; }
+html[data-theme='light'] :is(a, button, summary, input, textarea, select):focus-visible {
+  outline-color: var(--ruc-focus);
+}
+
+/* Semantic component tokens also reach Radix portals appended to the body. */
+html[data-theme='light'] .hu,
+html[data-theme='light'] .entry-page .hu,
+html[data-theme='light'] .hu.hu-entry {
+  --hu-bg: #f1eafa;
+  --hu-panel: #faf7fd;
+  --hu-hover: #ebe1f3;
+  --hu-border: #b6a2c4;
+  --hu-text: #292335;
+  --hu-muted: #5e536c;
+  --hu-accent: #743c99;
+  --hu-focus: #793d9b;
+  --hu-on-accent: #fff;
+  color-scheme: light;
+}
+html[data-theme='light'] .hu-dropdown { box-shadow: 0 12px 36px rgb(86 46 113 / 16%); }
+html[data-theme='light'] .hu-sheet-content { background: var(--ruc-sidebar); box-shadow: 12px 0 36px rgb(86 46 113 / 13%); }
+html[data-theme='light'] .hu-sheet-overlay { background: rgb(43 28 57 / 25%); }
+html[data-theme='light'] .hu-button:hover { filter: none; }
+html[data-theme='light'] [data-ui-theme] select { background: #faf7fd; color: #292335; border-color: #8e7b9e; }
+
+/* Workbench shell and neutral reading surfaces. */
+html[data-theme='light'] .ruc-app :is(.sidebar, .topbar),
+html[data-theme='light'] body.ruc-app:not(.display-mode) .mobile-nav {
+  background: var(--ruc-sidebar);
+  color: var(--ruc-text);
+  border-color: var(--ruc-border);
+}
+html[data-theme='light'] .ruc-app :is(.panel, .ruc-panel, .metric, .learning-card, .judge-team-picker, .event-picker-menu, .deadline-strip > div) {
+  color: var(--ruc-text);
+  background: var(--ruc-surface);
+  border-color: var(--ruc-border);
+  box-shadow: 0 6px 24px rgb(86 46 113 / 5%);
+}
+html[data-theme='light'] .ruc-app .ruc-task-panel {
+  background: linear-gradient(115deg, #ede0f6 0%, #fff 50%, #fbe4ee 100%);
+  border-color: #b18bc7;
+}
+html[data-theme='light'] .ruc-app .ruc-deadline { border-block-start-color: var(--ruc-warning); }
+html[data-theme='light'] .ruc-app :is(.hero, .help-card, .track-card, .track-green, .resource-art, .learning-cover, .poster) {
+  background: var(--ruc-surface-hover);
+  color: var(--ruc-accent);
+  border-color: var(--ruc-border);
+}
+html[data-theme='light'] .ruc-app :is(.event-switch, .tag, .avatar, .event-avatar, .team-card .team-avatar, .invite-box, .team-needs, .task-owners, .ticket-reply, .score-total, .token-block, blockquote, .community-invitation, .next-card) {
+  background: #eee5f5;
+  color: var(--ruc-secondary);
+  border-color: var(--ruc-border);
+}
+html[data-theme='light'] .ruc-app :is(.nav-item.active, .identity-option.current, .judge-team-links [aria-current], .mobile-nav > [aria-current], .mobile-nav > [aria-expanded='true'], .event-picker-menu [aria-current]) {
+  color: var(--ruc-accent);
+  background: var(--ruc-surface-hover);
+  border-color: var(--ruc-accent);
+}
+html[data-theme='light'] .ruc-app :is(.nav-item, .event-picker-menu a):hover {
+  color: var(--ruc-text);
+  background: #e7d9ee;
+}
+html[data-theme='light'] .ruc-app :is(.avatar, .team-card .team-avatar) { color: var(--ruc-accent); }
+html[data-theme='light'] .ruc-app .nav-backdrop:not([hidden]) { background: rgb(43 28 57 / 25%); }
+html[data-theme='light'] .ruc-app :is(.ruc-text-link:hover, .text-link, .back-link, .details summary, .tabs > a.selected, .organizer-login-link, .file-row, .link-list a) { color: var(--ruc-accent); }
+html[data-theme='light'] .workspace-page:not(.ruc-app) :is(.panel, .metric) { background: #faf7fd; color: #292335; border-color: #d7c9df; box-shadow: 0 6px 24px rgb(86 46 113 / 5%); }
+html[data-theme='light'] .workspace-page:not(.ruc-app) .text-link { color: #743c99; }
+html[data-theme='light'] .ruc-app .ruc-text-link { text-decoration-color: #9c6ab5; }
+html[data-theme='light'] .ruc-app .ruc-progress,
+html[data-theme='light'] .ruc-app .ruc-progress::-webkit-progress-bar { background: #ded1e8; }
+html[data-theme='light'] .ruc-app :is(.ruc-status-circle--current, .ruc-pill--accent) { background: #eee2f5; color: #743c99; border-color: #b38fc6; }
+html[data-theme='light'] .ruc-app :is(.ruc-status-circle--success, .ruc-pill--success) { background: #e6f3eb; color: #206044; border-color: #91b59e; }
+html[data-theme='light'] .ruc-app .ruc-pill--warning { background: #fbefda; color: #865011; border-color: #c3a36c; }
+html[data-theme='light'] .ruc-app .ruc-pill--error { background: #fceaf0; color: #a52a4d; border-color: #c7859b; }
+html[data-theme='light'] .ruc-app .ruc-pill--info { background: #e9effa; color: #315e8f; border-color: #96abc6; }
+
+/* Native Django controls keep their submitted values and validation semantics. */
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.button, .ruc-button--primary) {
+  background: #743c99;
+  border-color: #743c99;
+  color: #fff;
+  box-shadow: none;
+}
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.button, .ruc-button--primary):hover:not(:disabled) { background: #633181; border-color: #633181; color: #fff; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.button.secondary, .button.dark, .ruc-button--secondary, .help-card .button) {
+  background: #f5eef9;
+  color: #4b315e;
+  border-color: #9b82ac;
+  box-shadow: none;
+}
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.button.secondary, .button.dark, .ruc-button--secondary, .help-card .button):hover:not(:disabled) { background: #e9dcf1; color: #4b315e; border-color: #743c99; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) .button.danger { color: #a52a4d; background: #fceaf0; border-color: #c7859b; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) .button.danger:hover:not(:disabled) { color: #8d173b; background: #f8d9e4; border-color: #a52a4d; }
+html[data-theme='light'] .ruc-app :is(.text-button.danger, .danger, .field-error, .required),
+html[data-theme='light'] .entry-page :is(.field-error, .required) { color: #a52a4d; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(input, select, textarea):not([type='hidden']):not([type='checkbox']):not([type='radio']) {
+  background: #fdfaff;
+  color: #292335;
+  border-color: #8e7b9e;
+}
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(input, textarea)::placeholder { color: #766780; opacity: 1; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) select option { color: #292335; background: #faf7fd; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.form-field > label, .keyword-fieldset legend) { color: #292335; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(input[type='checkbox'], input[type='radio'], progress) { accent-color: #743c99; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.button:disabled, .ruc-button:disabled, input:disabled:not([type='hidden']):not([type='checkbox']):not([type='radio']), select:disabled, textarea:disabled) {
+  background: #e9e1ed;
+  color: #6d6077;
+  border-color: #baadbf;
+  box-shadow: none;
+}
+html[data-theme='light'] .ruc-app :is(.keyword-choices label, .categorized-tags label, .team-filter-chip > span):has(input:checked),
+html[data-theme='light'] .ruc-app .team-filter-chip input:checked + span {
+  background: #eee2f5;
+  color: #743c99;
+  border-color: #9a71b0;
+}
+html[data-theme='light'] .ruc-app .attendance-hour:has(input:checked) { background: #f8e4ec; border-color: #ad668a; color: #883055; }
+
+/* Status uses labels and distinct borders as well as hue. Existing important
+ * badge rules require equally scoped important overrides in this appearance. */
+html[data-theme='light'] :is(.workspace-page, .entry-page) :is(.lavender, .state-submitted, .state-live) { background: #eee2f5 !important; color: #743c99 !important; }
+html[data-theme='light'] :is(.workspace-page, .entry-page) .blue { background: #e9effa !important; color: #315e8f !important; }
+html[data-theme='light'] :is(.workspace-page, .entry-page) :is(.mint, .state-approved, .state-ready, .state-done) { background: #e6f3eb !important; color: #206044 !important; }
+html[data-theme='light'] :is(.workspace-page, .entry-page) :is(.peach, .orange, .state-changes, .state-deferred) { background: #fbefda !important; color: #865011 !important; }
+html[data-theme='light'] .ruc-app :is(.award, .state-draft) { background: #fbefda; color: #865011; border-color: #c3a36c; }
+html[data-theme='light'] .ruc-app .state-published { background: #e6f3eb; color: #206044; border-color: #91b59e; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.message, .preview-flag) { background: #eee2f5; color: #4b315e; border-color: #b795c9; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.message.error, .form-errors) { background: #fceaf0; color: #a52a4d; border-color: #c7859b; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) .message.success { background: #e6f3eb; color: #206044; border-color: #91b59e; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.message.warning, .drift-note) { background: #fbefda; color: #865011; border-color: #c3a36c; }
+html[data-theme='light'] :is(.ruc-app, .entry-page) .message :is(p, strong, small) { color: inherit; }
+
+/* Directory, ideas, guidance, forms and support refinements. */
+html[data-theme='light'] .ruc-app :is(.showcase-example, .showcase-guide, .keyword-disclosure) { background: #f5eef9; border-color: #d7c9df; }
+html[data-theme='light'] .ruc-app .keyword-disclosure > summary:hover { background: #e9dcf1; }
+html[data-theme='light'] .ruc-app :is(.showcase-section-icon, .showcase-example-icon, .disclosure-icon) { color: #743c99; background: #eee2f5; border-color: #c8afd8; }
+html[data-theme='light'] .ruc-app :is(.showcase-example-label, .showcase-example .tag) { color: #5e536c; background: #eee5f5; border-color: #c8b6d2; }
+html[data-theme='light'] .ruc-app .showcase-example .showcase-example-invitation { color: #5e536c; background: #eee5f5; border-color: #d7c9df; }
+html[data-theme='light'] .ruc-app .showcase-example-action { color: #743c99; background: #eee2f5; border-color: #b38fc6; }
+html[data-theme='light'] .ruc-app .showcase-example-action:hover { background: #e7d6f0; border-color: #743c99; }
+html[data-theme='light'] .ruc-app .square-tabs > a { color: #4b315e; background: #f5eef9; border-color: #b6a2c4; }
+html[data-theme='light'] .ruc-app .square-tabs > a:hover { color: #4b315e; background: #e9dcf1; border-color: #743c99; }
+html[data-theme='light'] .ruc-app .square-tabs > a.square-tabs-action { color: #fff; background: #743c99; border-color: #743c99; }
+html[data-theme='light'] .ruc-app .square-tabs > a.square-tabs-action:hover { color: #fff; background: #633181; }
+html[data-theme='light'] .ruc-app .team-card-own { border-color: #a27aba; }
+html[data-theme='light'] .ruc-app .team-own-label { color: #743c99; }
+html[data-theme='light'] .ruc-app .team-card .team-own-notice { color: #5a3771; background: #eee2f5; }
+html[data-theme='light'] .ruc-app .support-refresh .tabs a.selected { background: #eee2f5; color: #743c99; }
+html[data-theme='light'] .ruc-app :is(.ui-account-fallback > nav, .event-picker-menu) { background: #faf7fd; box-shadow: 0 12px 36px rgb(86 46 113 / 13%); }
+html[data-theme='light'] .ruc-app .code-window,
+html[data-theme='light'] .ruc-app .window-bar { background: #f5eef9; border-color: #d7c9df; }
+html[data-theme='light'] .ruc-app .window-code { color: #5e536c; }
+html[data-theme='light'] .ruc-app .art-tag { background: #e6f3eb; color: #206044; border-color: #91b59e; }
+
+/* Schedules, management tables and the live stage use the same light surfaces. */
+html[data-theme='light'] .ruc-app th { background: #eee5f5; color: #5e536c; }
+html[data-theme='light'] .ruc-app .schedule-row.happening .panel { background: #e6f3eb; border-color: #91b59e; }
+html[data-theme='light'] .ruc-app .hour-cell.empty { background: #eee5f5; border-color: #b6a2c4; }
+html[data-theme='light'] .ruc-app .hour-cell.event { background: #b9ddc7; border-color: #739b85; }
+html[data-theme='light'] .ruc-app .hour-cell.deadline { background: #e9b7b9; border-color: #b27680; }
+html[data-theme='light'] body.ruc-app.display-mode main { background: #f1eafa; }
+html[data-theme='light'] .ruc-app .stage-board { background: #faf7fd; color: #292335; border-color: #d7c9df; }
+html[data-theme='light'] .ruc-app .stage-sync.error { color: #a52a4d; }
+html[data-theme='light'] .ruc-app :is(.stage-current h2, .next-card > strong) { color: #292335; }
+html[data-theme='light'] .ruc-app :is(.timer-phase, .stage-current .eyebrow, .stage-board .live-indicator, .queue-number) { color: #5e536c; }
+
+/* Public campaign / account pages: retain the purple and rose identity, with
+ * solid high-contrast type instead of pale gradient-clipped headings. */
+html[data-theme='light'] .entry-page :is(h1, h2, h3) { color: #292335; }
+html[data-theme='light'] .entry-page h1 { background: none; -webkit-text-fill-color: currentColor; }
+html[data-theme='light'] .entry-page .hero-tagline { color: #743c99; }
+html[data-theme='light'] .entry-page :is(.landing-header, .auth-more nav) { background: #f1eaf7; border-color: #d7c9df; }
+html[data-theme='light'] .entry-page :is(.header-login, .hero-kicker, .brand-mark, .artifact-controls button) { color: #743c99; background: #eee2f5; border-color: #c8afd8; }
+html[data-theme='light'] .entry-page :is(.glass-card, .auth-card, .learning-card, .update-card, .track-card, .track-card:nth-child(2n)) { background: #faf7fd; border-color: #d7c9df; box-shadow: 0 12px 36px rgb(86 46 113 / 7%); }
+html[data-theme='light'] .entry-page .auth-heading h2::after { background: linear-gradient(90deg, #743c99 0%, #fff 50%, #a92d68 100%); }
+html[data-theme='light'] .entry-page .hero-facts > div { background: #f5eef9; border-color: #d7c9df; border-left-color: #743c99; }
+html[data-theme='light'] .entry-page .hero-facts > div:nth-child(2) { border-left-color: #a92d68; }
+html[data-theme='light'] .entry-page .hero-facts > div:nth-child(3) { border-left-color: #743c99; }
+html[data-theme='light'] .entry-page :is(.hero-facts strong, .hero-facts small) { color: #292335; }
+html[data-theme='light'] .entry-page :is(.hero-facts span, .metrics small, .hero-bottom, .landing-footer, .auth-footer, .eyebrow, .kicker-divider) { color: #6d6077; }
+html[data-theme='light'] .entry-page :is(.text-link, .auth-heading a, .auth-footer a, .signup-link, .card-link, .auth-more summary) { color: #743c99; }
+html[data-theme='light'] .entry-page :is(.text-link:hover, .auth-heading a:hover, .auth-footer a:hover, .signup-link:hover) { color: #a92d68; }
+html[data-theme='light'] .entry-page .metrics { background: #f4edf8; }
+html[data-theme='light'] .entry-page .metrics strong { color: #743c99; }
+html[data-theme='light'] .entry-page .learning-cover { color: #743c99; background: #eee2f5; }
+html[data-theme='light'] .entry-page .learning-card:nth-child(2) .learning-cover { color: #a92d68; background: #f8e4ee; }
+html[data-theme='light'] .entry-page :is(.track-symbol, .closing-star) { color: #743c99; }
+html[data-theme='light'] .entry-page :is(.track-card:nth-child(even) .track-symbol, .notice-tag) { color: #a92d68; }
+html[data-theme='light'] .entry-page .auth-more summary:hover,
+html[data-theme='light'] .entry-page .auth-more[open] summary,
+html[data-theme='light'] .entry-page .auth-more nav a:hover { background: #ebe1f3; }
+html[data-theme='light'] .entry-page .skip-link { color: #292335; background: #faf7fd; }
+
+/* The standalone error shell can resolve the same preference without Django
+ * business state, account data, or JavaScript hydration. */
+html[data-theme='light'] .error-page :is(header, footer, p) { color: #5e536c; }
+html[data-theme='light'] .error-page .card { background: #faf7fd; border-color: #b6a2c4; box-shadow: 0 18px 48px rgb(86 46 113 / 12%); }
+html[data-theme='light'] .error-page .code { color: #743c99; }
+html[data-theme='light'] .error-page .button { color: #fff; background: #743c99; border-color: #743c99; }
+html[data-theme='light'] .error-page .button.secondary { color: #4b315e; background: #f5eef9; border-color: #9b82ac; }
+
+html[data-theme='light'].ruc-root,
+html[data-theme='light'] .ruc-app .sidebar { scrollbar-color: #ad97bb #f1eaf7; }
+html[data-theme='light'].ruc-root::-webkit-scrollbar-track,
+html[data-theme='light'] .ruc-app .sidebar::-webkit-scrollbar-track { background: #f1eaf7; }
+html[data-theme='light'].ruc-root::-webkit-scrollbar-thumb,
+html[data-theme='light'] .ruc-app .sidebar::-webkit-scrollbar-thumb { background: #ad97bb; border-color: #f1eaf7; }
+
+@media (prefers-contrast: more) {
+  html[data-theme='light'], html[data-theme='light'] .ruc-app {
+    --ruc-border: #9985a8;
+    --ruc-control-border: #65536f;
+    --ruc-secondary: #483b54;
+    --ruc-muted: #53445f;
+    --muted: #53445f;
+    --line: #9985a8;
+  }
+  html[data-theme='light'] .hu { --hu-border: #65536f; --hu-muted: #483b54; }
+}
+@media (forced-colors: active) {
+  html[data-theme='light'], html[data-theme='light'] body,
+  html[data-theme='light'] .sky-glow { color: CanvasText; background: Canvas; }
+  html[data-theme='light'] :is(.ruc-app, .entry-page) :is(.panel, .ruc-panel, .glass-card, input, select, textarea),
+  html[data-theme='light'] .hu-dropdown,
+  html[data-theme='light'] .hu-sheet-content { background: Canvas; color: CanvasText; border-color: CanvasText; }
+  html[data-theme='light'] :is(.ruc-app, .entry-page, .error-page) .button,
+  html[data-theme='light'] .hu-button { border-color: ButtonText; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='light'] body { background-attachment: scroll; }
+}
+@media (max-width: 767px) {
+  .standalone-header { margin-bottom: 2.5rem; }
+  html[data-theme='light'] .campaign-light-lockup { width: 13.125rem; min-height: 3.75rem; gap: 0.5rem; }
+  html[data-theme='light'] .campaign-symbol { flex-basis: 4.125rem; width: 4.125rem; height: 3.75rem; }
+  html[data-theme='light'] .campaign-symbol img { width: 13.125rem; height: 3.75rem; }
+  html[data-theme='light'] .campaign-wordmark { font-size: 1.5rem; }
+  html[data-theme='light'] .campaign-wordmark small { font-size: 0.5625rem; }
+}
+@media (max-width: 400px) {
+  .entry-page .landing-header .header-inner { gap: 0.5rem; }
+  .entry-page .landing-header .brand { flex-basis: 8.5rem; }
+  .entry-page .landing-header .association-logo { width: 8.5rem; height: 2.625rem; }
+  .entry-page .header-actions { max-width: 9rem; }
+  .entry-page .header-actions .header-login { font-size: 0.8125rem; padding-inline: 0.625rem; }
+  .standalone-header .association-logo { width: 11rem; height: 3.375rem; }
+}
