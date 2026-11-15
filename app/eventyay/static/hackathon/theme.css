@@ -3,8 +3,12 @@
  * Brand backgrounds pass through a white midpoint; controls use solid fills
  * to keep text contrast independent of a gradient's position.
  */
-.brand-logo-light,
 .campaign-light-lockup { display: none; }
+/* Brand image rules in the workbench and Radix Sheet set display:block.
+ * Theme visibility must win in every wrapper, including the no-script default. */
+html:not([data-theme='light']) .association-logo.brand-logo-light,
+html[data-theme='light'] .association-logo.brand-logo-dark { display: none !important; }
+html:not([data-theme='light']) .association-logo.brand-logo-dark { object-fit: contain; }
 .header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; min-width: 0; }
 .standalone-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 4.375rem; }
 .standalone-header .brand { min-width: 0; }
@@ -55,8 +59,13 @@ html[data-theme='light'] body {
   background-attachment: fixed;
 }
 html[data-theme='light'] .entry-page { background: transparent; }
-html[data-theme='light'] .brand-logo-dark { display: none; }
 html[data-theme='light'] .brand-logo-light { display: block; object-fit: cover; object-position: center; }
+html[data-theme='light'] .hu-sidebar-brand .association-logo.brand-logo-light {
+  width: min(100%, 13.1765rem);
+  height: auto;
+  max-height: none;
+  aspect-ratio: 224 / 68;
+}
 html[data-theme='light'] .entry-page .campaign-mark { display: none; }
 html[data-theme='light'] .campaign-light-lockup { display: flex; align-items: center; gap: 0.625rem; width: 15.75rem; max-width: 100%; min-height: 4.5rem; margin: 0 0 1.5rem; }
 html[data-theme='light'] .campaign-symbol { display: block; position: relative; overflow: hidden; flex: 0 0 5rem; width: 5rem; height: 4.5rem; }
