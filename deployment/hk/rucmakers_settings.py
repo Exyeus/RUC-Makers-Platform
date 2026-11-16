@@ -25,3 +25,6 @@ COMPRESS_PRECOMPILERS = tuple(
     )
     for kind, compiler in COMPRESS_PRECOMPILERS
 )
+
+# Enabled after exact-origin OSS multipart CORS acceptance on the Hong Kong site.
+HACKATHON_DIRECT_UPLOADS = True

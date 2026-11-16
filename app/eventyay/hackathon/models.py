@@ -346,6 +346,9 @@ class UploadSession(EventRecord):
     checksum_bound_at = models.DateTimeField(null=True, blank=True)
     deadline_at = models.DateTimeField(null=True, blank=True)
     lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    transport = models.CharField(max_length=12, default='relay', db_default='relay')
+    storage_name = models.CharField(max_length=512, blank=True, db_default='')
+    storage_upload_id = models.CharField(max_length=512, blank=True, db_default='')
     last_error = models.CharField(max_length=500, blank=True)
     asset = models.ForeignKey(Asset, on_delete=models.SET_NULL, null=True)
 

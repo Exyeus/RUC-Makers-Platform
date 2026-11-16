@@ -62,6 +62,9 @@ def session_data(session):
         'offset': session.offset,
         'size': session.size,
         'chunk_size': CHUNK_SIZE,
+        'transport': session.transport,
+        'direct_url': reverse('hackathon:upload-direct', kwargs=kwargs),
+        'ack_url': reverse('hackathon:upload-ack', kwargs=kwargs),
         'checksum': session.checksum,
         'kind': session.kind,
         'filename': session.original_filename,
@@ -210,3 +213,28 @@ def finish(request, upload_id):
 @upload_errors
 def cancel(request, upload_id):
     return JsonResponse(session_data(uploads.cancel_upload(get_session(request, upload_id))))
+
+
+@event_view('login')
+@require_POST
+@upload_errors
+def direct(request, upload_id):
+    from eventyay.hackathon import direct_uploads
+
+    session, urls = direct_uploads.prepare(get_session(request, upload_id))
+    response = JsonResponse({'session': session_data(session), 'parts': urls})
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
+@event_view('login')
+@require_POST
+@upload_errors
+def acknowledge(request, upload_id):
+    from eventyay.hackathon import direct_uploads
+
+    try:
+        offset = int(request.POST.get('offset', ''))
+    except ValueError:
+        return JsonResponse({'error': '缺少有效的分块位置。'}, status=400)
+    return JsonResponse(session_data(direct_uploads.acknowledge(get_session(request, upload_id), offset)))

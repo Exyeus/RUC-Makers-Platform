@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django_scopes import scope
 
+from eventyay.hackathon.direct_uploads import cleanup
 from eventyay.hackathon.models import Asset, Hackathon, UploadSession
 from eventyay.hackathon.storage import PrivateStorage, temporary_root
 from eventyay.hackathon.uploads import expire_uploads, remove_file
@@ -22,6 +23,10 @@ class Command(BaseCommand):
             with scope(event=hackathon.event):
                 if not dry_run:
                     expire_uploads(hackathon)
+                    for task in UploadSession.objects.filter(
+                        hackathon=hackathon, state='cancelled', transport='direct'
+                    ).exclude(storage_name=''):
+                        cleanup(task.pk, task.storage_name, task.storage_upload_id)
                 sessions = UploadSession.objects.filter(
                     hackathon=hackathon, state='uploading', expires_at__gt=timezone.now()
                 )

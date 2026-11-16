@@ -72,9 +72,14 @@ def expire_uploads(hackathon):
                 session.save(update_fields=['state', 'updated'])
                 invalidate_queued_project(session)
                 transaction.on_commit(lambda path=part_path(session): remove_file(path))
+                from eventyay.hackathon.direct_uploads import cleanup_after_commit
+
+                cleanup_after_commit(session)
 
 
 def start_upload(hackathon, user, project, data):
+    from eventyay.hackathon import direct_uploads
+
     expire_uploads(hackathon)
     # An acknowledged intent can be resumed after the deadline with the same ID.
     existing = UploadSession.objects.filter(pk=data['id'], hackathon=hackathon, user=user).first()
@@ -138,6 +143,7 @@ def start_upload(hackathon, user, project, data):
             checksum_bound_at=now if data['checksum'] else None,
             client_clicked_at=data.get('client_clicked_at'),
             deadline_at=hackathon.submission_deadline,
+            transport='direct' if data.get('transport') == 'direct' and direct_uploads.enabled() else 'relay',
         )
 
 
@@ -200,6 +206,8 @@ def append_chunk(session, stream, offset, length):
         .get(pk=session.pk)
     )
     require_live(session)
+    if session.transport != 'relay':
+        raise UploadConflict('此任务使用直接上传通道，请继续原任务。')
     if not session.expected_checksum:
         raise UploadConflict('文件尚未绑定校验哈希。')
     if length <= 0 or length > CHUNK_SIZE or offset < 0 or offset + length > session.size:
@@ -279,36 +287,41 @@ def finish_upload(session):
     if session.offset != session.size:
         raise UploadConflict('文件尚未传完，请继续上传。')
     path = part_path(session)
-    with path.open('rb') as source:
-        upload = File(source, name=session.original_filename)
-        form = AssetForm({'kind': session.kind}, {'file': upload})
-        if not form.is_valid():
-            raise ValidationError([message for errors in form.errors.values() for message in errors])
-        digest = hashlib.file_digest(source, 'sha256').hexdigest()
-    if digest != session.expected_checksum:
-        raise UploadConflict('文件校验未通过，请取消任务后重新上传原文件。已有材料不受影响。')
-    # The slow final copy holds only this session lock, never the event lock.
-    project = session.project
-    relative = (
-        f'{session.hackathon_id}/{project.team_id}/{project.pk}/{session.kind}/'
-        f'{uuid4().hex}{Path(session.original_filename).suffix.lower()}'
-    )
-    storage = PrivateStorage()
-    if isinstance(storage.backend, DurableFileStorage):
-        destination = Path(storage.path(relative))
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        os.link(path, destination)
-        parent = destination.parent
-        while parent.is_relative_to(local_root()):
-            directory_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-            parent = parent.parent
+    if session.transport == 'direct':
+        from eventyay.hackathon import direct_uploads
+
+        digest, relative = direct_uploads.verify(session)
     else:
         with path.open('rb') as source:
-            relative = storage.save(relative, File(source))
+            upload = File(source, name=session.original_filename)
+            form = AssetForm({'kind': session.kind}, {'file': upload})
+            if not form.is_valid():
+                raise ValidationError([message for errors in form.errors.values() for message in errors])
+            digest = hashlib.file_digest(source, 'sha256').hexdigest()
+        if digest != session.expected_checksum:
+            raise UploadConflict('文件校验未通过，请取消任务后重新上传原文件。已有材料不受影响。')
+        # The slow final copy holds only this session lock, never the event lock.
+        project = session.project
+        relative = (
+            f'{session.hackathon_id}/{project.team_id}/{project.pk}/{session.kind}/'
+            f'{uuid4().hex}{Path(session.original_filename).suffix.lower()}'
+        )
+        storage = PrivateStorage()
+        if isinstance(storage.backend, DurableFileStorage):
+            destination = Path(storage.path(relative))
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.link(path, destination)
+            parent = destination.parent
+            while parent.is_relative_to(local_root()):
+                directory_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+                parent = parent.parent
+        else:
+            with path.open('rb') as source:
+                relative = storage.save(relative, File(source))
     # A failed recheck/rollback leaves a unique orphan for age-gated GC.
     hackathon = lock_event(session.hackathon)
     require_live(session)
@@ -336,6 +349,9 @@ def cancel_upload(session):
         session.save(update_fields=['state', 'updated'])
         invalidate_queued_project(session)
         transaction.on_commit(lambda: remove_file(part_path(session)))
+        from eventyay.hackathon.direct_uploads import cleanup_after_commit
+
+        cleanup_after_commit(session)
     return session
 
 

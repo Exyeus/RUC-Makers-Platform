@@ -392,6 +392,7 @@ class AssetForm(forms.ModelForm):
 
 
 class UploadStartForm(forms.Form):
+    transport = forms.ChoiceField(choices=[('relay', '兼容上传'), ('direct', '直接上传')], required=False)
     id = forms.UUIDField()
     kind = forms.ChoiceField(choices=Asset.Kind.choices)
     filename = forms.CharField(max_length=255)

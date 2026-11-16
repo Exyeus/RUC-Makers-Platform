@@ -182,6 +182,10 @@
                 <button type="button" class="button secondary" data-pause-upload hidden>暂停</button>
                 <button type="button" class="button secondary" data-cancel-current hidden>取消本次上传</button>
                 <progress data-upload-progress value="0" max="100" aria-label="文件上传进度" hidden></progress>
+                <div data-upload-metrics hidden aria-label="上传速度与剩余时间">
+                  <p data-upload-bytes></p>
+                  <p class="muted">速度：<strong data-upload-speed>—</strong> · 预计剩余：<strong data-upload-eta>估算中…</strong> · 已用时：<span data-upload-elapsed>0 秒</span></p>
+                </div>
                 <div data-upload-status role="status" aria-live="polite"></div>
                 <noscript><p>浏览器未开启 JavaScript，将使用普通上传；大文件和断点续传请开启 JavaScript。</p></noscript>
               </form>

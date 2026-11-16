@@ -1,14 +1,10 @@
+import { TransferError as UploadError, TransferMeter, formatRate, formatTime, sendChunk } from './upload-transfer.js?v=20261116';
+
 const form = document.querySelector('[data-upload-form]');
 const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
 const projectForm = document.querySelector('[data-project-form]');
 const projectStatus = document.querySelector('[data-project-status-url]');
 let registration = null;
-
-class UploadError extends Error {
-  constructor(message, status, retryAfter = 5) {
-    super(message); this.status = status; this.retryAfter = retryAfter;
-  }
-}
 
 // Throws UploadError for rejected requests; preserves fetch/timeout errors.
 async function request(url, options = {}) {
@@ -222,6 +218,22 @@ if (form) {
   let busy = false;
   let controller;
   let currentSession;
+  let meter, meterTimer, phase = 'idle';
+  const metrics = form.querySelector('[data-upload-metrics]');
+  const speed = form.querySelector('[data-upload-speed]');
+  const eta = form.querySelector('[data-upload-eta]');
+  const elapsed = form.querySelector('[data-upload-elapsed]');
+  const bytes = form.querySelector('[data-upload-bytes]');
+  const draw = () => {
+    if (!meter) return;
+    const data = meter.snapshot();
+    progress.value = data.sent / meter.total * 100;
+    bytes.textContent = `已发送 ${(data.sent / 1048576).toFixed(1)} / ${(meter.total / 1048576).toFixed(1)} MiB（${Math.floor(progress.value)}%） · 已确认 ${(data.confirmed / 1048576).toFixed(1)} MiB`;
+    speed.textContent = phase === 'sending' ? formatRate(data.rate) : '—';
+    eta.textContent = phase === 'sending' ? (data.eta === null ? '估算中…' : formatTime(data.eta))
+      : phase === 'verifying' ? '正在校验保存' : phase === 'confirming' ? '等待确认' : phase === 'complete' ? '已完成' : '等待传输';
+    elapsed.textContent = formatTime(data.elapsed);
+  };
   const say = message => { status.textContent = message; };
   const showReceipt = session => {
     receipt.textContent = `服务器已登记：${session.received_at} · 凭证 ${session.id} · 续传至 ${session.expires_at}。${session.expected_checksum ? `SHA-256：${session.expected_checksum}；绑定时间：${session.checksum_bound_at}。` : '文件哈希尚未绑定。'}`;
@@ -250,18 +262,20 @@ if (form) {
   });
 
   // Retries only transient failures, with jitter and a fixed receipt expiry.
-  const resilient = async (url, options = {}) => {
+  const resilient = async (url, options = {}, transmit = null) => {
     let attempt = 0;
+    const { timeout = 60000, ...parameters } = options;
     while (true) {
       controller.signal.throwIfAborted();
       if (currentSession && Date.now() >= Date.parse(currentSession.expires_at)) throw new UploadError('续传期限已过，请保存凭证并联系技术人员。', 400);
       try {
-        return await request(url, { ...options, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]) });
+        return transmit ? await transmit(controller.signal) : await request(url, { ...parameters, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(timeout)]) });
       } catch (error) {
         if (controller.signal.aborted || (error instanceof UploadError && error.status !== 429 && !(error.status >= 500))) throw error;
         console.warn('Hackathon upload waiting to retry', error);
         const seconds = Math.max(error.retryAfter || 1, Math.min(30, 2 ** Math.min(++attempt, 5)));
-        say(currentSession ? '已保留服务器凭证，正在排队 / 等待网络恢复。请保持页面打开，也可暂停后选择原文件续传。' : '正在重试登记；尚未收到服务器凭证，本机点击时间仅供沟通参考。');
+        phase = 'waiting'; draw();
+        say(currentSession ? `已保留服务器凭证，${seconds} 秒后重试连接。请保持页面打开，也可暂停后选择原文件续传。` : '正在重试登记；尚未收到服务器凭证，本机点击时间仅供沟通参考。');
         await delay((seconds + Math.random() * 3) * 1000, controller.signal);
       }
     }
@@ -308,9 +322,10 @@ if (form) {
     receipt.append(document.createElement('br'), localLink);
     busy = true; currentSession = null;
     controller = new AbortController();
-    button.disabled = true; pause.hidden = false; progress.hidden = false;
+    button.disabled = true; pause.hidden = false; progress.hidden = false; progress.value = 0;
+    metrics.hidden = true; meter = null; phase = 'preparing';
     form.elements.file.disabled = true; form.elements.kind.disabled = true;
-    const startData = new URLSearchParams({ id, kind, filename: file.name, size: String(file.size), checksum: '', client_clicked_at: clickedAt });
+    const startData = new URLSearchParams({ id, kind, filename: file.name, size: String(file.size), checksum: '', client_clicked_at: clickedAt, transport: 'direct' });
     try {
       say('正在登记提交意图，尚未开始传输大文件…');
       registration = resilient(form.dataset.startUrl, { method: 'POST', body: startData });
@@ -325,32 +340,66 @@ if (form) {
       currentSession = session;
       remember(key, session.id); showReceipt(session); cancel.hidden = session.state === 'complete';
       const checksum = await hashFile(file, controller.signal);
+      say('本地校验完成，正在连接上传通道…');
       startData.set('id', session.id); startData.set('checksum', checksum);
       session = await resilient(form.dataset.startUrl, { method: 'POST', body: startData });
       currentSession = session; showReceipt(session);
+      meter = new TransferMeter(file.size, session.offset);
+      metrics.hidden = false; draw(); meterTimer = setInterval(draw, 500);
+      let directParts = [];
+      let signatureRefreshes = 0;
       while (session.state !== 'complete' && session.offset < file.size) {
         controller.signal.throwIfAborted();
-        session = await resilient(session.admit_url, { method: 'POST' });
-        progress.value = session.offset / file.size * 100;
-        say(`正在上传 ${Math.round(progress.value)}% · ${(session.offset / 1048576).toFixed(1)} / ${(file.size / 1048576).toFixed(1)} MiB`);
+        const offset = session.offset;
+        let directPart;
+        if (session.transport === 'direct') {
+          directPart = directParts.find(part => part.offset === offset);
+          if (!directPart) {
+            phase = 'connecting'; say('正在连接上传通道…'); draw();
+            const prepared = await resilient(session.direct_url, { method: 'POST' });
+            session = prepared.session; currentSession = session; directParts = prepared.parts;
+            if (session.offset !== offset) continue;
+            directPart = directParts.find(part => part.offset === offset);
+            if (!directPart) throw new UploadError('上传通道未能准备好，请稍后续传。', 503);
+          }
+        }
+        const body = file.slice(offset, offset + session.chunk_size);
+        const url = directPart?.url || session.chunk_url;
+        const headers = directPart ? {} : {
+          'Content-Type': 'application/octet-stream', 'Upload-Offset': String(offset), 'X-CSRFToken': csrf, Accept: 'application/json',
+        };
         try {
-          session = await resilient(session.chunk_url, {
-            method: 'POST', body: file.slice(session.offset, session.offset + session.chunk_size),
-            headers: { 'Content-Type': 'application/octet-stream', 'Upload-Offset': String(session.offset) },
+          const transferred = await resilient(url, {}, signal => {
+            meter.begin(offset); phase = 'sending';
+            say(session.transport === 'direct' ? '正在上传文件…' : '正在上传文件（兼容通道）…'); draw();
+            return sendChunk(url, body, {
+              method: directPart ? 'PUT' : 'POST', headers, signal, json: !directPart,
+              onProgress: loaded => { meter.update(loaded); draw(); },
+            });
           });
+          phase = 'confirming'; say('本分块已发送，正在确认保存…'); draw();
+          session = directPart
+            ? await resilient(session.ack_url, { method: 'POST', body: new URLSearchParams({ offset: String(offset) }) })
+            : transferred;
+          currentSession = session; meter.acknowledge(session.offset); draw(); signatureRefreshes = 0;
         } catch (error) {
+          if (directPart && error instanceof UploadError && error.status === 403 && signatureRefreshes++ < 2) {
+            directParts = []; phase = 'connecting'; say('正在更新上传通道，请稍候…'); continue;
+          }
           if (!(error instanceof UploadError) || error.status !== 409) throw error;
           console.warn('Checking server offset after upload conflict', error);
-          const previousOffset = session.offset;
-          session = await resilient(session.status_url);
-          if (session.offset <= previousOffset || ['cancelled', 'expired'].includes(session.state)) throw error;
+          session = await resilient(session.status_url); currentSession = session;
+          if (session.offset <= offset || ['cancelled', 'expired'].includes(session.state)) throw error;
+          meter.acknowledge(session.offset); directParts = []; draw();
         }
       }
+      phase = 'verifying'; draw();
       say('文件已传完，服务器正在校验并归档，请稍候…');
-      session = await resilient(session.finish_url, { method: 'POST' });
+      session = await resilient(session.finish_url, { method: 'POST', timeout: 600000 });
       if (session.state === 'superseded') throw new UploadError('该材料已被另一次上传替换，请刷新后核对。', 409);
       try { localStorage.removeItem(key); } catch (error) { console.warn('Could not clear completed upload ID', error); }
       showReceipt(session); progress.value = 100; cancel.hidden = true; currentSession = null;
+      phase = 'complete'; meter.acknowledge(file.size); draw();
       const version = projectForm?.elements.version;
       if (version && session.revision === Number(version.value) + 1) version.value = session.revision;
       say('材料已完整保存。已登记排队提交的作品会在材料到齐后自动提交；其他作品仍需点击“正式提交 / 排队登记”。');
@@ -367,8 +416,10 @@ if (form) {
       await refreshProject();
     } catch (error) {
       console.error('Hackathon upload interrupted', error);
+      phase = controller.signal.aborted ? 'paused' : 'error'; draw();
       say(controller.signal.aborted ? '已暂停，服务器已登记的任务会保留至凭证中的期限。重新选择原文件可继续。' : `${error.message} 请保存凭证、查询状态后继续，勿将排队登记误认为上传完成。`);
     } finally {
+      clearInterval(meterTimer);
       registration = null; busy = false; button.disabled = false; pause.hidden = true;
       form.elements.file.disabled = false; form.elements.kind.disabled = false;
     }
