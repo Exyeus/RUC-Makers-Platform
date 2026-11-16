@@ -26,5 +26,8 @@ COMPRESS_PRECOMPILERS = tuple(
     for kind, compiler in COMPRESS_PRECOMPILERS
 )
 
-# Enabled after exact-origin OSS multipart CORS acceptance on the Hong Kong site.
+# Activity workspace error page with default fallback elsewhere.
+CSRF_FAILURE_VIEW = 'eventyay.hackathon.error_views.csrf_failure'
+
+# Exact-origin private OSS multipart upload has passed live acceptance.
 HACKATHON_DIRECT_UPLOADS = True
