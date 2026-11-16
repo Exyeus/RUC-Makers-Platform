@@ -44,4 +44,20 @@ const aborted = new AbortController();
 const stopped = sendChunk('/chunk', new Blob(['x']), { signal: aborted.signal, createXHR: () => new FakeXHR() });
 aborted.abort();
 await assert.rejects(stopped, { name: 'AbortError' });
+now = 0;
+const changing = new TransferMeter(100 * 1048576, 0, () => now);
+changing.begin(0);
+let sent = 0;
+for (let tick = 1; tick <= 4000; tick++) {
+  now = tick * 5;
+  sent += (now <= 10000 ? 1048576 : 4 * 1048576) * 0.005;
+  changing.update(sent); changing.snapshot();
+}
+assert.ok(Math.abs(changing.snapshot().rate / 1048576 - 4) < 0.05, 'Recent speed must follow a changed connection, including frequent progress events');
+assert.ok(changing.samples.length < 50, 'Sample memory is bounded by the time window');
+now = 0;
+const connecting = new TransferMeter(20 * 1048576, 0, () => now);
+now = 5000; connecting.begin(0);
+now = 6000; connecting.update(1048576);
+assert.equal(connecting.snapshot().rate, 1048576, 'Connection setup must not depress the transfer speed estimate');
 console.log('Progress before acknowledgement, resume accounting, speed, ETA, idle decay and pause verified.');

@@ -27,6 +27,7 @@ export class TransferMeter {
   }
   begin(offset) {
     this.confirmed = offset; this.partOffset = offset; this.partLoaded = 0; this.sent = offset;
+    if (this.wire === 0) this.samples = [{ at: this.clock(), bytes: 0 }];
   }
   update(loaded) {
     const count = Math.max(this.partLoaded, loaded);
@@ -37,11 +38,9 @@ export class TransferMeter {
   acknowledge(offset) { this.confirmed = offset; this.sent = offset; }
   sample() {
     const now = this.clock();
-    this.samples.push({ at: now, bytes: this.wire });
+    if (now - this.samples.at(-1).at >= 200) this.samples.push({ at: now, bytes: this.wire });
     // Keep the point immediately before the eight-second window.
     while (this.samples.length > 2 && this.samples[1].at < now - 8000) this.samples.shift();
-    // Progress events can be frequent; retain a bounded sample history.
-    if (this.samples.length > 200) this.samples.splice(1, this.samples.length - 200);
   }
   snapshot() {
     this.sample();

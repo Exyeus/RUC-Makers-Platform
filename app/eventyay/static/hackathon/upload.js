@@ -1,4 +1,4 @@
-import { TransferError as UploadError, TransferMeter, formatRate, formatTime, sendChunk } from './upload-transfer.js?v=20261116';
+import { TransferError as UploadError, TransferMeter, formatRate, formatTime, sendChunk } from './upload-transfer.js?v=20261116.2';
 
 const form = document.querySelector('[data-upload-form]');
 const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
