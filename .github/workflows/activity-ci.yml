@@ -57,7 +57,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y gettext libmagic1t64
+          sudo apt-get install --no-install-recommends -y gettext libmagic1t64 ffmpeg
       - name: Install locked test dependencies
         run: uv sync --directory app --locked --no-default-groups --group test --group lint --no-install-project
       - name: Check activity platform
