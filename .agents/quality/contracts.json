@@ -17,8 +17,10 @@
         "execution-log"
       ],
       "implementation": {
-        "status": "not_run",
-        "reason": "种子会话用于前置；未验证真实登录、错误提示和会话恢复。"
+        "case": "tools/quality-browser/journeys.spec.cjs :: AUTH-01",
+        "runner": "tools/quality-browser/run.sh",
+        "environment": "local isolated PostgreSQL, synthetic accounts",
+        "boundary": "真实密码登录与数据库会话失效后已保存作品恢复；未覆盖未保存输入及生产身份服务。"
       }
     },
     {
@@ -125,8 +127,11 @@
         "server-verification"
       ],
       "implementation": {
-        "status": "not_run",
-        "reason": "当前仅finish异常恢复，未完整覆盖重复提交/结果不明/服务端截止。"
+        "case": "tools/quality-browser/journeys.spec.cjs :: SUBMIT-03",
+        "runner": "tools/quality-browser/run.sh",
+        "server_verifier": "tools/quality-browser/verify.py",
+        "environment": "local isolated PostgreSQL and filesystem, synthetic accounts",
+        "boundary": "服务端截止、响应丢失与重复提交；不等于真实网络环境全覆盖。"
       }
     },
     {
@@ -145,8 +150,11 @@
         "server-verification"
       ],
       "implementation": {
-        "status": "not_run",
-        "reason": "尚未接跨账号浏览器读取/续传与私有材料全链路。"
+        "case": "tools/quality-browser/journeys.spec.cjs :: SUBMIT-04",
+        "runner": "tools/quality-browser/run.sh",
+        "server_verifier": "tools/quality-browser/verify.py",
+        "environment": "local isolated PostgreSQL and filesystem, synthetic accounts",
+        "boundary": "独立合成账号对活跃任务和私有材料的访问隔离；未覆盖线上 OSS 配置。"
       }
     },
     {
@@ -164,8 +172,10 @@
         "execution-log"
       ],
       "implementation": {
-        "status": "not_run",
-        "reason": "尚未接主办方查验、导出和备用联系流程。"
+        "case": "tools/quality-browser/journeys.spec.cjs :: OPS-01",
+        "runner": "tools/quality-browser/run.sh",
+        "environment": "local isolated PostgreSQL, synthetic accounts",
+        "boundary": "仅隔离数据：凭证页面、作品 CSV 与数据库字段核对及支持中心入口；不代替主办方实际接管。"
       }
     }
   ]

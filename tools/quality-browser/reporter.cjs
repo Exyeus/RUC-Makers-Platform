@@ -2,7 +2,7 @@ const fs=require('fs'),path=require('path'),cp=require('child_process');
 class Reporter {
  onBegin(){this.checks=[];this.identity=JSON.parse(fs.readFileSync(process.env.QA_OUTPUT+'/identity.json'));}
  onTestEnd(test,result){
- const id=test.title.match(/^(TEAM|SUBMIT)-\d+/)?.[0]; if(!id)return;
+ const id=test.title.match(/^(AUTH|TEAM|SUBMIT|OPS)-\d+/)?.[0]; if(!id)return;
  const toolBlocked=result.errors.some(e=>/Executable doesn't exist|browserType.launch/.test(e.message||''));
  const assertions=Object.fromEntries(test.annotations.filter(x=>x.type==='assertion').map(x=>[x.description,true]));
  const evidence=[];

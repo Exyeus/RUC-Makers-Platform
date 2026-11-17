@@ -29,6 +29,10 @@ with scope(event=e):
         state={'cookies':[{'name':settings.SESSION_COOKIE_NAME,'value':c.cookies[settings.SESSION_COOKIE_NAME].value,'domain':'127.0.0.1','path':'/','httpOnly':True,'secure':False,'sameSite':'Lax'}],'origins':[]}
         Path(settings.DATA_DIR,f'{role}.json').write_text(json.dumps(state))
         people.append(p)
+    organizer=User.objects.create_user(email='organizer@example.invalid',fullname='合成主办',password='QA-local-only-2026!',is_administrator=True)
+    c=Client(); c.force_login(organizer)
+    state={'cookies':[{'name':settings.SESSION_COOKIE_NAME,'value':c.cookies[settings.SESSION_COOKIE_NAME].value,'domain':'127.0.0.1','path':'/','httpOnly':True,'secure':False,'sameSite':'Lax'}],'origins':[]}
+    Path(settings.DATA_DIR,'organizer.json').write_text(json.dumps(state))
     track=Track.objects.create(hackathon=h,name='QA Track')
     team=Team.objects.create(hackathon=h,captain=people[0],track=track,name='合成验收队',intro='寻找 Python 伙伴',needs='Python',recruiting=True)
     people[0].team=team; people[0].save()

@@ -68,3 +68,72 @@ test('SUBMIT-02 formal receipt survives reload with stored materials',async({bro
 
 
 
+
+test('AUTH-01 real login and expired-session recovery',async({browser},info)=>{
+ const c=await browser.newContext(),p=await c.newPage();
+ await p.goto('/hackathon/quality/');
+ const form=p.locator('#join form');
+ await form.locator('[name=identifier]').fill('QACAPTAIN');
+ await form.locator('[name=password]').fill('wrong-password');
+ await form.getByRole('button',{name:'登录',exact:true}).click();
+ await expect(p.locator('#join')).toContainText('学号、邮箱或密码不正确');
+ await expect(p.locator('#join')).toContainText('忘记密码');await proof(info,'failure_is_actionable');
+ await p.locator('#join [name=identifier]').fill('QACAPTAIN');
+ await p.locator('#join [name=password]').fill('QA-local-only-2026!');
+ await p.locator('#join').getByRole('button',{name:'登录',exact:true}).click();
+ await expect(p.getByRole('link',{name:'我的作品',exact:true})).toBeVisible();await proof(info,'fresh_account_can_log_in');
+ await p.goto('/hackathon/quality/project/');
+ await expect(p.locator('[name=title]')).toHaveValue('合成验收作品');
+ const cookie=(await c.cookies()).find(x=>x.name==='eventyay_session');expect(cookie).toBeTruthy();
+ cp.execFileSync(process.env.QA_PYTHON,[path.join(__dirname,'expire_session.py')],{input:cookie.value});
+ await p.reload();
+ await expect(p).toHaveURL(/next=/);
+ await p.locator('#join [name=identifier]').fill('QACAPTAIN');
+ await p.locator('#join [name=password]').fill('QA-local-only-2026!');
+ await p.locator('#join').getByRole('button',{name:'登录',exact:true}).click();
+ await expect(p).toHaveURL(/project/);await expect(p.locator('[name=title]')).toHaveValue('合成验收作品');
+ await proof(info,'expired_session_preserves_recoverable_work');await shot(p,info);await c.close();
+});
+test('OPS-01 organizer checks receipt and export',async({browser},info)=>{
+ const c=await context(browser,'organizer'),p=await c.newPage();
+ await p.goto('/hackathon/quality/manage/');
+ await expect(p.locator('body')).toContainText('支持中心');
+ await expect(p.getByRole('link',{name:'去处理'}).last()).toBeVisible();
+ await proof(info,'fallback_contact_or_channel_is_visible');
+ await p.getByRole('link',{name:'全部作品'}).click();
+ const row=p.locator('tr').filter({hasText:'合成验收作品'});
+ const server=await verify(info,'submission');
+ await expect(row).toContainText(server.receipt);await proof(info,'organizer_finds_submission_receipt');await shot(p,info);
+ await p.goto('/hackathon/quality/manage/');
+ const [download]=await Promise.all([p.waitForEvent('download'),p.getByRole('link',{name:'作品与提交记录 CSV'}).click()]);
+ const csv=fs.readFileSync(await download.path(),'utf8');
+ const rows=csv.trim().split(/\r?\n/);expect(rows).toHaveLength(2);
+ expect(rows[1]).toContain(server.project_code);expect(rows[1]).toContain(server.team_code);
+ expect(rows[1]).toContain('合成验收作品');expect(rows[1]).toContain('合成验收队');expect(rows[1]).toContain(server.state_display);
+ await proof(info,'export_matches_confirmed_records');await c.close();
+});
+
+test('SUBMIT-03 duplicate submission, lost response and server deadline',async({browser},info)=>{
+ const c=await context(browser,'captain'),p=await c.newPage(); await p.goto('/hackathon/quality/project/');
+ const body=await p.locator('#project-information-form').evaluate(form=>{const data=new FormData(form);data.set('action','submit');return new URLSearchParams(data).toString();});
+ let intercepted=false;
+ await p.route('**/hackathon/quality/project/',async route=>{if(!intercepted && route.request().method()==='POST'){intercepted=true;await route.fetch();await route.abort('connectionreset');}else await route.continue();});
+ const send=()=>p.evaluate(async body=>{try{const r=await fetch('/hackathon/quality/project/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});return r.status}catch(e){return 'network-error'}},body);
+ expect(await send()).toBe('network-error');expect(intercepted).toBe(true);
+ const first=await verify(info,'state');expect(await send()).toBe(200);
+ const second=await verify(info,'state');expect(second.receipt).toBe(first.receipt);expect(second.revision).toBe(first.revision);await proof(info,'retry_or_double_click_has_no_duplicate_submission');
+ await p.reload();await expect(p.locator('[data-receipt-id]')).toHaveText(first.receipt);await proof(info,'ambiguous_network_result_reconciled');
+ const active=await p.evaluate(async()=>{const data=new URLSearchParams({id:crypto.randomUUID(),kind:'slides',filename:'pending.pdf',size:'9'});const token=document.querySelector('[name=csrfmiddlewaretoken]').value;const r=await fetch('/hackathon/quality/project/uploads/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':token},body:data});return {status:r.status,body:await r.json()};});expect(active.status).toBe(200);expect(active.body.state).toBe('hashing');
+ await verify(info,'deadline');await p.reload();
+ const response=await p.evaluate(async()=>{const data=new URLSearchParams({id:crypto.randomUUID(),kind:'slides',filename:'late.pdf',size:'9'});const token=document.querySelector('[name=csrfmiddlewaretoken]').value;return (await fetch('/hackathon/quality/project/uploads/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':token},body:data})).status;});expect(response).toBe(400);const after=await verify(info,'state');expect(after.receipt).toBe(first.receipt);expect(after.revision).toBe(first.revision);await proof(info,'agreed_server_deadline_enforced');await shot(p,info);await c.close();
+});
+
+test('SUBMIT-04 cross-account upload and private asset isolation',async({browser},info)=>{
+ const owner=await context(browser,'captain'), outsider=await context(browser,'outsider'),anon=await browser.newContext();
+ const data=await verify(info,'state');expect(data.upload_id).toBeTruthy();expect(data.private_asset).toBeTruthy();
+ const base='/hackathon/quality/', upload=base+'project/uploads/'+data.upload_id+'/', asset=base+'assets/'+data.private_asset+'/';
+ const op=await owner.newPage(),p=await outsider.newPage(),guest=await anon.newPage();await op.goto(base+'project/');await p.goto(base+'market/');await guest.goto(base);
+ expect((await op.request.get(upload)).status()).toBe(200);expect((await op.request.get(asset)).status()).toBe(200);
+ expect((await p.request.get(upload)).status()).toBe(404);const csrf=(await owner.cookies()).find(x=>x.name==='eventyay_csrftoken');expect(csrf).toBeTruthy();await outsider.addCookies([csrf]);const token=csrf.value;expect((await p.request.post(upload+'finish/',{headers:{'X-CSRFToken':token,'Referer':p.url()}})).status()).toBe(404);await proof(info,'other_account_cannot_read_or_continue_upload');await proof(info,'server_checks_ownership');
+ expect((await p.request.get(asset)).status()).toBe(404);const publicResponse=await guest.request.get(asset,{maxRedirects:0});expect(publicResponse.status()).not.toBe(200);await proof(info,'private_materials_not_publicly_exposed');await shot(p,info);await owner.close();await outsider.close();await anon.close();
+});
