@@ -86,20 +86,3 @@ jobs:
           export QA_PYTHON="$PWD/app/.venv/bin/python"
           export QA_OUTPUT="$PWD/.local-services/quality-evidence/browser"
           bash tools/quality-browser/run.sh
-      - name: Keep QA evidence even on failure
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: activity-quality-evidence
-          path: |
-            .local-services/quality-evidence/*.json
-            .local-services/quality-evidence/*.log
-            .local-services/quality-evidence/browser/report.json
-            .local-services/quality-evidence/browser/identity*.json
-            .local-services/quality-evidence/browser/TEAM-*
-            .local-services/quality-evidence/browser/SUBMIT-*
-            .local-services/quality-evidence/browser/*.log
-            .local-services/quality-evidence/browser/test-results/
-            .local-services/quality-evidence/browser/html/
-          retention-days: 3
-          if-no-files-found: error
