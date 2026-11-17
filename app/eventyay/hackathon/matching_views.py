@@ -390,7 +390,25 @@ def market(request):
                 if item.status >= 400 or 'error' in item.result:
                     messages.error(request, item.result.get('message', item.result.get('error', '操作失败。')))
                 else:
-                    messages.success(request, '已记录。接受交流不代表正式入队；正式名单需全员确认。')
+                    if operation == 'intents':
+                        message = '合作意向已发送，等待对方回应；发送意向不会变更正式队伍。'
+                    elif operation == 'intent-decision' and item.result.get('state') == 'accepted':
+                        message = '已同意交流；这不会变更正式队伍。'
+                        if request.participant.team_id:
+                            message += '可在“我的队伍”查看当前名单。'
+                        elif h.matching_roster_enabled:
+                            message += '商量好后，请在名单提案中确认具体名单，完整名单需每位成员同意。'
+                        else:
+                            message += '商量好后，可在“参与队伍”申请入队，由队长处理。'
+                    elif operation == 'intent-decision':
+                        message = {
+                            'cancelled': '合作意向已撤回。',
+                            'declined': '已婉拒交流邀请。',
+                            'expired': '合作意向已过期，未变更正式队伍。',
+                        }.get(item.result.get('state'), '合作意向状态已更新，请查看最新进度。')
+                    else:
+                        message = '操作已完成。请在“我的组队进度”查看最新结果。'
+                    messages.success(request, message)
             except matching.MatchingError as error:
                 messages.error(request, error.message)
         return redirect(url(h, 'matching'))

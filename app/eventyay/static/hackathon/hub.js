@@ -28,7 +28,9 @@ document.querySelectorAll('[data-dirty-form]').forEach((form) => {
   let dirty = false;
   let saving = false;
   let editsDuringSave = 0;
-  form.addEventListener('input', () => {
+  // Form-associated controls can live outside the form (for example the final self-check).
+  document.addEventListener('input', (event) => {
+    if (event.target.form !== form) return;
     if (saving) editsDuringSave += 1;
     dirty = true;
   });

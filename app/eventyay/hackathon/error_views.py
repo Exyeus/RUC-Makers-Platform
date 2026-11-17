@@ -2,8 +2,9 @@ from django.http import HttpResponse
 from django.template.loader import get_template
 from django.views import defaults
 from django.views.csrf import csrf_failure as django_csrf_failure
-from eventyay.base.views import errors as original
+
 from eventyay.base.middleware import request_prefers_json_api
+from eventyay.base.views import errors as original
 
 
 def is_workspace_page(request):

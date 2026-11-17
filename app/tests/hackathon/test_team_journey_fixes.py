@@ -13,7 +13,7 @@ from eventyay.hackathon.models import JoinRequest, MatchingProfile, Participant,
 from tests.hackathon.test_grouping_closure import make_person
 from tests.hackathon.test_matching import consent, player, proposal
 from tests.hackathon.test_matching import market as market
-from tests.hackathon.test_workflows import endpoint
+from tests.hackathon.test_workflows import endpoint, project_data
 
 
 pytestmark = pytest.mark.django_db
@@ -79,7 +79,9 @@ def test_captain_handover_waits_until_active_upload_is_cancelled(hackathon, part
     successor = make_person(hackathon, 'successor@example.invalid', '接任队长')
     successor.team = team
     successor.save()
-    project = Project.objects.create(hackathon=hackathon, team=team, title='作品')
+    data = project_data()
+    data.pop('version')
+    project = Project.objects.create(hackathon=hackathon, team=team, **data)
     task = uploads.start_upload(
         hackathon,
         participant.user,

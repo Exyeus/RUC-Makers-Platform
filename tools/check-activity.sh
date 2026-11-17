@@ -13,6 +13,7 @@ done
 
 cd app
 node tests/hackathon/test_upload_hash.mjs
+node tests/hackathon/test_submission_status.mjs
 uv run --no-sync ruff check eventyay/hackathon tests/hackathon
 uv run --no-sync python manage.py check --settings=tests.hackathon.ci_settings
 uv run --no-sync python manage.py makemigrations --check --dry-run hackathon --settings=tests.hackathon.ci_settings

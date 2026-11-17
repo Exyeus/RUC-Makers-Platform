@@ -286,7 +286,9 @@ def withdraw_application(hackathon, participant, application):
 
 
 def submission_errors(project, pending_kinds=()):
-    errors = []
+    from eventyay.hackathon.submission_materials import policy_submission_errors
+
+    errors = policy_submission_errors(project, pending_kinds)
     if project.hackathon.admission_required:
         members = project.team.members.select_related('user')
         if any(not identity.admitted(member.user, project.hackathon) for member in members):
@@ -411,7 +413,7 @@ def project_status(project, uploads=None):
     return {
         'key': 'draft',
         'label': project.get_state_display(),
-        'detail': '草稿已保存，尚未正式提交。由队长点击“正式提交 / 排队登记”后才会进入评审。',
+        'detail': '草稿已保存，尚未正式提交。由队长核对材料后正式提交；仍在上传时可登记排队提交。',
         'action': '补齐材料并正式提交',
         'done': False,
         'tone': 'neutral',
@@ -430,12 +432,15 @@ def require_project_editable(project, allow_queued=False):
 
 @transaction.atomic
 def save_project(hackathon, participant, form, submit=False, organizer=None, reason=''):
+    from eventyay.hackathon.submission_materials import late_submission_allowed
+
     hackathon = lock_event(hackathon)
-    require_submission_open(hackathon, organizer, reason)
     participant = Participant.objects.select_related('team').get(pk=participant.pk, hackathon=hackathon)
     if not participant.team_id or participant.team.captain_id != participant.pk:
         raise PermissionDenied
     current = Project.objects.select_for_update().filter(team=participant.team).first()
+    if not (submit and organizer is None and late_submission_allowed(current, form.cleaned_data)):
+        require_submission_open(hackathon, organizer, reason)
     if (
         current
         and current.state == Project.State.QUEUED
@@ -545,6 +550,10 @@ def save_asset(hackathon, participant, project, form, organizer=None, reason='')
 @transaction.atomic
 def save_score(hackathon, user, project, form, confirm=False):
     hackathon = lock_event(hackathon)
+    from eventyay.hackathon.workflow_models import JudgingRound
+
+    if JudgingRound.objects.filter(hackathon=hackathon).exists():
+        raise ValidationError('本活动已按轮次评审，请从评委工作台进入指定轮次；旧评分页不会写入新轮次。')
     project = Project.objects.select_related('team').get(pk=project.pk, hackathon=hackathon)
     if not hackathon.judging_open or hackathon.results_published:
         raise ValidationError('当前未开放评分，或结果已公布并锁定。')
@@ -592,6 +601,14 @@ def generate_queue(hackathon, user):
     hackathon = lock_event(hackathon)
     if hackathon.results_published:
         raise ValidationError('成绩已公布，路演队列已锁定。')
+    from eventyay.hackathon.workflow_models import JudgingRound
+    from eventyay.hackathon.workflow_services import apply_finalist_queue, current_signed_snapshot
+
+    if JudgingRound.objects.filter(hackathon=hackathon).exists():
+        snapshot = current_signed_snapshot(hackathon)
+        if not snapshot:
+            raise ValidationError('请先签认入围名单，再生成决赛队列。')
+        return apply_finalist_queue(hackathon, user, snapshot)
     position = DemoSlot.objects.filter(hackathon=hackathon).aggregate(value=Max('position'))['value'] or 0
     for project in Project.objects.filter(hackathon=hackathon, state='approved', slot__isnull=True).order_by(
         'submitted_at'
@@ -708,6 +725,11 @@ def active_judge_ids(hackathon):
 
 
 def results(hackathon):
+    from eventyay.hackathon.workflow_models import JudgingRound
+    from eventyay.hackathon.workflow_services import workflow_results
+
+    if JudgingRound.objects.filter(hackathon=hackathon).exists():
+        return workflow_results(hackathon)
     assignments, conflicts = judge_panel(hackathon)
     judges = {assignment.user_id for assignment in assignments}
     rows = []
@@ -745,6 +767,11 @@ def results(hackathon):
 
 def review_progress(hackathon):
     """Who still owes which score: same judge panel and same task set that drives the ranking."""
+    from eventyay.hackathon.workflow_models import JudgingRound
+    from eventyay.hackathon.workflow_services import workflow_progress
+
+    if JudgingRound.objects.filter(hackathon=hackathon).exists():
+        return workflow_progress(hackathon)
     assignments, conflicts = judge_panel(hackathon)
     projects = list(Project.objects.filter(hackathon=hackathon, state='approved').select_related('team__track'))
     scores = {
@@ -867,6 +894,20 @@ def publish_blockers(current, field, opening, rows=None):
             blockers.append('还没有通过审核的作品，评委进场后无队可评。')
         return blockers
     if field == 'results_published':
+        from eventyay.hackathon.workflow_models import JudgingRound
+        from eventyay.hackathon.workflow_services import current_signed_snapshot
+
+        if JudgingRound.objects.filter(hackathon=current).exists():
+            awards = current_signed_snapshot(current, 'awards')
+            finalists = current_signed_snapshot(current)
+            latest_final = JudgingRound.objects.filter(hackathon=current, kind='final').order_by('-version').first()
+            if (
+                not awards
+                or not finalists
+                or awards.round.source_snapshot_id != finalists.pk
+                or awards.round_id != getattr(latest_final, 'pk', None)
+            ):
+                return ['请先由指定非学生总负责人签认当前入围版本对应的获奖名单；公开开关不会解锁内容。']
         rows = results(current) if rows is None else rows
         if not rows:
             return ['还没有进入评审的作品，暂无成绩可公布。']

@@ -7,13 +7,14 @@ import struct
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Barrier
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from bs4 import BeautifulSoup
 from django.core import mail, signing
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -812,7 +813,11 @@ def test_queued_submission_auto_completes_after_deadline(client, hackathon, proj
     status = client.get(endpoint(hackathon, 'project-status')).json()
     assert status['receipt_id'] == queued['receipt_id']
     assert status['manifest_sha256'] == queued['manifest_sha256']
-    assert '服务器登记' in client.get(endpoint(hackathon, 'project')).content.decode()
+    page = BeautifulSoup(client.get(endpoint(hackathon, 'project')).content, 'html.parser')
+    registered_at = page.select_one('[data-received-time]')
+    assert registered_at is not None
+    assert datetime.fromisoformat(registered_at['datetime']) == project.submission_intent_at
+    assert '本版登记时间' in page.select_one('[data-current-received]').text
 
 
 def test_queued_submission_locks_metadata_and_new_files(client, hackathon, project, user):
@@ -945,3 +950,57 @@ def test_failed_checksum_visible_in_status(client, hackathon, project, user):
     assert '校验未通过' in status['last_error']
     assert status['state'] != 'complete'
     assert not Asset.objects.filter(project=project).exists()
+
+
+def corrupt_png_crc():
+    data = bytearray(png().read())
+    marker = data.index(b'IDAT')
+    length = struct.unpack('>I', data[marker - 4:marker])[0]
+    data[marker + 4 + length] ^= 1
+    return bytes(data)
+
+
+def test_corrupt_png_crc_is_validation_error():
+    form = forms.AssetForm(
+        {'kind': 'poster'},
+        {'file': SimpleUploadedFile('poster.png', corrupt_png_crc(), content_type='image/png')},
+    )
+    assert not form.is_valid()
+    assert '文件损坏或格式不匹配' in str(form.errors)
+
+
+def test_corrupt_png_finish_preserves_material_and_can_replace(client, hackathon, project, user):
+    complete(client, hackathon, user, png().read(), kind='poster', filename='poster.png')
+    before = Asset.objects.get(project=project, kind='poster')
+    original = (before.pk, before.checksum, before.file.name)
+    task = begin(client, hackathon, user, corrupt_png_crc(), kind='poster', filename='poster.png')
+    assert send_chunk(client, task, corrupt_png_crc()).status_code == 200
+    response = client.post(task['finish_url'])
+    assert response.status_code == 400
+    assert '文件损坏或格式不匹配' in response.json()['error']
+    failed = client.get(task['status_url']).json()
+    assert '文件损坏或格式不匹配' in failed['last_error']
+    before.refresh_from_db()
+    assert (before.pk, before.checksum, before.file.name) == original
+    assert Asset.objects.filter(project=project, kind='poster').count() == 1
+    assert client.post(task['cancel_url']).status_code == 200
+    fixed = complete(client, hackathon, user, png().read(), kind='poster', filename='poster.png')
+    assert fixed['state'] == 'complete'
+    assert fixed['id'] != task['id']
+    assert not UploadSession.objects.filter(project=project, state__in=['queued', 'uploading', 'hashing']).exists()
+
+
+def test_project_live_capabilities_respect_deadline_and_receipt_boundary(client, hackathon, project, user):
+    task = begin(client, hackathon, user)
+    response = client.get(endpoint(hackathon, 'project-status'))
+    assert response.status_code == 200
+    data = response.json()
+    assert data['submissions_open'] is True and data['active_upload_count'] == 1
+    signed = signing.loads(data['receipt'], salt='hackathon.submission-receipt')
+    assert 'submissions_open' not in signed and 'active_upload_count' not in signed
+    assert 'materials' not in signed
+    UploadSession.objects.filter(pk=task['id']).update(expires_at=timezone.now() - timedelta(seconds=1))
+    hackathon.submission_deadline = timezone.now() - timedelta(seconds=1)
+    hackathon.save(update_fields=['submission_deadline'])
+    data = client.get(endpoint(hackathon, 'project-status')).json()
+    assert data['submissions_open'] is False and data['active_upload_count'] == 0

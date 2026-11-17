@@ -7,15 +7,69 @@
     </div>
   </section>
   {% include 'hackathon/team_sections.html' %}
+  {% if pending_applications or accepted_conversations or awaiting_proposals %}
+    <section class="panel" id="team-progress" aria-labelledby="team-progress-heading">
+      <h2 id="team-progress-heading">我的组队进度</h2>
+      {% if pending_applications %}
+        <p>入队申请已发出，等待队长处理。获准前，你还没有正式加入队伍。</p>
+        {% for application in pending_applications %}
+          <div class="application">
+            <p><strong>{{ application.team.name }}</strong> · 等待队长 {{ application.team.captain.name }} 处理</p>
+            {% if hackathon.teams_open %}
+              <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="withdraw">
+                <input type="hidden" name="application" value="{{ application.pk }}">
+                <button class="text-button" type="submit">撤回申请</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <a class="text-link" href="{% url 'hackathon:team-directory' hackathon.slug %}#my-applications">查看申请与回复记录</a>
+      {% endif %}
+      {% if accepted_conversations %}
+        <h3>已同意交流，尚未入队</h3>
+        <p>交流同意不会变更正式名单。{% if uses_formal_roster %}商量好合作后，需确认具体名单。{% else %}商量好合作后，可申请加入队伍，由队长处理；也可以共同发起队伍。{% endif %}</p>
+        {% for conversation in accepted_conversations %}
+          <p><a class="text-link" href="{% url 'hackathon:social-chat' hackathon.slug conversation.id %}">查看与 {{ conversation.name }} 的会话</a></p>
+        {% endfor %}
+        <a class="text-link" href="{% url 'hackathon:social-inbox' hackathon.slug %}">全部会话</a>
+      {% endif %}
+      {% if awaiting_proposals %}
+        <h3>有待确认的名单提案</h3>
+        {% for proposal in awaiting_proposals %}<p>{{ proposal.team_name }} · 等待成员核对并确认具体名单</p>{% endfor %}
+      {% endif %}
+      {% if not hackathon.teams_open %}
+        <p>队伍名单已冻结，常规入队和撤回已关闭。如需调整，请联系支持团队。</p>
+        <a class="button secondary" href="{% url 'hackathon:support' hackathon.slug %}">联系支持团队</a>
+      {% elif uses_formal_roster %}
+        <a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}#progress">查看具体名单与确认进度</a>
+      {% else %}
+        <div class="actions">
+          <a class="button secondary" href="{% url 'hackathon:team-directory' hackathon.slug %}">浏览队伍并申请加入</a>
+          <a class="button secondary" href="{% url 'hackathon:team-edit' hackathon.slug %}">发起队伍</a>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
   {% if participant %}
     <aside class="ui-context-link"><a href="{% url 'hackathon:stage-requests' hackathon.slug %}">路演时段 / 顺序申请与回执 <span aria-hidden="true">↗</span></a><span>需要调整时请说明原因并提交相关证明。</span></aside>
   {% endif %}
   {% if hackathon.matching_enabled and hackathon.matching_roster_enabled %}
-    <section class="panel">
-      <h2>正式组队与合作确认</h2>
-      <p>先交流、再确认合作。完整名单需每位成员同意。</p>
-      <a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}">查看匹配推荐与我的组队进度</a>
-    </section>
+    {% if own_team %}
+      <section class="panel own-team">
+        <h2>{{ own_team.name }}</h2>
+        <p>已正式入队 · 队长：{{ own_team.captain.name }}</p>
+        <div class="member-list">{% for member in own_members %}<span class="tag">{{ member.name }}{% if member.pk == own_team.captain_id %} · 队长{% endif %}</span>{% endfor %}</div>
+        <a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}#progress">查看名单与队伍操作</a>
+      </section>
+    {% elif not accepted_conversations and not awaiting_proposals %}
+      <section class="panel">
+        <h2>正式组队与合作确认</h2>
+        <p>先交流、再确认合作。完整名单需每位成员同意。</p>
+        <a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}#progress">查看匹配推荐与我的组队进度</a>
+      </section>
+    {% endif %}
   {% else %}
     {% if own_team %}
       <section class="panel own-team">
@@ -37,6 +91,7 @@
         <p>
           {{ own_team.intro }}
         </p>
+        <p>已正式入队 · 队长：{{ own_team.captain.name }}</p>
         <p>招募展示：{% if own_team.recruiting %}公开招募{% else %}已关闭公开招募{% endif %}。队长可在“管理队伍”中调整。</p>
         <div class="member-list">
           {% for member in own_members %}
@@ -145,7 +200,7 @@
           </div>
         {% endfor %}
       </section>
-    {% elif participant %}
+    {% elif participant and not pending_applications and not accepted_conversations %}
       <section class="panel empty team-empty-state" aria-labelledby="no-team-heading">
         <h2 id="no-team-heading">还没有加入队伍</h2>
         <p>可以发起一支队伍，也可以先看看正在招募的队伍，找到一起参赛的伙伴。</p>
@@ -154,7 +209,7 @@
           <a class="button secondary" href="{% url 'hackathon:team-directory' hackathon.slug %}">浏览参与队伍</a>
         </div>
       </section>
-    {% else %}
+    {% elif not participant %}
       <section class="panel empty team-empty-state">
         <h2>先完善参赛信息</h2>
         <p>完善个人资料后，即可发起自己的队伍或申请加入队伍。</p>

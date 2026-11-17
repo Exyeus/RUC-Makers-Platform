@@ -1,0 +1,2 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}<section class="page-heading"><div><h1>{{ contact.team.name }} · 入围联络</h1><p>名单v{{ contact.snapshot.version }}。登记送达后，首批自动计算15分钟确认窗口，递补队伍为5分钟。首批13:05前到场。人工回填请保留实际回复依据。</p></div></section><section class="panel"><form method="post">{% csrf_token %}{% include 'hackathon/form_fields.html' %}<button class="button" type="submit">保存本版联络记录</button></form></section>{% endblock %}

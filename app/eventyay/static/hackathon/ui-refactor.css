@@ -319,3 +319,14 @@
 @media (max-width: 40rem) {
   .ruc-app .team-section-nav > a { flex: 1 1 0; min-width: 0; padding-inline: 0.375rem; font-size: 0.875rem; text-align: center; overflow-wrap: anywhere; }
 }
+
+/* Submission follows the same information → materials → confirmation order at every size. */
+.ruc-app .project-workflow { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ruc-gap); max-width: 58rem; }
+.ruc-app .project-summary { margin-block-end: var(--ruc-gap); }
+.ruc-app .project-summary h2 { display: block; }
+.ruc-app .project-summary .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-block-start: 1rem; }
+.ruc-app .project-summary :is([data-receipt-detail], [data-status-query-feedback]) { overflow-wrap: anywhere; }
+.ruc-app .project-summary [data-status-query-feedback]:empty { display: none; }
+.ruc-app .project-evidence { margin-block-start: 0.75rem; }
+.ruc-app .project-history { margin-block: var(--ruc-gap); }
+.ruc-app .project-workflow .submission-check .checkbox-field { margin-block-start: 1.25rem; }

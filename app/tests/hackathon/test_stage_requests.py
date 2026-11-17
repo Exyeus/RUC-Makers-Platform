@@ -1,6 +1,7 @@
 import io
 
 import pytest
+from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -11,6 +12,7 @@ from eventyay.base.models import User
 from eventyay.hackathon import stage_requests
 from eventyay.hackathon.models import DemoSlot, Participant, Project, StaffAssignment, Team
 from eventyay.hackathon.stage_models import StageOrderRequest
+from tests.hackathon.test_accounts_uploads import transactional_cache as transactional_cache
 
 
 pytestmark = pytest.mark.django_db
@@ -87,7 +89,8 @@ def test_requires_reason_proof_valid_type_and_time():
     assert not missing_time.is_valid()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.usefixtures('transactional_cache')
+@pytest.mark.django_db(transaction=True, available_apps=[config.name for config in apps.get_app_configs()])
 def test_private_file_download_authorization(client, hackathon, participant, team, user, organizer_user):
     data = stage_requests.RequestForm({'preference': 'early', 'reason': '私人原因'}, {'evidence': proof()})
     assert data.is_valid(), data.errors

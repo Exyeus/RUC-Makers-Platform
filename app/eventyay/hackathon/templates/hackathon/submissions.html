@@ -12,6 +12,7 @@
         材料齐全后再通过审核；检查设备、声音和备用演示后再安排上场。
       </p>
     </div>
+    <a class="button secondary" href="{% url 'hackathon:material-policy' hackathon.slug %}">材料规则与资格快照</a>
     <a class="button secondary" href="{% url 'hackathon:bundle' hackathon.slug %}">
       下载路演材料包 ↓
     </a>
@@ -38,6 +39,8 @@
       {% endfor %}
     </nav>
   {% endif %}
+  <p><a href="{% url 'hackathon:bundle' hackathon.slug %}?archive=1">原始材料归档（非签认路演包）</a></p>
+  <p><a href="?preflight=issues">只看材料缺项与未完成上传</a> · <a href="?">清除筛选</a></p>
   <div class="panel table-panel">
     <table>
       <thead>
@@ -93,8 +96,11 @@
                   尚未正式提交
                 {% endif %}
               </small>
+              <small>本版凭证 {{ project.preflight.receipt|default:"尚未登记" }}</small>
             </td>
             <td>
+              {% for issue in project.preflight.issues %}<small class="field-error">{{ issue }}</small>{% endfor %}
+              <small>{{ project.preflight.next_step }}</small>
               {% for asset in project.assets.all %}
                 <a class="tag" href="{% url 'hackathon:download' hackathon.slug asset.pk %}">
                   {{ asset.get_kind_display }}

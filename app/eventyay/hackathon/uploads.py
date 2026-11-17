@@ -25,6 +25,7 @@ from eventyay.hackathon.services import (
     require_submission_open,
 )
 from eventyay.hackathon.storage import DurableFileStorage, local_root, remove_asset, temporary_root
+from eventyay.hackathon.submission_materials import capture_intent, require_information, retained_storage
 
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ def start_upload(hackathon, user, project, data):
         project = Project.objects.select_for_update().select_related('team').get(pk=project.pk, hackathon=hackathon)
         require_owner(hackathon, user, project)
         require_project_editable(project)
+        require_information(project)
         existing = UploadSession.objects.filter(pk=data['id']).first()
         if existing:
             if (
@@ -142,6 +144,7 @@ def start_upload(hackathon, user, project, data):
             expires_at=min(now + timedelta(hours=UPLOAD_LIFETIME_HOURS), hackathon.freeze_at),
             checksum_bound_at=now if data['checksum'] else None,
             client_clicked_at=data.get('client_clicked_at'),
+            intent_manifest=capture_intent(project),
             deadline_at=hackathon.submission_deadline,
             transport='direct' if data.get('transport') == 'direct' and direct_uploads.enabled() else 'relay',
         )
@@ -249,10 +252,13 @@ def asset_filename(project, kind, checksum, original):
     return f'{project.team.code}_{project.code}_{kind}_{checksum[:12]}{Path(original).suffix.lower()}'
 
 
-def install_asset(hackathon, user, project, kind, original, size, checksum, stored_name):
+def install_asset(hackathon, user, project, kind, original, size, checksum, stored_name, media_probe=None):
     """Called with the event and project locked; filesystem work is already complete."""
     asset = Asset.objects.filter(project=project, kind=kind).first()
     if asset and asset.checksum == checksum and asset.size == size:
+        if media_probe and asset.media_probe != media_probe:
+            asset.media_probe = media_probe
+            asset.save(update_fields=['media_probe', 'updated'])
         return asset
     old_name = asset.file.name if asset and asset.file else None
     asset = asset or Asset(hackathon=hackathon, project=project, kind=kind)
@@ -260,8 +266,9 @@ def install_asset(hackathon, user, project, kind, original, size, checksum, stor
     asset.filename = asset_filename(project, kind, checksum, original)
     asset.original_filename = original
     asset.size, asset.checksum = size, checksum
+    asset.media_probe = media_probe or {}
     asset.save()
-    if old_name and old_name != asset.file.name:
+    if old_name and old_name != asset.file.name and not retained_storage(old_name):
         transaction.on_commit(lambda: remove_asset(old_name))
     project.revision += 1
     project.equipment_checked = False
@@ -287,16 +294,19 @@ def finish_upload(session):
     if session.offset != session.size:
         raise UploadConflict('文件尚未传完，请继续上传。')
     path = part_path(session)
+    media_probe = {}
     if session.transport == 'direct':
         from eventyay.hackathon import direct_uploads
 
         digest, relative = direct_uploads.verify(session)
+        media_probe = getattr(session, '_media_probe', {})
     else:
         with path.open('rb') as source:
             upload = File(source, name=session.original_filename)
-            form = AssetForm({'kind': session.kind}, {'file': upload})
+            form = AssetForm({'kind': session.kind}, {'file': upload}, hackathon=session.hackathon)
             if not form.is_valid():
                 raise ValidationError([message for errors in form.errors.values() for message in errors])
+            media_probe = form.cleaned_data.get('media_probe', {})
             digest = hashlib.file_digest(source, 'sha256').hexdigest()
         if digest != session.expected_checksum:
             raise UploadConflict('文件校验未通过，请取消任务后重新上传原文件。已有材料不受影响。')
@@ -329,7 +339,8 @@ def finish_upload(session):
     require_owner(hackathon, session.user, project)
     require_project_editable(project, allow_queued=True)
     asset = install_asset(
-        hackathon, session.user, project, session.kind, session.original_filename, session.size, digest, relative
+        hackathon, session.user, project, session.kind, session.original_filename, session.size,
+        digest, relative, media_probe
     )
     if asset.file.name != relative:
         transaction.on_commit(lambda: remove_asset(relative))
@@ -360,6 +371,7 @@ def save_direct_asset(hackathon, participant, project, form, organizer=None, rea
     require_submission_open(hackathon, organizer, reason)
     require_project_editable(project)
     require_owner(hackathon, participant.user, project)
+    require_information(project)
     kind, upload = form.cleaned_data['kind'], form.cleaned_data['file']
     if active_uploads(project).filter(kind=kind).exists():
         raise UploadConflict('同类材料正在分块上传，请先完成或取消任务。')
@@ -389,6 +401,7 @@ def save_direct_asset(hackathon, participant, project, form, organizer=None, rea
                 upload.size,
                 checksum,
                 candidate.file.name,
+                form.cleaned_data.get('media_probe', {}),
             )
             installed = asset.file.name == candidate.file.name
             if organizer:

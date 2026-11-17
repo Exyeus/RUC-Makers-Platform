@@ -7,7 +7,9 @@ from eventyay.hackathon import (
     judging_views,
     matching_views,
     social_views,
+    staff_tools,
     stage_requests,
+    submission_views,
     upload_views,
     views,
 )
@@ -15,6 +17,11 @@ from eventyay.hackathon import (
 
 app_name = 'hackathon'
 event_patterns = [
+    path("manage/material-policy/", submission_views.materials, name="material-policy"),
+    path("manage/material-snapshots/<int:snapshot_id>/", submission_views.snapshot, name="material-snapshot"),
+    path('manage/judges/batch/', staff_tools.batch_judges, name='judge-batch'),
+    path('assets/<uuid:asset_id>/media/', staff_tools.media, name='media'),
+    path('assets/<uuid:asset_id>/source/', staff_tools.media_source, name='media-source'),
     path('stage/requests/', stage_requests.requests, name='stage-requests'),
     path('manage/stage/requests/', stage_requests.manage, name='stage-requests-manage'),
     path('stage/requests/<uuid:request_id>/evidence/', stage_requests.evidence, name='stage-request-evidence'),
@@ -108,6 +115,11 @@ event_patterns = [
     path('station/state/', views.station_state, name='station-state'),
     path('station/assets/<uuid:asset_id>/', views.station_asset, name='station-asset'),
 ]
+
+from eventyay.hackathon.workflow_views import event_patterns as workflow_patterns  # noqa: E402
+
+
+event_patterns += workflow_patterns
 
 urlpatterns = [
     path('email/unsubscribe/', identity_views.unsubscribe, name='unsubscribe-account'),

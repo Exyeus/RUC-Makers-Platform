@@ -18,7 +18,7 @@ jobs:
   activity:
     name: Activity checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 40
     services:
       postgres:
         image: postgres:16
@@ -45,6 +45,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -61,3 +62,44 @@ jobs:
         run: uv sync --directory app --locked --no-default-groups --group test --group lint --no-install-project
       - name: Check activity platform
         run: bash tools/check-activity.sh
+      - name: Check quality tools and changed source
+        if: always()
+        env:
+          QUALITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base="$QUALITY_BASE"
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base=full
+          fi
+          bash tools/check-quality.sh "$base"
+      - name: Install locked browser tools
+        if: always()
+        run: npm ci --ignore-scripts --prefix tools/quality-browser
+      - name: Install pinned Chromium
+        if: always()
+        run: tools/quality-browser/node_modules/node-linux-x64/bin/node tools/quality-browser/node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Browser contracts and evidence gate
+        if: always()
+        env:
+          QA_SCOPE: all
+        run: |
+          export QA_PYTHON="$PWD/app/.venv/bin/python"
+          export QA_OUTPUT="$PWD/.local-services/quality-evidence/browser"
+          bash tools/quality-browser/run.sh
+      - name: Keep QA evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: activity-quality-evidence
+          path: |
+            .local-services/quality-evidence/*.json
+            .local-services/quality-evidence/*.log
+            .local-services/quality-evidence/browser/report.json
+            .local-services/quality-evidence/browser/identity*.json
+            .local-services/quality-evidence/browser/TEAM-*
+            .local-services/quality-evidence/browser/SUBMIT-*
+            .local-services/quality-evidence/browser/*.log
+            .local-services/quality-evidence/browser/test-results/
+            .local-services/quality-evidence/browser/html/
+          retention-days: 3
+          if-no-files-found: error

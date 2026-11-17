@@ -38,6 +38,7 @@ from eventyay.hackathon.models import (
     DemoSlot,
     Hackathon,
     JoinRequest,
+    MatchIntent,
     Participant,
     Project,
     Publishable,
@@ -49,6 +50,7 @@ from eventyay.hackathon.models import (
     StationToken,
     SupportTicket,
     Team,
+    TeamProposal,
     TicketMessage,
     Track,
     UploadSession,
@@ -56,10 +58,18 @@ from eventyay.hackathon.models import (
 )
 from eventyay.hackathon.permissions import event_view, is_organizer
 from eventyay.hackathon.reviewing import fingerprint
-from eventyay.hackathon.scoring import rule_description
 from eventyay.hackathon.storage import STORAGE_ERRORS
+from eventyay.hackathon.submission_materials import (
+    information_errors,
+    late_submission_allowed,
+    material_kind_label,
+    material_policy,
+    preflight,
+)
 from eventyay.hackathon.team_showcase import COMMUNITY_EXAMPLES, POOL_EXAMPLES, SEEKER_EXAMPLES
 from eventyay.hackathon.workbench import next_task
+from eventyay.hackathon.workflow_models import JudgingRound
+from eventyay.hackathon.workflow_services import can_judge_material
 
 
 def url(hackathon, name, **kwargs):
@@ -104,8 +114,16 @@ ORGANIZER_ROUTES = {
     'scoring-rules',
     'matching-operations',
     'support-reply',
+    'workflow-manage',
+    'workflow-round',
+    'workflow-contact',
+    'workflow-snapshot',
+    'workflow-export',
+    'material-policy',
+    'material-snapshot',
+    'judge-batch',
 }
-JUDGE_ROUTES = {'judging', 'judge-live', 'score'}
+JUDGE_ROUTES = {'judging', 'judge-live', 'score', 'workflow-judging', 'workflow-tasks', 'workflow-score'}
 VOLUNTEER_ROUTES = {'tasks'}
 # 详情页保留所属任务栏目，而不是全部高亮「我的队伍」。
 DIRECTORY_ROUTES = {
@@ -136,6 +154,15 @@ NAVIGATION_ALIASES = {
     'judge-new': 'staff',
     'task-new': 'tasks',
     'task-edit': 'tasks',
+    'workflow-round': 'workflow-manage',
+    'workflow-snapshot': 'workflow-manage',
+    'workflow-export': 'workflow-manage',
+    'workflow-contact': 'workflow-manage',
+    'material-snapshot': 'material-policy',
+    'judge-batch': 'staff',
+    'workflow-judging': 'judging',
+    'workflow-tasks': 'judging',
+    'workflow-score': 'judging',
 }
 # 申请人看到的申请结果：把「待处理」写成人能判断下一步的说法。
 APPLICATION_STATE_LABELS = {
@@ -206,6 +233,8 @@ def workspace_navigation(request, hackathon, identity):
                     ('manage', '活动总控', 'grid'),
                     ('participants', '报名与签到', 'users'),
                     ('submissions', '作品检查', 'folder'),
+                    ('workflow-manage', '两轮评审与签认', 'chart'),
+                    ('material-policy', '材料规则与快照', 'folder'),
                     ('manage-stage', '路演调度', 'play'),
                     results_entry,
                     ('publish', '发布准备', 'spark'),
@@ -235,6 +264,12 @@ def workspace_navigation(request, hackathon, identity):
         if 'judge' in request.hackathon_roles:
             elsewhere = judge_entries + elsewhere
         groups.append(('协作与活动页面', elsewhere))
+    elif identity == 'reviewer':
+        groups = [
+            ('我的复核', [('workflow-judging', '复核工作台', 'chart')]),
+            ('活动与帮助', [*activity, help_entry]),
+            ('参考', [*reference, stage_entry, ('home', '参赛总览', 'grid')]),
+        ]
     elif identity == 'judge':
         groups = [
             ('我的评审', [*judge_entries, results_entry]),
@@ -250,8 +285,12 @@ def workspace_navigation(request, hackathon, identity):
             (
                 '参考',
                 [
-                    *reference, stage_entry, *contestant_entries, *collaboration_entries,
-                    results_entry, ('home', '参赛总览', 'grid'),
+                    *reference,
+                    stage_entry,
+                    *contestant_entries,
+                    *collaboration_entries,
+                    results_entry,
+                    ('home', '参赛总览', 'grid'),
                 ],
             ),
         ]
@@ -295,8 +334,11 @@ def working_identities(request, hackathon, identity):
     if not request.user.is_authenticated:
         return []
     identities = [('participant', '选手', 'home')]
-    if 'judge' in request.hackathon_roles:
-        identities.append(('judge', '评委', 'judging'))
+    if identity == 'reviewer':
+        # This presentation context is set only after a workflow view authorizes frozen reviewer/signer access.
+        identities.append(('reviewer', '复核', 'workflow-judging'))
+    elif 'judge' in request.hackathon_roles or identity == 'judge':
+        identities.append(('judge', '评委', 'workflow-judging' if identity == 'judge' else 'judging'))
     if request.hackathon_organizer or 'volunteer' in request.hackathon_roles:
         identities.append(('volunteer', '志愿者', 'tasks'))
     if request.hackathon_organizer:
@@ -327,7 +369,11 @@ def page(request, template, **context):
     if common['active'] in TEAM_ROUTES | DIRECTORY_ROUTES | IDEA_ROUTES:
         common['active'] = navigation_column(common['active'])
     common['navigation_active'] = navigation_column(route, common.get('follow_live'))
-    identity = working_identity(request, route, common['navigation_active'])
+    identity = common.pop('workspace_identity', None)
+    if identity not in {'participant', 'organizer', 'judge', 'reviewer', 'volunteer'}:
+        identity = working_identity(request, route, common['navigation_active'])
+    if identity == 'reviewer':
+        common['navigation_active'] = 'workflow-judging'
     navigation_groups = workspace_navigation(request, hackathon, identity)
     common['navigation'] = [item for label, items in navigation_groups for item in items]
     common['navigation_groups'] = navigation_groups
@@ -498,12 +544,50 @@ def teams(request):
         if own and own.captain_id == participant.pk
         else JoinRequest.objects.none()
     )
+    pending_applications = JoinRequest.objects.none()
+    accepted_conversations = []
+    awaiting_proposals = TeamProposal.objects.none()
+    if participant and not own:
+        if not (h.matching_enabled and h.matching_roster_enabled):
+            pending_applications = (
+                JoinRequest.objects.filter(hackathon=h, participant=participant, state='pending')
+                .select_related('team__captain')
+                .order_by('-updated', '-pk')
+            )
+        if h.matching_enabled:
+            blocked = excluded_ids(h, participant)
+            conversations = (
+                MatchIntent.objects.filter(hackathon=h, state='accepted')
+                .filter(Q(sender=participant) | Q(recipient=participant))
+                .exclude(sender_id__in=blocked)
+                .exclude(recipient_id__in=blocked)
+                .select_related('sender', 'recipient')
+                .order_by('-updated', '-pk')[:10]
+            )
+            accepted_conversations = [
+                {
+                    'id': item.pk,
+                    'name': (item.recipient if item.sender_id == participant.pk else item.sender).name,
+                }
+                for item in conversations
+            ]
+            if h.matching_roster_enabled:
+                awaiting_proposals = TeamProposal.objects.filter(
+                    hackathon=h,
+                    snapshot__members__has_key=str(participant.pk),
+                    state='awaiting_consent',
+                    expires_at__gt=timezone.now(),
+                ).order_by('-updated', '-pk')
     return page(
         request,
         'teams',
         title='我的队伍',
         own_team=own,
         applications=applications,
+        pending_applications=pending_applications,
+        accepted_conversations=accepted_conversations,
+        awaiting_proposals=awaiting_proposals,
+        uses_formal_roster=h.matching_enabled and h.matching_roster_enabled,
         own_members=own.members.all() if own else [],
         own_solo=bool(own and own.captain_id == participant.pk and not own.members.exclude(pk=participant.pk).exists()),
     )
@@ -562,7 +646,7 @@ def team_directory(request):
     keyword_categories = KEYWORD_CATEGORIES
     if keyword and keyword not in KEYWORDS:
         keyword_categories += (('自定义关键词', (keyword,)),)
-    # 申请人自己的进度：申请之后的结果只有这里能看见，撤回也在这里。
+    # 完整申请历史保留在发现页；当前待办也显示在“我的队伍”。
     my_applications = (
         JoinRequest.objects.filter(hackathon=h, participant=request.participant).select_related('team')
         if request.participant
@@ -607,7 +691,8 @@ def idea_exchange(request):
         query=request.GET.get('q', '').strip(),
         my_posts=(
             CommunityPost.objects.filter(hackathon=h, author=participant)
-            if participant else CommunityPost.objects.none()
+            if participant
+            else CommunityPost.objects.none()
         ),
         community_examples=COMMUNITY_EXAMPLES,
         pool_examples=POOL_EXAMPLES,
@@ -686,7 +771,7 @@ def team_action(request):
                 JoinRequest.objects.update_or_create(
                     hackathon=h, participant=participant, team=team, defaults={'message': note, 'state': 'pending'}
                 )
-                message = '申请已发送。队长的回复会出现在「我发出的申请」里，你也可以随时撤回。'
+                message = '申请已发送。可在“我的队伍”查看当前进度；名单冻结前可以撤回。'
             elif action == 'withdraw':
                 application = get_object_or_404(JoinRequest, hackathon=h, pk=request.POST.get('application'))
                 services.withdraw_application(h, participant, application)
@@ -769,18 +854,27 @@ def project(request):
                 {'error': headline or '部分信息未通过校验，请查看表单中标出的字段。', 'fields': fields},
                 status=400,
             )
+    policy = material_policy(h)
+    assets = list(own.assets.order_by('created', 'pk')) if own else []
+    history = list(UploadSession.objects.filter(project=own).order_by('-created')[:30]) if own else []
+    for item in [*assets, *history]:
+        item.presentation_kind = material_kind_label(item.kind, policy)
     return page(
         request,
         'project',
         project=own,
+        project_assets=assets,
         project_status=services.project_status(own),
         form=form,
         captain=captain,
-        asset_form=forms.AssetForm(),
+        asset_form=forms.AssetForm(hackathon=h),
+        information_errors=information_errors(own),
+        late_submission_allowed=late_submission_allowed(own),
+        material_policy=policy,
         active_uploads=UploadSession.objects.filter(project=own, state='uploading', expires_at__gt=timezone.now())
         if own
         else [],
-        upload_history=UploadSession.objects.filter(project=own).order_by('-created')[:30] if own else [],
+        upload_history=history,
         submission_errors=services.submission_errors(own) if own else [],
         feedback=Score.objects.filter(project=own, final=True).exclude(feedback='')
         if own and h.results_published
@@ -789,6 +883,7 @@ def project(request):
 
 
 def project_state_data(project):
+    policy = material_policy(project.hackathon)
     tasks = list(project.uploads.filter(state='uploading'))
     status = services.project_status(project, uploads=tasks)
     data = {
@@ -811,14 +906,30 @@ def project_state_data(project):
     data['status_detail'] = status['detail']
     data['status_action'] = status['action']
     data['status_tone'] = status['tone']
+    data['submissions_open'] = project.hackathon.submissions_open
+    data['late_submission_allowed'] = late_submission_allowed(project)
+    data['information_errors'] = information_errors(project)
+    data['active_upload_count'] = sum(task.expires_at > timezone.now() for task in tasks)
     data['materials'] = [
         {
-            'kind': asset.get_kind_display(),
+            'asset_id': str(asset.pk),
+            'kind_key': asset.kind,
+            'kind': material_kind_label(asset.kind, policy),
+            'checksum': asset.checksum,
+            'media_source_url': url(project.hackathon, 'media-source', asset_id=asset.pk)
+            if asset.kind in {Asset.Kind.PRELIMINARY, Asset.Kind.VIDEO}
+            else None,
+            'media_error_url': url(project.hackathon, 'support'),
+            'media_probe': asset.media_probe,
             'filename': asset.filename,
+            'original_filename': asset.original_filename,
+            'preview_url': url(project.hackathon, 'asset-preview', asset_id=asset.pk)
+            if asset.filename.lower().endswith('.zip')
+            else None,
             'size_display': filesizeformat(asset.size),
             'download_url': url(project.hackathon, 'download', asset_id=asset.pk),
         }
-        for asset in project.assets.all()
+        for asset in project.assets.order_by('created', 'pk')
     ]
     data['gaps'] = services.submission_errors(project)
     return data
@@ -864,7 +975,7 @@ def upload(request):
     if not participant or not participant.team_id:
         raise PermissionDenied
     own = get_object_or_404(Project, hackathon=request.hackathon, team=participant.team)
-    form = forms.AssetForm(request.POST, request.FILES)
+    form = forms.AssetForm(request.POST, request.FILES, hackathon=request.hackathon)
     if form.is_valid():
         try:
             services.save_asset(request.hackathon, participant, own, form)
@@ -888,7 +999,9 @@ def upload(request):
 def can_read_project(request, project):
     return (
         request.hackathon_organizer
-        or 'judge' in request.hackathon_roles
+        or (
+            'judge' in request.hackathon_roles and not JudgingRound.objects.filter(hackathon=request.hackathon).exists()
+        )
         or (request.participant and request.participant.team_id == project.team_id)
         or (request.hackathon.gallery_open and project.public_consent and project.state == 'approved')
     )
@@ -920,7 +1033,10 @@ def download(request, asset_id):
     owner = request.participant and request.participant.team_id == asset.project.team_id
     if not (
         request.hackathon_organizer
-        or 'judge' in request.hackathon_roles
+        or (
+            'judge' in request.hackathon_roles
+            and can_judge_material(request.hackathon, request.user, asset.project_id, kind=asset.kind, asset=asset)
+        )
         or owner
         or (asset.kind == 'poster' and can_read_project(request, asset.project))
     ):
@@ -933,7 +1049,14 @@ def download(request, asset_id):
 def asset_preview(request, asset_id):
     asset = get_object_or_404(Asset.objects.select_related('project__team'), pk=asset_id, hackathon=request.hackathon)
     owner = request.participant and request.participant.team_id == asset.project.team_id
-    if not (owner or request.hackathon_organizer or 'judge' in request.hackathon_roles):
+    if not (
+        owner
+        or request.hackathon_organizer
+        or (
+            'judge' in request.hackathon_roles
+            and can_judge_material(request.hackathon, request.user, asset.project_id, kind=asset.kind, asset=asset)
+        )
+    ):
         raise Http404
     if not asset.original_filename.lower().endswith('.zip'):
         return JsonResponse({'error': '目前仅支持 ZIP 一级目录预览。'}, status=400)
@@ -1133,10 +1256,17 @@ def submissions(request):
         items = items.filter(state=state)
     if reason:
         items = items.filter(state_reason=reason)
+    items = list(items)
+    for item in items:
+        item.preflight = preflight(item)
+    issue_filter = request.GET.get('preflight') == 'issues'
+    if issue_filter:
+        items = [item for item in items if item.preflight['issues']]
     return page(
         request,
         'submissions',
         projects=items,
+        issue_filter=issue_filter,
         states=Project.State.choices,
         state=state,
         reasons=Project.StateReason.choices,
@@ -1157,6 +1287,10 @@ def review(request, project_id):
                 'review_token'
             ] != fingerprint(current_project):
                 form.add_error(None, '作品或检查结果已更新，请刷新并重新核对当前版本；本次没有写入检查结果。')
+            if form.cleaned_data.get('award') != current_project.award and (
+                current_hackathon.results_published or JudgingRound.objects.filter(hackathon=h).exists()
+            ):
+                form.add_error('award', '奖项已锁定或已启用两轮评审，请生成新版本名单并由负责人重新签认。')
             if current_hackathon.results_published and form.cleaned_data['state'] != current_project.state:
                 form.add_error('state', '成绩已公布，不能变更参评作品状态。')
             if form.cleaned_data['state'] in {'submitted', 'approved'} and (
@@ -1201,6 +1335,11 @@ def review(request, project_id):
         project=item,
         title=item.title,
         assets=item.assets.all(),
+        preflight=preflight(item),
+        review_uploads=item.uploads.order_by('-created')[:20],
+        review_tickets=SupportTicket.objects.filter(
+            hackathon=h, user_id__in=item.team.members.values('user_id')
+        ).select_related('handler'),
         filter_state=state,
         filter_reason=reason,
     )
@@ -1214,7 +1353,7 @@ def intake(request, team_id):
     upload_action = request.method == 'POST' and request.POST.get('action') == 'upload'
     form = forms.IntakeForm(request.POST if request.method == 'POST' and not upload_action else None, instance=item)
     asset_form = forms.IntakeAssetForm(
-        request.POST if upload_action else None, request.FILES if upload_action else None
+        request.POST if upload_action else None, request.FILES if upload_action else None, hackathon=h
     )
     active_form = asset_form if upload_action else form
     if request.method == 'POST' and active_form.is_valid():
@@ -1705,6 +1844,8 @@ def support_reply(request, ticket_id):
 @event_view()
 @require_GET
 def results(request):
+    from eventyay.hackathon.workflow_services import active_rule_description
+
     h = request.hackathon
     if not h.results_published and not request.hackathon_organizer:
         return page(request, 'results', rows=[], unpublished=True)
@@ -1714,7 +1855,7 @@ def results(request):
         request,
         'results',
         rows=services.results(h),
-        rule_description=rule_description(h),
+        rule_description=active_rule_description(h),
         progress=progress,
         summary=summary,
     )
@@ -1759,6 +1900,7 @@ def stage(request):
         request,
         'stage',
         data=stage_data(request.hackathon),
+        material_policy=material_policy(request.hackathon),
         slots=DemoSlot.objects.filter(hackathon=request.hackathon).select_related('project__team'),
         display=request.GET.get('display') == '1',
     )
@@ -1811,6 +1953,7 @@ def manage_stage(request):
         token=token,
         station_url=request.build_absolute_uri(url(h, 'station-state')),
         data=stage_data(h),
+        material_policy=material_policy(h),
         **manage_context(h),
     )
 
@@ -1836,26 +1979,53 @@ def station_auth(request, hackathon_slug):
 
 @require_GET
 def station_state(request, hackathon_slug):
+    from eventyay.hackathon.workflow_services import station_materials
+
     h = station_auth(request, hackathon_slug)
     with scope(event=h.event):
+        try:
+            frozen = station_materials(h)
+        except ValidationError as error:
+            return JsonResponse(
+                {'error': 'FINAL_MATERIALS_NOT_FROZEN', 'message': '；'.join(error.messages)},
+                status=409,
+                headers={'Cache-Control': 'no-store'},
+            )
         data = stage_data(h)
         queued = (
             DemoSlot.objects.filter(hackathon=h, state__in=['live', 'ready', 'waiting', 'deferred'])
             .filter(Q(state='live') | Q(project__state='approved'))
             .values('project_id')
         )
-        data['assets'] = [
-            {
-                'id': str(asset.pk),
-                'project_id': str(asset.project_id),
-                'filename': asset.filename,
-                'kind': asset.kind,
-                'sha256': asset.checksum,
-                'size': asset.size,
-                'url': url(h, 'station-asset', asset_id=asset.pk),
-            }
-            for asset in Asset.objects.filter(project_id__in=queued)
-        ]
+        if frozen is None:
+            data['assets'] = [
+                {
+                    'id': str(asset.pk),
+                    'project_id': str(asset.project_id),
+                    'filename': asset.filename,
+                    'kind': asset.kind,
+                    'sha256': asset.checksum,
+                    'size': asset.size,
+                    'url': url(h, 'station-asset', asset_id=asset.pk),
+                }
+                for asset in Asset.objects.filter(project_id__in=queued)
+            ]
+        else:
+            queued_ids = {str(row['project_id']) for row in queued}
+            data['assets'] = [
+                {
+                    'id': row['id'],
+                    'project_id': row['project_id'],
+                    'filename': row['filename'],
+                    'kind': row['kind'],
+                    'sha256': row.get('sha256', row.get('checksum')),
+                    'size': row['size'],
+                    'round_id': row['round_id'],
+                    'url': url(h, 'station-asset', asset_id=row['id']),
+                }
+                for row in frozen
+                if row['project_id'] in queued_ids
+            ]
         if data['current']:
             data['current']['project_id'] = str(DemoSlot.objects.get(pk=data['current']['id']).project_id)
         response = JsonResponse(data)
@@ -1865,9 +2035,33 @@ def station_state(request, hackathon_slug):
 
 @require_GET
 def station_asset(request, hackathon_slug, asset_id):
+    from eventyay.hackathon.workflow_services import station_materials
+
     h = station_auth(request, hackathon_slug)
     with scope(event=h.event):
-        asset = get_object_or_404(Asset, hackathon=h, pk=asset_id)
+        try:
+            frozen = station_materials(h)
+        except ValidationError as error:
+            return JsonResponse(
+                {'error': 'FINAL_MATERIALS_NOT_FROZEN', 'message': '；'.join(error.messages)},
+                status=409,
+                headers={'Cache-Control': 'no-store'},
+            )
+        if frozen is None:
+            asset = get_object_or_404(Asset, hackathon=h, pk=asset_id)
+        else:
+            row = next((row for row in frozen if row['id'] == str(asset_id)), None)
+            if not row:
+                raise Http404
+            asset = Asset(
+                hackathon=h,
+                project_id=row['project_id'],
+                kind=row['kind'],
+                file=row['storage_name'],
+                filename=row['filename'],
+                checksum=row.get('sha256', row.get('checksum', '')),
+                size=row['size'],
+            )
         response = asset_response(request, asset)
         response['Cache-Control'] = 'no-store'
         return response
@@ -1936,6 +2130,8 @@ def export(request, kind):
                 ]
             )
     elif kind == 'results':
+        from eventyay.hackathon.workflow_services import active_rule_description
+
         writer.writerow(
             [
                 'project_id',
@@ -1951,6 +2147,9 @@ def export(request, kind):
                 '最佳突破提名',
                 '最佳创意提名',
                 '奖项',
+                '签认名单编号',
+                '签认版本',
+                '签认校验值',
             ]
         )
         for row in services.results(h):
@@ -1964,12 +2163,15 @@ def export(request, kind):
                     row['average'],
                     row['counted'],
                     row['trimmed'],
-                    rule_description(h),
+                    active_rule_description(h),
                     row['count'],
                     row['expected'],
                     row['breakthrough'],
                     row['creativity'],
                     p.award,
+                    str(row['snapshot'].pk) if row.get('snapshot') else '',
+                    row['snapshot'].version if row.get('snapshot') else '',
+                    row['snapshot'].sha256 if row.get('snapshot') else '',
                 ]
             )
     elif kind == 'volunteers':
@@ -2108,6 +2310,11 @@ def export(request, kind):
 @event_view('organizer')
 @require_GET
 def bundle(request):
+    from eventyay.hackathon.submission_views import frozen_bundle
+
+    frozen = frozen_bundle(request) if request.GET.get('archive') != '1' else None
+    if frozen is not None:
+        return frozen
     h = request.hackathon
     output = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
     try:

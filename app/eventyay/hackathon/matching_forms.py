@@ -91,7 +91,9 @@ class ProfileForm(forms.Form):
     batch_opt_in = forms.BooleanField(label='主动参加本轮集中撮合（7 天内有效，结果仍需本人确认）', required=False)
     help_requested = forms.BooleanField(label='需要工作人员协助找队伍', required=False)
     contact = forms.CharField(label='交流联系方式（单独授权）', max_length=200, required=False)
-    share_on_accept = forms.BooleanField(label='允许在站内会话中单独授权此联系方式（同意交流不会自动披露）', required=False)
+    share_on_accept = forms.BooleanField(
+        label='允许在站内会话中单独授权此联系方式（同意交流不会自动披露）', required=False
+    )
 
     def __init__(self, *args, hackathon=None, **kwargs):
         super().__init__(*args, **kwargs)

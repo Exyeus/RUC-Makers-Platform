@@ -42,7 +42,7 @@
             我发出的申请
           </h2>
           <p>
-            队长的回复会出现在这里；还没回复的申请可以随时撤回。
+            队长的回复会出现在这里；当前进度也可在“我的队伍”查看，名单冻结前可撤回待处理申请。
           </p>
         </div>
       </div>
@@ -61,7 +61,7 @@
           <p class="muted">
             {{ application.label }}
           </p>
-          {% if application.state == 'pending' %}
+          {% if application.state == 'pending' and hackathon.teams_open %}
             <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
               {% csrf_token %}
               <input type="hidden" name="action" value="withdraw">

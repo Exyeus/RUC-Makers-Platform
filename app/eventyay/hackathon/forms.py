@@ -34,6 +34,7 @@ from eventyay.hackathon.models import (
 )
 from eventyay.hackathon.reviewing import fingerprint
 from eventyay.hackathon.scoring import CRITERIA, weights
+from eventyay.hackathon.submission_materials import material_kind_label, material_policy
 from eventyay.hackathon.widgets import CategorizedTags, TagsField, UnavailableHoursField
 
 
@@ -325,6 +326,7 @@ class ProjectForm(forms.ModelForm):
             'demo_url',
             'backup_url',
             'demo_instructions',
+            'final_material_kind',
             'checklist',
             'public_consent',
         ]
@@ -345,6 +347,14 @@ class AssetForm(forms.ModelForm):
         model = Asset
         fields = ['kind', 'file']
         labels = {'file': '上传文件（最大 512 MiB；海报最大 20 MiB）'}
+
+    def __init__(self, *args, hackathon=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.hackathon = hackathon
+        policy = material_policy(hackathon)
+        self.fields['kind'].choices = [('', '请选择材料用途')] + [
+            (kind, material_kind_label(kind, policy)) for kind, _label in Asset.Kind.choices
+        ]
 
     def clean(self):
         data = super().clean()
@@ -384,10 +394,19 @@ class AssetForm(forms.ModelForm):
                 raise ValidationError('文件不是有效的 MP4。')
             elif suffix == '.webm' and not signature.startswith(b'\x1aE\xdf\xa3'):
                 raise ValidationError('文件不是有效的 WebM。')
-        except (UnidentifiedImageError, OSError, zipfile.BadZipFile, Image.DecompressionBombError) as error:
+        except (
+            UnidentifiedImageError,
+            OSError,
+            SyntaxError,
+            zipfile.BadZipFile,
+            Image.DecompressionBombError,
+        ) as error:
             raise ValidationError('文件损坏或格式不匹配，请重新导出后上传。') from error
         finally:
             upload.seek(0)
+        from eventyay.hackathon.submission_materials import inspect_upload
+
+        data['media_probe'] = inspect_upload(upload, kind, self.hackathon)
         return data
 
 

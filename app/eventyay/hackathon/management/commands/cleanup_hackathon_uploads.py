@@ -5,8 +5,9 @@ from django.utils import timezone
 from django_scopes import scope
 
 from eventyay.hackathon.direct_uploads import cleanup
-from eventyay.hackathon.models import Asset, Hackathon, UploadSession
+from eventyay.hackathon.models import Asset, Hackathon, SubmissionSnapshot, UploadSession
 from eventyay.hackathon.storage import PrivateStorage, temporary_root
+from eventyay.hackathon.submission_materials import retained_storage
 from eventyay.hackathon.uploads import expire_uploads, remove_file
 
 
@@ -32,6 +33,13 @@ class Command(BaseCommand):
                 )
                 live_parts.update(f'{pk}.part' for pk in sessions.values_list('pk', flat=True))
                 referenced.update(Asset.objects.filter(hackathon=hackathon).values_list('file', flat=True))
+                for snapshot in SubmissionSnapshot.objects.filter(hackathon=hackathon).only('manifest'):
+                    referenced.update(
+                        asset['storage_name']
+                        for entry in snapshot.manifest.get('entries', [])
+                        for asset in entry.get('assets', [])
+                        if asset.get('storage_name')
+                    )
         removed = 0
         storage = PrivateStorage()
         for name, modified in storage.iter_objects():
@@ -44,7 +52,7 @@ class Command(BaseCommand):
             hackathon = Hackathon.objects.filter(pk=event_id).select_related('event').first()
             if hackathon:
                 with scope(event=hackathon.event):
-                    if Asset.objects.filter(file=name).exists():
+                    if Asset.objects.filter(file=name).exists() or retained_storage(name):
                         continue
             self.stdout.write(f'Unreferenced: {name}')
             if not dry_run:

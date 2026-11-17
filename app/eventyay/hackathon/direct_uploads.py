@@ -58,8 +58,14 @@ def prepare(session):
                     f'{session.hackathon_id}/{session.project.team_id}/{session.project_id}/{session.kind}/'
                     f'direct-{uuid4().hex}{Path(session.original_filename).suffix.lower()}'
                 )
+            # This is a playback metadata hint; finish still validates and decodes the object before exposure.
+            content_type = 'application/octet-stream'
+            if session.kind in {'preliminary', 'video'}:
+                content_type = {'.mp4': 'video/mp4', '.webm': 'video/webm'}.get(
+                    Path(session.original_filename).suffix.lower(), 'application/octet-stream'
+                )
             result = storage.client.create_multipart_upload(
-                Bucket=storage.bucket, Key=storage.key(session.storage_name), ContentType='application/octet-stream'
+                Bucket=storage.bucket, Key=storage.key(session.storage_name), ContentType=content_type
             )
             session.storage_upload_id = result['UploadId']
             session.save(update_fields=['storage_name', 'storage_upload_id', 'updated'])
@@ -146,9 +152,14 @@ def verify(session):
         if count != session.size or digest.hexdigest() != session.expected_checksum:
             raise uploads.UploadConflict('文件校验未通过，请取消后重新上传原文件。已有材料不受影响。')
         with candidate.open('rb') as source:
-            form = AssetForm({'kind': session.kind}, {'file': File(source, name=session.original_filename)})
+            form = AssetForm(
+                {'kind': session.kind},
+                {'file': File(source, name=session.original_filename)},
+                hackathon=session.hackathon,
+            )
             if not form.is_valid():
                 raise ValidationError([message for errors in form.errors.values() for message in errors])
+            session._media_probe = form.cleaned_data.get('media_probe', {})
         os.replace(candidate, path)
     finally:
         body.close()

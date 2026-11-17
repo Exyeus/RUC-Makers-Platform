@@ -40,3 +40,7 @@
 | 独立审计与 ledger | [.agents/skills/adversarial-audit/SKILL.md](.agents/skills/adversarial-audit/SKILL.md) |
 
 只保留解决当前项目具体问题的技能；`SKILL.md` 必需，references/assets/scripts 按需添加，不为目录结构制造空模板。
+
+## 按需质量入口
+
+每轮相关修改后运行 `bash tools/check-quality.sh [base-ref]`；功能回归仍用原 `tools/check-activity.sh`。浏览器验收与证据入口见 [.agents/quality/README.md](.agents/quality/README.md)，按需读取具体章节。专项技能显式调用，不因文件类型自动装入全部指导；详细上游规则按需读取。原协作流程与 adversarial-audit 保持有效；本地质量检查不授权生产写入或发布。

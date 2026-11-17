@@ -295,6 +295,10 @@ class Project(EventRecord):
     revision = models.PositiveIntegerField(default=0)
     review_note = models.TextField('检查意见 / 补录理由', blank=True)
     equipment_checked = models.BooleanField('投影、声音、视频切换已演练', default=False)
+    final_material_kind = models.CharField(
+        '现场上场材料（手动选择）', max_length=12, blank=True, db_default='',
+        choices=[('slides', 'PDF 演示文稿'), ('video', '现场视频')]
+    )
     award = models.CharField('奖项 / 后续孵化资源', max_length=200, blank=True)
 
     @property
@@ -311,6 +315,7 @@ class Asset(EventRecord):
         SLIDES = 'slides', '演示文稿'
         VIDEO = 'video', '备用录屏'
         SOURCE = 'source', '项目附件'
+        PRELIMINARY = 'preliminary', '初评短视频'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='assets')
@@ -320,6 +325,7 @@ class Asset(EventRecord):
     original_filename = models.CharField('原文件名', max_length=255, blank=True)
     checksum = models.CharField(max_length=64)
     size = models.PositiveBigIntegerField()
+    media_probe = models.JSONField('视频校验结果', default=dict, db_default={}, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['project', 'kind'], name='hack_asset_kind')]
@@ -349,6 +355,7 @@ class UploadSession(EventRecord):
     transport = models.CharField(max_length=12, default='relay', db_default='relay')
     storage_name = models.CharField(max_length=512, blank=True, db_default='')
     storage_upload_id = models.CharField(max_length=512, blank=True, db_default='')
+    intent_manifest = models.JSONField('上传登记时的作品信息与已有材料', default=dict, db_default={}, blank=True)
     last_error = models.CharField(max_length=500, blank=True)
     asset = models.ForeignKey(Asset, on_delete=models.SET_NULL, null=True)
 
@@ -887,3 +894,10 @@ class SocialReport(EventRecord):
 
 
 from eventyay.hackathon.stage_models import StageOrderRequest  # noqa: E402,F401
+from eventyay.hackathon.submission_models import MaterialPolicy, SubmissionSnapshot  # noqa: E402,F401
+from eventyay.hackathon.workflow_models import (  # noqa: E402,F401
+    FinalistContact,
+    JudgingRound,
+    ResultSnapshot,
+    RoundScore,
+)

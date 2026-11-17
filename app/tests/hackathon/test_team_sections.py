@@ -193,7 +193,7 @@ def test_split_preserves_hidden_fields_blocks_and_private_drafts(client, hackath
     assert client.get(endpoint(hackathon, 'post-detail', post_id=hidden_draft.pk)).status_code == 404
 
 
-def test_outgoing_applications_stay_in_discovery_and_return_there(client, hackathon, team):
+def test_application_history_stays_in_discovery_and_current_progress_is_on_my_team(client, hackathon, team):
     applicant = person(hackathon, 'applicant')
     client.force_login(applicant.user)
     response = client.post(
@@ -205,7 +205,9 @@ def test_outgoing_applications_stay_in_discovery_and_return_there(client, hackat
     directory = BeautifulSoup(client.get(endpoint(hackathon, 'team-directory')).content, 'html.parser')
     mine = directory.select_one('#my-applications')
     assert mine and team.name in mine.text
-    assert not BeautifulSoup(client.get(endpoint(hackathon, 'teams')).content, 'html.parser').select('#my-applications')
+    own = BeautifulSoup(client.get(endpoint(hackathon, 'teams')).content, 'html.parser')
+    assert not own.select('#my-applications')
+    assert team.name in own.select_one('#team-progress').text
     response = client.post(endpoint(hackathon, 'team-action'), {'action': 'withdraw', 'application': application.pk})
     assert response.url.split('#')[0] == endpoint(hackathon, 'team-directory')
     application.refresh_from_db()

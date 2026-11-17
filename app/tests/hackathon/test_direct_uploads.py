@@ -25,12 +25,13 @@ class Cloud:
     def __init__(self):
         self.client = self
         self.objects, self.uploads = {}, {}
-        self.aborted, self.signed = [], []
+        self.aborted, self.signed, self.started = [], [], []
 
     def key(self, name):
         return 'private/' + name
 
     def create_multipart_upload(self, **kwargs):
+        self.started.append(kwargs)
         identifier = uuid4().hex
         self.uploads[identifier] = {}
         return {'UploadId': identifier}
@@ -189,3 +190,32 @@ def test_old_workers_can_insert_without_new_columns(client, hackathon, project, 
         )
     clone = UploadSession.objects.get(pk=clone_id)
     assert clone.transport == 'relay' and clone.storage_name == '' and clone.storage_upload_id == ''
+
+
+@pytest.mark.parametrize(('kind', 'filename', 'content_type'), [
+    ('preliminary', 'initial.mp4', 'video/mp4'),
+    ('preliminary', 'initial.WEBM', 'video/webm'),
+    ('video', 'final.mp4', 'video/mp4'),
+    ('video', 'final.webm', 'video/webm'),
+    ('slides', 'slides.pdf', 'application/octet-stream'),
+    ('source', 'source.pdf', 'application/octet-stream'),
+])
+def test_direct_multipart_sets_media_type_only_for_explicit_video_kind(
+    client, hackathon, project, user, cloud, kind, filename, content_type
+):
+    task = begin(client, hackathon, user, PDF, kind=kind, filename=filename, transport='direct')
+    prepare(client, task)
+    assert cloud.started[-1]['ContentType'] == content_type
+    assert not Asset.objects.filter(project=project).exists()
+
+
+def test_direct_video_content_type_does_not_bypass_real_file_validation(client, hackathon, project, user, cloud):
+    malformed = b'0000ftyp' + b'not-a-real-video' * 10
+    task = begin(client, hackathon, user, malformed, kind='preliminary', filename='forged.mp4', transport='direct')
+    prepare(client, task)
+    assert cloud.started[-1]['ContentType'] == 'video/mp4'
+    put(cloud, task, 1, malformed)
+    assert client.post(task['ack_url'], {'offset': 0}).status_code == 200
+    assert client.post(task['finish_url']).status_code == 400
+    assert not Asset.objects.filter(project=project).exists()
+    assert UploadSession.objects.get(pk=task['id']).state == 'uploading'

@@ -14,6 +14,7 @@
     </div>
   </section>
   <div class="actions judge-live-entry">
+    <a class="button" href="{% url 'hackathon:judge-batch' hackathon.slug %}">批量创建评委账户</a>
     <a class="button" href="{% url 'hackathon:judge-new' hackathon.slug %}">创建评委账户</a>
     <a class="button secondary" href="{% url 'hackathon:judge-login' hackathon.slug %}">评委登录入口</a>
     <a class="button secondary" href="{% url 'hackathon:scoring-rules' hackathon.slug %}">设置算分规则</a>

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "include": [
+    "app/eventyay/hackathon/**",
+    "app/tests/hackathon/**",
+    "app/eventyay/static/hackathon/**",
+    "tools/quality-browser/**"
+  ],
+  "exclude": [
+    "**/*.min.js",
+    "**/*.min.css",
+    "**/vendor/**",
+    "**/migrations/**"
+  ],
+  "max_file_bytes": 1000000,
+  "exceptions": []
+}

@@ -1,0 +1,2 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}<section class="page-heading"><div><h1>队长确认参加决赛</h1><p>{{ contact.team.name }} · 入围名单v{{ snapshot.version }}。</p></div></section><section class="panel">{% if error %}<p role="alert">{{ error }}</p>{% endif %}<p>当前状态：{{ contact.get_state_display }}。确认期限：{{ contact.deadline|default:'主办方尚未登记送达' }}。</p><p>首批队伍请于13:05前到场，完成设备核对。如无法到场，请联系主办方。</p>{% if contact.state != 'accepted' %}<form method="post">{% csrf_token %}<button class="button" type="submit">确认参加本版决赛</button></form>{% endif %}</section>{% endblock %}
