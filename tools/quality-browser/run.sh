@@ -35,6 +35,11 @@ set -e
 [[ "$result" == 0 ]] || exit "$result"
 "$QA_PYTHON" .agents/quality/scripts/source_identity.py >"$QA_OUTPUT/identity-end.json"
 cmp "$QA_OUTPUT/identity.json" "$QA_OUTPUT/identity-end.json" || { echo 'Source changed during browser run'; exit 1; }
+if [[ "${QA_MODE:-full}" == smoke ]]; then
+  echo 'Automated browser smoke passed; full acceptance evidence gate was not run. No release-readiness conclusion.'
+  exit 0
+fi
+[[ "${QA_MODE:-full}" == full ]] || { echo 'QA_MODE must be smoke or full' >&2; exit 2; }
 read -r revision fingerprint < <("$QA_PYTHON" -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d["revision"],d["source_fingerprint"])' "$QA_OUTPUT/identity-end.json")
 "$QA_PYTHON" .agents/quality/scripts/gate_evidence.py --report "$QA_OUTPUT/report.json" --revision "$revision" --source-fingerprint "$fingerprint" --scope "${QA_SCOPE:-all}"
 

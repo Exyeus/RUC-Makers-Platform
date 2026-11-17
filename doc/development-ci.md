@@ -52,3 +52,7 @@ Activity CI 保留原检查入口，并追加 `tools/check-quality.sh`、锁定�
 浏览器使用独立本地数据库、合成账号、临时存储和通知替身。默认 `QA_SCOPE=all`，所有 required 契约完整才通过；局部 team 门禁不表示完整验收或发布就绪。HTML/Trace 和机器报告位于 `.local-services/quality-evidence/browser`，需要按受限测试证据处理。
 
 原版指导、锁版本、专项显式调用入口及未验证项见 `.agents/quality/README.md`。CI 只检查，不发布。
+
+## 自动检查与完整验收
+
+PR 和 main 的 Activity CI 执行自动浏览器冒烟（QA_MODE=smoke）；成功只表明已实现的浏览器用例通过，不代表完整验收或发布就绪。工作流手动运行执行完整证据门禁（QA_MODE=full、QA_SCOPE=all），默认命令也保持完整门禁；缺少独立理解审查等 required 证据时必须 no-go。仓库 Actions allowlist 当前不允许 upload-artifact，CI 不自动保存证据附件；需在可信隔离环境保留报告与截图后再作验收判断。

@@ -78,10 +78,11 @@ jobs:
       - name: Install pinned Chromium
         if: always()
         run: tools/quality-browser/node_modules/node-linux-x64/bin/node tools/quality-browser/node_modules/@playwright/test/cli.js install --with-deps chromium
-      - name: Browser contracts and evidence gate
+      - name: Browser smoke or manually requested full evidence gate
         if: always()
         env:
           QA_SCOPE: all
+          QA_MODE: ${{ github.event_name == 'workflow_dispatch' && 'full' || 'smoke' }}
         run: |
           export QA_PYTHON="$PWD/app/.venv/bin/python"
           export QA_OUTPUT="$PWD/.local-services/quality-evidence/browser"
