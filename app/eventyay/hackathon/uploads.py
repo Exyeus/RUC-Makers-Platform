@@ -6,6 +6,7 @@ import os
 import shutil
 from datetime import timedelta
 from pathlib import Path
+from uuid import uuid4
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files import File
@@ -23,6 +24,8 @@ from eventyay.hackathon.services import (
     require_project_editable,
     require_submission_open,
 )
+from eventyay.hackathon.storage import DurableFileStorage, local_root, remove_asset, temporary_root
+from eventyay.hackathon.submission_materials import capture_intent, require_information, retained_storage
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +40,7 @@ class UploadQueued(ValidationError):
 
 
 def part_path(session):
-    return Path(PrivateStorage().location) / '.uploads' / f'{session.pk}.part'
+    return temporary_root() / f'{session.pk}.part'
 
 
 def remove_file(path):
@@ -70,9 +73,14 @@ def expire_uploads(hackathon):
                 session.save(update_fields=['state', 'updated'])
                 invalidate_queued_project(session)
                 transaction.on_commit(lambda path=part_path(session): remove_file(path))
+                from eventyay.hackathon.direct_uploads import cleanup_after_commit
+
+                cleanup_after_commit(session)
 
 
 def start_upload(hackathon, user, project, data):
+    from eventyay.hackathon import direct_uploads
+
     expire_uploads(hackathon)
     # An acknowledged intent can be resumed after the deadline with the same ID.
     existing = UploadSession.objects.filter(pk=data['id'], hackathon=hackathon, user=user).first()
@@ -100,6 +108,7 @@ def start_upload(hackathon, user, project, data):
         project = Project.objects.select_for_update().select_related('team').get(pk=project.pk, hackathon=hackathon)
         require_owner(hackathon, user, project)
         require_project_editable(project)
+        require_information(project)
         existing = UploadSession.objects.filter(pk=data['id']).first()
         if existing:
             if (
@@ -135,7 +144,9 @@ def start_upload(hackathon, user, project, data):
             expires_at=min(now + timedelta(hours=UPLOAD_LIFETIME_HOURS), hackathon.freeze_at),
             checksum_bound_at=now if data['checksum'] else None,
             client_clicked_at=data.get('client_clicked_at'),
+            intent_manifest=capture_intent(project),
             deadline_at=hackathon.submission_deadline,
+            transport='direct' if data.get('transport') == 'direct' and direct_uploads.enabled() else 'relay',
         )
 
 
@@ -171,7 +182,7 @@ def admit_upload(session):
     )
     if occupied >= UPLOAD_SLOTS:
         raise UploadQueued('上传通道繁忙，已保留提交凭证，正在排队等待。请保持页面打开。')
-    root = Path(PrivateStorage().location)
+    root = local_root()
     root.mkdir(parents=True, exist_ok=True)
     reserved = sum(
         size - offset
@@ -198,6 +209,8 @@ def append_chunk(session, stream, offset, length):
         .get(pk=session.pk)
     )
     require_live(session)
+    if session.transport != 'relay':
+        raise UploadConflict('此任务使用直接上传通道，请继续原任务。')
     if not session.expected_checksum:
         raise UploadConflict('文件尚未绑定校验哈希。')
     if length <= 0 or length > CHUNK_SIZE or offset < 0 or offset + length > session.size:
@@ -239,20 +252,24 @@ def asset_filename(project, kind, checksum, original):
     return f'{project.team.code}_{project.code}_{kind}_{checksum[:12]}{Path(original).suffix.lower()}'
 
 
-def install_asset(hackathon, user, project, kind, original, size, checksum, stored_name):
+def install_asset(hackathon, user, project, kind, original, size, checksum, stored_name, media_probe=None):
     """Called with the event and project locked; filesystem work is already complete."""
     asset = Asset.objects.filter(project=project, kind=kind).first()
     if asset and asset.checksum == checksum and asset.size == size:
+        if media_probe and asset.media_probe != media_probe:
+            asset.media_probe = media_probe
+            asset.save(update_fields=['media_probe', 'updated'])
         return asset
-    old_path = asset.file.path if asset and asset.file else None
+    old_name = asset.file.name if asset and asset.file else None
     asset = asset or Asset(hackathon=hackathon, project=project, kind=kind)
     asset.file.name = stored_name
     asset.filename = asset_filename(project, kind, checksum, original)
     asset.original_filename = original
     asset.size, asset.checksum = size, checksum
+    asset.media_probe = media_probe or {}
     asset.save()
-    if old_path and old_path != asset.file.path:
-        transaction.on_commit(lambda: remove_file(old_path))
+    if old_name and old_name != asset.file.name and not retained_storage(old_name):
+        transaction.on_commit(lambda: remove_asset(old_name))
     project.revision += 1
     project.equipment_checked = False
     if project.state not in (Project.State.DRAFT, Project.State.QUEUED):
@@ -277,40 +294,56 @@ def finish_upload(session):
     if session.offset != session.size:
         raise UploadConflict('文件尚未传完，请继续上传。')
     path = part_path(session)
-    with path.open('rb') as source:
-        upload = File(source, name=session.original_filename)
-        form = AssetForm({'kind': session.kind}, {'file': upload})
-        if not form.is_valid():
-            raise ValidationError([message for errors in form.errors.values() for message in errors])
-        digest = hashlib.file_digest(source, 'sha256').hexdigest()
-    if digest != session.expected_checksum:
-        raise UploadConflict('文件校验未通过，请取消任务后重新上传原文件。已有材料不受影响。')
-    # Hashing and validation hold only this upload lock, never the event lock.
+    media_probe = {}
+    if session.transport == 'direct':
+        from eventyay.hackathon import direct_uploads
+
+        digest, relative = direct_uploads.verify(session)
+        media_probe = getattr(session, '_media_probe', {})
+    else:
+        with path.open('rb') as source:
+            upload = File(source, name=session.original_filename)
+            form = AssetForm({'kind': session.kind}, {'file': upload}, hackathon=session.hackathon)
+            if not form.is_valid():
+                raise ValidationError([message for errors in form.errors.values() for message in errors])
+            media_probe = form.cleaned_data.get('media_probe', {})
+            digest = hashlib.file_digest(source, 'sha256').hexdigest()
+        if digest != session.expected_checksum:
+            raise UploadConflict('文件校验未通过，请取消任务后重新上传原文件。已有材料不受影响。')
+        # The slow final copy holds only this session lock, never the event lock.
+        project = session.project
+        relative = (
+            f'{session.hackathon_id}/{project.team_id}/{project.pk}/{session.kind}/'
+            f'{uuid4().hex}{Path(session.original_filename).suffix.lower()}'
+        )
+        storage = PrivateStorage()
+        if isinstance(storage.backend, DurableFileStorage):
+            destination = Path(storage.path(relative))
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.link(path, destination)
+            parent = destination.parent
+            while parent.is_relative_to(local_root()):
+                directory_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+                parent = parent.parent
+        else:
+            with path.open('rb') as source:
+                relative = storage.save(relative, File(source))
+    # A failed recheck/rollback leaves a unique orphan for age-gated GC.
     hackathon = lock_event(session.hackathon)
     require_live(session)
     project = Project.objects.select_for_update().select_related('team').get(pk=session.project_id)
     require_owner(hackathon, session.user, project)
     require_project_editable(project, allow_queued=True)
-    relative = (
-        f'{hackathon.pk}/{project.team_id}/{project.pk}/{session.kind}/'
-        f'{session.pk.hex}{Path(session.original_filename).suffix.lower()}'
-    )
-    destination = Path(PrivateStorage().path(relative))
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    # The temporary and final directories share a filesystem. Hard-linking avoids
-    # a second 512 MiB copy and keeps the resumable source until database commit.
-    if not destination.exists():
-        os.link(path, destination)
-        directory_fd = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
     asset = install_asset(
-        hackathon, session.user, project, session.kind, session.original_filename, session.size, digest, relative
+        hackathon, session.user, project, session.kind, session.original_filename, session.size,
+        digest, relative, media_probe
     )
     if asset.file.name != relative:
-        transaction.on_commit(lambda: remove_file(destination))
+        transaction.on_commit(lambda: remove_asset(relative))
     session.state, session.asset, session.checksum = UploadSession.State.COMPLETE, asset, digest
     session.last_error = ''
     session.save(update_fields=['state', 'asset', 'checksum', 'last_error', 'updated'])
@@ -327,6 +360,9 @@ def cancel_upload(session):
         session.save(update_fields=['state', 'updated'])
         invalidate_queued_project(session)
         transaction.on_commit(lambda: remove_file(part_path(session)))
+        from eventyay.hackathon.direct_uploads import cleanup_after_commit
+
+        cleanup_after_commit(session)
     return session
 
 
@@ -335,6 +371,7 @@ def save_direct_asset(hackathon, participant, project, form, organizer=None, rea
     require_submission_open(hackathon, organizer, reason)
     require_project_editable(project)
     require_owner(hackathon, participant.user, project)
+    require_information(project)
     kind, upload = form.cleaned_data['kind'], form.cleaned_data['file']
     if active_uploads(project).filter(kind=kind).exists():
         raise UploadConflict('同类材料正在分块上传，请先完成或取消任务。')
@@ -364,6 +401,7 @@ def save_direct_asset(hackathon, participant, project, form, organizer=None, rea
                 upload.size,
                 checksum,
                 candidate.file.name,
+                form.cleaned_data.get('media_probe', {}),
             )
             installed = asset.file.name == candidate.file.name
             if organizer:
@@ -371,4 +409,4 @@ def save_direct_asset(hackathon, participant, project, form, organizer=None, rea
         return asset
     finally:
         if not installed:
-            remove_file(candidate.file.path)
+            remove_asset(candidate.file.name)

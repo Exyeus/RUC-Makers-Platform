@@ -5,6 +5,6 @@
     {% csrf_token %}
     <input type="hidden" name="idempotency_key" value="{{ request_key }}">
     {% include 'hackathon/form_fields.html' %}
-    <div class="actions"><button class="button" type="submit">保存并继续</button><a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}">返回 组队广场</a></div>
+    <div class="actions"><button class="button" type="submit">保存并继续</button><a class="button secondary" href="{% if back_url %}{{ back_url }}{% else %}{% url 'hackathon:matching' hackathon.slug %}{% endif %}">{{ back_label|default:'返回匹配推荐' }}</a></div>
   </form>
 {% endblock %}

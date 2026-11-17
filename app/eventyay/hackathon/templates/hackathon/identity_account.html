@@ -1,0 +1,30 @@
+{% extends 'hackathon/entry_base.html' %}
+{% block page_title %}账号与邮件订阅 · {{ hackathon.name }}{% endblock %}
+{% block auth_card %}
+<section class="glass-card auth-card" id="join" aria-labelledby="account-title">
+  <h2 id="account-title">账号与邮件订阅</h2>
+  <p>{{ request.user.email }} · {% if verified %}邮箱已验证{% else %}邮箱待验证{% endif %}</p>
+  {% if admission_message %}<p class="message" role="status">{{ admission_message }}</p>{% endif %}
+  {% if has_admission %}<p><a class="button" href="{% url 'hackathon:home' hackathon.slug %}">进入活动主页</a></p>{% endif %}
+  {% if not verified or profile.pending_email %}
+    {% if profile.pending_email %}<p>待验证的新邮箱：{{ profile.pending_email }}。验证完成前原邮箱继续有效。</p>{% endif %}
+    <form method="post">{% csrf_token %}<input type="hidden" name="operation" value="verify-email"><button class="button" type="submit">发送 / 重发验证邮件</button></form>
+  {% endif %}
+  <hr>
+  <h3>学号与参赛资格</h3>
+  {% if student %}<p>已绑定学号：{{ student.student_id }}。需要更正请联系组委会。</p>
+  {% else %}<p>使用邮箱注册后，在此绑定本人学号。是否通过筛选由组委会名单及原报名邮箱共同核验。</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="operation" value="bind-student">{% include 'hackathon/form_fields.html' with form=binding %}<button class="button secondary" type="submit">绑定学号</button></form>
+  {% endif %}
+  {% if student and binding.errors %}<div role="alert">{{ binding.errors }}</div>{% endif %}
+  <hr>
+  <h3>邮件订阅</h3>
+  <p>无论本届是否入选，都可以订阅。两项均为自愿选择，可随时取消；账号安全邮件不受影响。</p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="operation" value="preferences">{% include 'hackathon/form_fields.html' with form=preferences %}<button class="button secondary" type="submit">保存订阅偏好</button></form>
+  <details{% if email_form.errors %} open{% endif %}><summary>更换绑定邮箱</summary>
+    <p>输入当前密码并验证新邮箱后生效。报名邮箱变更后，如无法核验参赛资格，请联系组委会更正名单。</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="operation" value="change-email">{% include 'hackathon/form_fields.html' with form=email_form %}<button class="button secondary" type="submit">验证新邮箱</button></form>
+  </details>
+  <p><a href="{% url 'hackathon:home' hackathon.slug %}">返回宣传页 / 活动入口</a></p>
+</section>
+{% endblock %}

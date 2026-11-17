@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "note": "保留工具包全部 required 与断言，不以固定流程代理指标替代语义审查。2026-11-16依据当前 matching_views.py、views.py、uploads.py 和实际Django模板接线；局部UI通过不表示完整契约通过。",
+  "contracts": [
+    {
+      "id": "AUTH-01",
+      "scope": "auth",
+      "name": "登录和会话恢复",
+      "required": true,
+      "assertions": [
+        "fresh_account_can_log_in",
+        "failure_is_actionable",
+        "expired_session_preserves_recoverable_work"
+      ],
+      "required_evidence": [
+        "screenshot",
+        "execution-log"
+      ],
+      "implementation": {
+        "case": "tools/quality-browser/journeys.spec.cjs :: AUTH-01",
+        "runner": "tools/quality-browser/run.sh",
+        "environment": "local isolated PostgreSQL, synthetic accounts",
+        "boundary": "真实密码登录与数据库会话失效后已保存作品恢复；未覆盖未保存输入及生产身份服务。"
+      }
+    },
+    {
+      "id": "TEAM-01",
+      "scope": "team",
+      "name": "陌生选手发现并联系伙伴",
+      "required": true,
+      "assertions": [
+        "entry_discovered_without_route_hints",
+        "profile_information_understood",
+        "contact_or_request_reaches_intended_recipient"
+      ],
+      "required_evidence": [
+        "screenshot",
+        "execution-log"
+      ],
+      "implementation": {
+        "case": "tools/quality-browser/journeys.spec.cjs :: TEAM-01",
+        "runner": "tools/quality-browser/run.sh",
+        "server_verifier": "tools/quality-browser/verify.py",
+        "environment": "local filesystem storage, isolated PostgreSQL, synthetic sessions",
+        "gap": "profile_information_understood: 可见资料文本仅为代理指标；独立陌生角色理解审查未执行，不得自动置true。"
+      }
+    },
+    {
+      "id": "TEAM-02",
+      "scope": "team",
+      "name": "双方组队状态一致",
+      "required": true,
+      "assertions": [
+        "distinct_accounts_used",
+        "agreed_team_transition_completed",
+        "both_accounts_observe_same_persisted_state"
+      ],
+      "required_evidence": [
+        "screenshot",
+        "execution-log"
+      ],
+      "implementation": {
+        "case": "tools/quality-browser/journeys.spec.cjs :: TEAM-02",
+        "runner": "tools/quality-browser/run.sh",
+        "server_verifier": "tools/quality-browser/verify.py",
+        "environment": "local filesystem storage, isolated PostgreSQL, synthetic sessions"
+      }
+    },
+    {
+      "id": "SUBMIT-01",
+      "scope": "submission",
+      "name": "上传进度与失败恢复",
+      "required": true,
+      "assertions": [
+        "pending_visible",
+        "measured_progress_or_truthful_unknown_total",
+        "transfer_and_server_processing_distinguished",
+        "failure_keeps_input_and_offers_recovery"
+      ],
+      "required_evidence": [
+        "screenshot",
+        "execution-log"
+      ],
+      "implementation": {
+        "case": "tools/quality-browser/journeys.spec.cjs :: SUBMIT-01",
+        "runner": "tools/quality-browser/run.sh",
+        "server_verifier": "tools/quality-browser/verify.py",
+        "environment": "local filesystem storage, isolated PostgreSQL, synthetic sessions"
+      }
+    },
+    {
+      "id": "SUBMIT-02",
+      "scope": "submission",
+      "name": "正式提交回执与持久化",
+      "required": true,
+      "assertions": [
+        "draft_and_submission_distinguished",
+        "server_confirms_receipt",
+        "record_survives_reload",
+        "correct_team_and_materials_persisted"
+      ],
+      "required_evidence": [
+        "screenshot",
+        "execution-log",
+        "server-verification"
+      ],
+      "implementation": {
+        "case": "tools/quality-browser/journeys.spec.cjs :: SUBMIT-02",
+        "runner": "tools/quality-browser/run.sh",
+        "server_verifier": "tools/quality-browser/verify.py",
+        "environment": "local filesystem storage, isolated PostgreSQL, synthetic sessions"
+      }
+    },
+    {
+      "id": "SUBMIT-03",
+      "scope": "submission",
+      "name": "重复、断网与截止边界",
+      "required": true,
+      "assertions": [
+        "retry_or_double_click_has_no_duplicate_submission",
+        "ambiguous_network_result_reconciled",
+        "agreed_server_deadline_enforced"
+      ],
+      "required_evidence": [
+        "screenshot",
+        "execution-log",
+        "server-verification"
+      ],
+      "implementation": {
+        "case": "tools/quality-browser/journeys.spec.cjs :: SUBMIT-03",
+        "runner": "tools/quality-browser/run.sh",
+        "server_verifier": "tools/quality-browser/verify.py",
+        "environment": "local isolated PostgreSQL and filesystem, synthetic accounts",
+        "boundary": "服务端截止、响应丢失与重复提交；不等于真实网络环境全覆盖。"
+      }
+    },
+    {
+      "id": "SUBMIT-04",
+      "scope": "submission",
+      "name": "跨账号与队伍访问隔离",
+      "required": true,
+      "assertions": [
+        "other_account_cannot_read_or_continue_upload",
+        "server_checks_ownership",
+        "private_materials_not_publicly_exposed"
+      ],
+      "required_evidence": [
+        "screenshot",
+        "execution-log",
+        "server-verification"
+      ],
+      "implementation": {
+        "case": "tools/quality-browser/journeys.spec.cjs :: SUBMIT-04",
+        "runner": "tools/quality-browser/run.sh",
+        "server_verifier": "tools/quality-browser/verify.py",
+        "environment": "local isolated PostgreSQL and filesystem, synthetic accounts",
+        "boundary": "独立合成账号对活跃任务和私有材料的访问隔离；未覆盖线上 OSS 配置。"
+      }
+    },
+    {
+      "id": "OPS-01",
+      "scope": "organizer",
+      "name": "主办方接管与导出",
+      "required": true,
+      "assertions": [
+        "organizer_finds_submission_receipt",
+        "export_matches_confirmed_records",
+        "fallback_contact_or_channel_is_visible"
+      ],
+      "required_evidence": [
+        "screenshot",
+        "execution-log"
+      ],
+      "implementation": {
+        "case": "tools/quality-browser/journeys.spec.cjs :: OPS-01",
+        "runner": "tools/quality-browser/run.sh",
+        "environment": "local isolated PostgreSQL, synthetic accounts",
+        "boundary": "仅隔离数据：凭证页面、作品 CSV 与数据库字段核对及支持中心入口；不代替主办方实际接管。"
+      }
+    }
+  ]
+}

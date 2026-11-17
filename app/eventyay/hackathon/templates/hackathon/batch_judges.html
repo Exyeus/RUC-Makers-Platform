@@ -1,0 +1,8 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+<section class="page-heading"><div><h1>批量创建评委账户</h1><p>名单逐行处理，仅授予本届评委角色。新密码只在本次结果显示，请通过合适渠道交给本人。</p></div></section>
+<div class="actions"><a class="button secondary" href="{% url 'hackathon:staff' hackathon.slug %}">返回成员与权限</a><a class="button secondary" href="{% url 'hackathon:judge-login' hackathon.slug %}">评委登录入口</a></div>
+<form method="post" class="panel">{% csrf_token %}{% include 'hackathon/form_fields.html' %}<button class="button" type="submit">创建账户并分配本届角色</button></form>
+{% if results %}<section class="panel"><h2>逐项结果</h2><p>已有账户密码保持原值。重复提交不会重复开户。请勿将本页密码放入公开文档。</p>
+{% for item in results %}<article class="list-row"><div><strong>第{{ item.row }}行 · {{ item.name }}</strong><p>{{ item.email }} · {{ item.message }}</p>{% if item.password %}<p>初始密码：<code>{{ item.password }}</code></p>{% endif %}</div><span class="tag">{% if item.status == 'error' %}未完成{% else %}已完成{% endif %}</span></article>{% endfor %}</section>{% endif %}
+{% endblock %}

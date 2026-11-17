@@ -23,10 +23,12 @@
           （草稿）
         {% endif %}
       </a>
-    {% else %}
+    {% elif total %}
       <span class="tag mint">
-        本队清单已全部确认
+        本轮清单已全部确认
       </span>
+    {% else %}
+      <span class="tag">尚未分配作品，请联系主办方</span>
     {% endif %}
   </div>
   <div class="deadline-strip">

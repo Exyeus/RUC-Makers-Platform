@@ -8,7 +8,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from eventyay.base.models import User
 from eventyay.hackathon import forms, services
-from eventyay.hackathon.models import DemoSlot, Project, Score, StaffAssignment
+from eventyay.hackathon.models import DemoSlot, JudgingRound, Project, Score, StaffAssignment
 from eventyay.hackathon.permissions import event_view
 from eventyay.hackathon.scoring import CRITERIA, rule_description
 from eventyay.hackathon.views import page, url
@@ -72,6 +72,8 @@ TASK_FILTERS = (('pending', '待评'), ('draft', '草稿'), ('confirmed', '已�
 @event_view('judge')
 @require_GET
 def judging(request):
+    if JudgingRound.objects.filter(hackathon=request.hackathon).exists():
+        return redirect(url(request.hackathon, 'workflow-judging'))
     context = judging_context(request)
     status = request.GET.get('status') or ''
     track = request.GET.get('track') or ''
@@ -126,6 +128,8 @@ def state(request):
 @require_http_methods(['GET', 'POST'])
 def score(request, project_id):
     h = request.hackathon
+    if request.method == 'GET' and JudgingRound.objects.filter(hackathon=h).exists():
+        return redirect(url(h, 'workflow-judging'))
     item = get_object_or_404(
         Project.objects.select_related('team__track'), hackathon=h, pk=project_id, state='approved'
     )

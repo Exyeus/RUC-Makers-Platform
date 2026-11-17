@@ -1,0 +1,5 @@
+<nav class="team-section-nav" aria-label="队伍与交流栏目">
+  <a href="{% url 'hackathon:teams' hackathon.slug %}"{% if request.resolver_match.url_name == 'teams' %} aria-current="page"{% endif %}>我的队伍</a>
+  <a href="{% url 'hackathon:team-directory' hackathon.slug %}"{% if request.resolver_match.url_name == 'team-directory' %} aria-current="page"{% endif %}>参与队伍</a>
+  <a href="{% url 'hackathon:idea-exchange' hackathon.slug %}"{% if request.resolver_match.url_name == 'idea-exchange' %} aria-current="page"{% endif %}>想法交流</a>
+</nav>

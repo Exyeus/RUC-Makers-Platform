@@ -1,4 +1,4 @@
-{% load static turnstile_tags %}
+{% load static turnstile_tags hackathon_static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
@@ -8,10 +8,15 @@
     <meta name="robots" content="noindex">
     <title>{% if judge_login %}评委登录{% else %}主办方登录{% endif %} · 未公开活动</title>
     <link rel="icon" href="{% static 'hackathon/brand/favicon.svg' %}" type="image/svg+xml">
+    <script src="{% versioned_static 'hackathon/theme-init.js' %}"></script>
     <link rel="stylesheet" href="{% static 'hackathon/landing.css' %}">
     <link rel="stylesheet" href="{% static 'hackathon/brand.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-components.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/theme.css' %}">
+    <script type="module" src="{% versioned_static 'hackathon/ui.js' %}"></script>
   </head>
   <body class="entry-page">
+    <header class="standalone-header"><a class="brand" href="/hackathon/">{% include 'hackathon/brand.html' %}</a>{% include 'hackathon/theme_control.html' %}</header>
     <a class="skip-link" href="#main">跳转至主要内容</a>
     <main id="main" tabindex="-1">
       {% for message in messages %}

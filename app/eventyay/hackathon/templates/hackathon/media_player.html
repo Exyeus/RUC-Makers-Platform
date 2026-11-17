@@ -1,0 +1,8 @@
+{% if asset.kind == 'video' or asset.kind == 'preliminary' %}
+<section class="private-media" data-media-player data-asset-id="{{ asset.pk }}" data-checksum="{{ asset.checksum }}" data-source-url="{% url 'hackathon:media-source' hackathon.slug asset.pk %}">
+  <h3>{{ material_label|default:asset.get_kind_display }} · {{ asset.original_filename|default:asset.filename }}</h3>
+  <video controls playsinline preload="metadata" referrerpolicy="no-referrer" aria-label="{{ material_label|default:asset.get_kind_display }}播放器"></video>
+  <p data-media-status role="status">点击“加载 / 恢复播放”获取私有材料。</p>
+  <div class="actions"><button class="button secondary small" type="button" data-media-load>加载 / 恢复播放</button><a class="button secondary small" href="{% url 'hackathon:support' hackathon.slug %}">报告播放异常</a></div>
+</section>
+{% endif %}

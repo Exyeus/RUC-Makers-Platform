@@ -32,6 +32,9 @@
         保存检查结果      </button>
     </form>
     <aside>
+      <section class="panel"><h2>本版回执与预检</h2><p>第 {{ project.revision }} 版 · {{ project.get_state_display }} · 凭证 {{ preflight.receipt|default:'尚未登记' }}</p><p>登记时间 {{ project.submission_intent_at|date:'Y-m-d H:i:s'|default:'未登记' }} · 上场材料 {{ project.get_final_material_kind_display|default:'尚未选择' }}</p><ul>{% for issue in preflight.issues %}<li>{{ issue }}</li>{% empty %}<li>材料自动预检未见缺项，请继续核对实际内容与设备。</li>{% endfor %}</ul><p>下一步：{{ preflight.next_step }}</p></section>
+      <section class="panel"><h2>上传凭证与续传</h2>{% for task in review_uploads %}<p><strong>{{ task.get_kind_display }} · {{ task.get_state_display }}</strong><br>{{ task.original_filename }} · {{ task.offset|filesizeformat }} / {{ task.size|filesizeformat }}<br>服务器登记 {{ task.created|date:'m-d H:i:s' }} · 哈希绑定 {{ task.checksum_bound_at|date:'m-d H:i:s'|default:'尚未绑定' }}<br>续传截止 {{ task.expires_at|date:'m-d H:i:s' }}{% if task.last_error %}<br>{{ task.last_error }}{% endif %}</p>{% empty %}<p>没有上传任务记录。</p>{% endfor %}</section>
+      <section class="panel"><h2>同队工单与负责人</h2>{% for ticket in review_tickets %}<p><a href="{% url 'hackathon:support-reply' hackathon.slug ticket.pk %}">{{ ticket.subject }}</a> · {{ ticket.get_state_display }}<br>负责人：{{ ticket.handler.get_display_name|default:'待接手' }}</p>{% empty %}<p>本队暂未提交工单。</p>{% endfor %}</section>
       <section class="panel">
         <h2>
           材料与演示
@@ -57,6 +60,8 @@
               {{ asset.filename }}
               ↓
             </a>
+            {% include 'hackathon/media_player.html' with asset=asset %}
+            {% if asset.media_probe.state == 'verified' %}<p>服务器视频校验通过 · {{ asset.media_probe.duration_seconds|floatformat:2 }} 秒{% if not asset.media_probe.has_audio %} · 无声视频{% endif %}；请现场确认画面与字幕。</p>{% endif %}
           {% endfor %}
         </div>
       </section>

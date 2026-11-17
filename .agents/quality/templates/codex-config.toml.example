@@ -1,0 +1,4 @@
+# Merge into existing project configuration; do not replace it.
+# Current official schema as checked 2026-11-16; confirm with installed version.
+[agents]
+max_concurrent_threads_per_session = 3

@@ -1,0 +1,26 @@
+[Unit]
+Description=RUC Makers worker
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+Requires=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=rucmakers
+Group=rucmakers
+WorkingDirectory=/srv/ruc-makers/src/app
+EnvironmentFile=/srv/ruc-makers/private/site.env
+Environment=PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ExecStart=/srv/ruc-makers/src/app/.venv/bin/celery -A eventyay worker -l info -Q default,notifications,longrunning,background --concurrency 2 --prefetch-multiplier 1 --max-tasks-per-child 100
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/ruc-makers/src/app/eventyay/data /srv/ruc-makers/runtime
+
+[Install]
+WantedBy=multi-user.target

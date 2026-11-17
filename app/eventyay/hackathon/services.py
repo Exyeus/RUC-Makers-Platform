@@ -11,6 +11,7 @@ from django.db.models import Max, Q
 from django.urls import reverse
 from django.utils import timezone
 
+from eventyay.hackathon import identity
 from eventyay.hackathon.calendar import available_half_hours
 from eventyay.hackathon.models import (
     Announcement,
@@ -30,6 +31,7 @@ from eventyay.hackathon.models import (
     Team,
     Track,
     UploadSession,
+    invitation_code,
 )
 from eventyay.hackathon.permissions import is_organizer
 from eventyay.hackathon.scoring import aggregate, is_trimmed
@@ -111,19 +113,65 @@ def save_participant(hackathon, user, form):
     return participant
 
 
+def close_join_requests(hackathon, participants, *, accepted=None):
+    """Membership makes the applicant's other pending applications unavailable."""
+    pending = JoinRequest.objects.filter(hackathon=hackathon, participant__in=participants, state='pending')
+    if accepted is not None:
+        pending = pending.exclude(pk=accepted.pk)
+    pending.update(state='unavailable', updated=timezone.now())
+
+
+@transaction.atomic
+def transfer_captain(hackathon, participant, successor):
+    """Transfer management only when no upload is still owned by the old captain."""
+    hackathon = lock_event(hackathon)
+    require_team_open(hackathon)
+    participant = Participant.objects.select_for_update().get(hackathon=hackathon, pk=participant.pk)
+    team = (
+        Team.objects.select_for_update()
+        .filter(hackathon=hackathon, pk=participant.team_id, captain=participant)
+        .first()
+    )
+    if team is None or team.state == 'dissolved':
+        raise PermissionDenied
+    successor = (
+        Participant.objects.select_for_update()
+        .filter(hackathon=hackathon, team=team, pk=successor.pk)
+        .exclude(pk=participant.pk)
+        .first()
+    )
+    if successor is None:
+        raise ValidationError('请选择当前队伍中的另一位成员。')
+    if UploadSession.objects.filter(
+        hackathon=hackathon, project__team=team, state='uploading', expires_at__gt=timezone.now()
+    ).exists():
+        raise ValidationError('队伍还有材料正在上传。请先完成或取消上传，再交接队长；已有上传凭证仍由原队长处理。')
+    team.captain = successor
+    team.roster_version += 1
+    team.save(update_fields=['captain', 'roster_version', 'updated'])
+    audit(hackathon, participant.user, '转交队长', team.code, successor.code)
+    return team
+
+
 @transaction.atomic
 def save_team(hackathon, participant, form):
     hackathon = lock_event(hackathon)
     require_team_open(hackathon)
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
-    if hackathon.matching_enabled and not form.instance.created:
+    if hackathon.admission_required and not identity.admitted(participant.user, hackathon):
+        raise ValidationError(identity.DENIED)
+    if hackathon.matching_enabled and hackathon.matching_roster_enabled and not form.instance.created:
         raise ValidationError('请在 组队广场提交完整名单并取得全员确认。')
     current = None
     if form.instance.created:
         current = Team.objects.select_for_update().get(pk=form.instance.pk, hackathon=hackathon)
-        if current.captain_id != participant.pk:
+        if current.captain_id != participant.pk or participant.team_id != current.pk or current.state == 'dissolved':
             raise PermissionDenied
-        if hackathon.matching_enabled and form.cleaned_data['version'] != current.roster_version:
+        if (
+            hackathon.matching_enabled
+            and hackathon.matching_roster_enabled
+            and form.cleaned_data['version'] != current.roster_version
+        ):
             raise ValidationError('队伍已更新，请刷新后再修改招募资料。')
     elif participant.team_id:
         raise ValidationError('你已经加入队伍。请先离队，或由队长管理现有队伍。')
@@ -141,6 +189,7 @@ def save_team(hackathon, participant, form):
     participant.team = team
     participant.looking_for_team = False
     participant.save(update_fields=['team', 'looking_for_team', 'updated'])
+    close_join_requests(hackathon, [participant])
     audit(hackathon, participant.user, '保存队伍', team.code)
     return team
 
@@ -149,12 +198,21 @@ def save_team(hackathon, participant, form):
 def join_team(hackathon, participant, team, *, invite_code=None, application=None):
     hackathon = lock_event(hackathon)
     require_team_open(hackathon)
-    if hackathon.matching_enabled:
+    if hackathon.matching_enabled and hackathon.matching_roster_enabled:
         raise ValidationError('请在 组队广场提交完整名单并取得全员确认。')
     team = Team.objects.select_for_update().get(pk=team.pk, hackathon=hackathon)
     participant = Participant.objects.select_for_update().get(pk=participant.pk, hackathon=hackathon)
-    if invite_code != team.invite_code and application is None:
-        raise PermissionDenied
+    if hackathon.admission_required and not identity.admitted(participant.user, hackathon):
+        raise ValidationError(identity.DENIED)
+    if team.state not in {'recruiting', 'ready'}:
+        raise ValidationError('这支队伍已解散、冻结或结束，不能加入。')
+    if application is None:
+        if invite_code != team.invite_code:
+            raise PermissionDenied
+    elif not JoinRequest.objects.filter(
+        hackathon=hackathon, pk=application.pk, participant=participant, team=team, state='pending'
+    ).exists():
+        raise ValidationError('这条申请已失效，请刷新后再处理。')
     if participant.team_id:
         raise ValidationError('此选手已经加入队伍，不能重复加入。')
     if team.members.count() >= hackathon.team_size:
@@ -162,7 +220,9 @@ def join_team(hackathon, participant, team, *, invite_code=None, application=Non
     participant.team = team
     participant.looking_for_team = False
     participant.save(update_fields=['team', 'looking_for_team', 'updated'])
-    JoinRequest.objects.filter(participant=participant, state='pending').update(state='declined')
+    close_join_requests(hackathon, [participant], accepted=application)
+    team.roster_version += 1
+    team.save(update_fields=['roster_version', 'updated'])
     if application:
         JoinRequest.objects.filter(pk=application.pk, team=team, participant=participant).update(state='accepted')
     audit(hackathon, participant.user, '加入队伍', team.code)
@@ -171,10 +231,14 @@ def join_team(hackathon, participant, team, *, invite_code=None, application=Non
 @transaction.atomic
 def leave_team(hackathon, participant):
     hackathon = lock_event(hackathon)
-    if hackathon.matching_enabled:
+    if hackathon.matching_enabled and hackathon.matching_roster_enabled:
         raise ValidationError('请在 组队广场按名单政策退出队伍。')
     require_team_open(hackathon)
-    participant = Participant.objects.select_for_update(of=('self',)).select_related('team').get(pk=participant.pk)
+    participant = (
+        Participant.objects.select_for_update(of=('self',))
+        .select_related('team')
+        .get(pk=participant.pk, hackathon=hackathon)
+    )
     if not participant.team_id:
         raise ValidationError('你还没有加入队伍。')
     if participant.team.captain_id == participant.pk:
@@ -193,10 +257,14 @@ def dissolve_team(hackathon, participant):
     with it, so the exit stays available only while nothing depends on it.
     """
     hackathon = lock_event(hackathon)
-    if hackathon.matching_enabled:
+    if hackathon.matching_enabled and hackathon.matching_roster_enabled:
         raise ValidationError('请在 组队广场按名单政策退出队伍。')
     require_team_open(hackathon)
-    participant = Participant.objects.select_for_update(of=('self',)).select_related('team').get(pk=participant.pk)
+    participant = (
+        Participant.objects.select_for_update(of=('self',))
+        .select_related('team')
+        .get(pk=participant.pk, hackathon=hackathon)
+    )
     team = participant.team
     if team is None:
         raise ValidationError('你还没有队伍。')
@@ -208,7 +276,9 @@ def dissolve_team(hackathon, participant):
         raise ValidationError('这支队伍已经建过作品，不能解散。请联系主办方处理。')
     team.state = 'dissolved'
     team.recruiting = False
-    team.save(update_fields=['state', 'recruiting', 'updated'])
+    team.invite_code = invitation_code()
+    team.roster_version += 1
+    team.save(update_fields=['state', 'recruiting', 'invite_code', 'roster_version', 'updated'])
     JoinRequest.objects.filter(team=team, state='pending').update(state='declined')
     participant.team = None
     participant.looking_for_team = True
@@ -232,7 +302,13 @@ def withdraw_application(hackathon, participant, application):
 
 
 def submission_errors(project, pending_kinds=()):
-    errors = []
+    from eventyay.hackathon.submission_materials import policy_submission_errors
+
+    errors = policy_submission_errors(project, pending_kinds)
+    if project.hackathon.admission_required:
+        members = project.team.members.select_related('user')
+        if any(not identity.admitted(member.user, project.hackathon) for member in members):
+            errors.append('队伍中有成员尚未通过本届资格核验，请联系组委会处理后再提交。')
     if (
         project.created
         and not pending_kinds
@@ -276,9 +352,9 @@ def project_status(project, uploads=None):
     state = project.state
     if state == Project.State.QUEUED:
         tasks = project.uploads.filter(state='uploading') if uploads is None else uploads
-        stalled = any(
-            task.expires_at <= timezone.now() for task in tasks
-        ) or project.hackathon.freeze_at <= timezone.now()
+        stalled = (
+            any(task.expires_at <= timezone.now() for task in tasks) or project.hackathon.freeze_at <= timezone.now()
+        )
         if stalled:
             return {
                 'key': 'upload_stalled',
@@ -353,7 +429,7 @@ def project_status(project, uploads=None):
     return {
         'key': 'draft',
         'label': project.get_state_display(),
-        'detail': '草稿已保存，尚未正式提交。由队长点击“正式提交 / 排队登记”后才会进入评审。',
+        'detail': '草稿已保存，尚未正式提交。由队长核对材料后正式提交；仍在上传时可登记排队提交。',
         'action': '补齐材料并正式提交',
         'done': False,
         'tone': 'neutral',
@@ -372,12 +448,15 @@ def require_project_editable(project, allow_queued=False):
 
 @transaction.atomic
 def save_project(hackathon, participant, form, submit=False, organizer=None, reason=''):
+    from eventyay.hackathon.submission_materials import late_submission_allowed
+
     hackathon = lock_event(hackathon)
-    require_submission_open(hackathon, organizer, reason)
     participant = Participant.objects.select_related('team').get(pk=participant.pk, hackathon=hackathon)
     if not participant.team_id or participant.team.captain_id != participant.pk:
         raise PermissionDenied
     current = Project.objects.select_for_update().filter(team=participant.team).first()
+    if not (submit and organizer is None and late_submission_allowed(current, form.cleaned_data)):
+        require_submission_open(hackathon, organizer, reason)
     if (
         current
         and current.state == Project.State.QUEUED
@@ -487,6 +566,10 @@ def save_asset(hackathon, participant, project, form, organizer=None, reason='')
 @transaction.atomic
 def save_score(hackathon, user, project, form, confirm=False):
     hackathon = lock_event(hackathon)
+    from eventyay.hackathon.workflow_models import JudgingRound
+
+    if JudgingRound.objects.filter(hackathon=hackathon).exists():
+        raise ValidationError('本活动已按轮次评审，请从评委工作台进入指定轮次；旧评分页不会写入新轮次。')
     project = Project.objects.select_related('team').get(pk=project.pk, hackathon=hackathon)
     if not hackathon.judging_open or hackathon.results_published:
         raise ValidationError('当前未开放评分，或结果已公布并锁定。')
@@ -534,6 +617,14 @@ def generate_queue(hackathon, user):
     hackathon = lock_event(hackathon)
     if hackathon.results_published:
         raise ValidationError('成绩已公布，路演队列已锁定。')
+    from eventyay.hackathon.workflow_models import JudgingRound
+    from eventyay.hackathon.workflow_services import apply_finalist_queue, current_signed_snapshot
+
+    if JudgingRound.objects.filter(hackathon=hackathon).exists():
+        snapshot = current_signed_snapshot(hackathon)
+        if not snapshot:
+            raise ValidationError('请先签认入围名单，再生成决赛队列。')
+        return apply_finalist_queue(hackathon, user, snapshot)
     position = DemoSlot.objects.filter(hackathon=hackathon).aggregate(value=Max('position'))['value'] or 0
     for project in Project.objects.filter(hackathon=hackathon, state='approved', slot__isnull=True).order_by(
         'submitted_at'
@@ -751,6 +842,11 @@ def active_judge_ids(hackathon):
 
 
 def results(hackathon):
+    from eventyay.hackathon.workflow_models import JudgingRound
+    from eventyay.hackathon.workflow_services import workflow_results
+
+    if JudgingRound.objects.filter(hackathon=hackathon).exists():
+        return workflow_results(hackathon)
     assignments, conflicts = judge_panel(hackathon)
     judges = {assignment.user_id for assignment in assignments}
     rows = []
@@ -788,6 +884,11 @@ def results(hackathon):
 
 def review_progress(hackathon):
     """Who still owes which score: same judge panel and same task set that drives the ranking."""
+    from eventyay.hackathon.workflow_models import JudgingRound
+    from eventyay.hackathon.workflow_services import workflow_progress
+
+    if JudgingRound.objects.filter(hackathon=hackathon).exists():
+        return workflow_progress(hackathon)
     assignments, conflicts = judge_panel(hackathon)
     projects = list(Project.objects.filter(hackathon=hackathon, state='approved').select_related('team__track'))
     scores = {
@@ -924,14 +1025,38 @@ PUBLISH_ACTIONS = {
 }
 
 PUBLISH_SWITCHES = (
-    ('is_public', '活动公开', 'open-event', 'hide-event', '所有访客与已登录选手',
-     '活动页、日程、通知和教程对所有人可读；关闭后只有主办与工作人员能进。'),
-    ('gallery_open', '作品展厅', 'open-gallery', 'close-gallery', '所有访客',
-     '公开已通过审核且本人同意展示的作品；未勾选同意展示的作品仍然不可见。'),
-    ('judging_open', '评委打分', 'open-judging', 'close-judging', '评委',
-     '评委可进入打分页；关闭后打分页只读，已保存的分数全部保留。'),
-    ('results_published', '成绩公布', 'publish-results', 'unpublish-results',
-     '所有访客与全部评委', '公开名次、平均分与评语；公布后评分、作品审核与路演调度即被锁定。'),
+    (
+        'is_public',
+        '活动公开',
+        'open-event',
+        'hide-event',
+        '所有访客与已登录选手',
+        '活动页、日程、通知和教程对所有人可读；关闭后只有主办与工作人员能进。',
+    ),
+    (
+        'gallery_open',
+        '作品展厅',
+        'open-gallery',
+        'close-gallery',
+        '所有访客',
+        '公开已通过审核且本人同意展示的作品；未勾选同意展示的作品仍然不可见。',
+    ),
+    (
+        'judging_open',
+        '评委打分',
+        'open-judging',
+        'close-judging',
+        '评委',
+        '评委可进入打分页；关闭后打分页只读，已保存的分数全部保留。',
+    ),
+    (
+        'results_published',
+        '成绩公布',
+        'publish-results',
+        'unpublish-results',
+        '所有访客与全部评委',
+        '公开名次、平均分与评语；公布后评分、作品审核与路演调度即被锁定。',
+    ),
 )
 
 PUBLISH_LABELS = {item[0]: item[1] for item in PUBLISH_SWITCHES}
@@ -968,6 +1093,20 @@ def publish_blockers(current, field, opening, rows=None):
             blockers.append('还没有通过审核的作品，评委进场后无队可评。')
         return blockers
     if field == 'results_published':
+        from eventyay.hackathon.workflow_models import JudgingRound
+        from eventyay.hackathon.workflow_services import current_signed_snapshot
+
+        if JudgingRound.objects.filter(hackathon=current).exists():
+            awards = current_signed_snapshot(current, 'awards')
+            finalists = current_signed_snapshot(current)
+            latest_final = JudgingRound.objects.filter(hackathon=current, kind='final').order_by('-version').first()
+            if (
+                not awards
+                or not finalists
+                or awards.round.source_snapshot_id != finalists.pk
+                or awards.round_id != getattr(latest_final, 'pk', None)
+            ):
+                return ['请先由指定非学生总负责人签认当前入围版本对应的获奖名单；公开开关不会解锁内容。']
         rows = results(current) if rows is None else rows
         if not rows:
             return ['还没有进入评审的作品，暂无成绩可公布。']
@@ -1068,9 +1207,16 @@ def date_drift(hackathon):
 
 def publish_readiness(hackathon):
     h = hackathon
-    missing_info = [label for label, value in (
-        ('活动名称', h.name), ('一句话介绍', h.tagline), ('简介', h.description), ('场地', h.venue)
-    ) if not (value or '').strip()]
+    missing_info = [
+        label
+        for label, value in (
+            ('活动名称', h.name),
+            ('一句话介绍', h.tagline),
+            ('简介', h.description),
+            ('场地', h.venue),
+        )
+        if not (value or '').strip()
+    ]
     published_tracks = Track.published(h).count()
     draft_tracks = Track.objects.filter(hackathon=h, state=Track.State.DRAFT).count()
     required_guides = Resource.published(h).filter(required=True).count()

@@ -1,0 +1,99 @@
+      <article class="panel team-card{% if is_own_preview %} team-card-own{% endif %}">
+        <div class="section-heading">
+          <span class="tag lavender">
+            {{ team.track.name }}
+          </span>
+          <span class="muted">
+            {% if is_own_preview %}<strong class="team-own-label">我的队伍</strong> · {% endif %}{{ team.member_count }}
+            /
+            {{ hackathon.team_size }}
+            人
+          </span>
+        </div>
+        {% if is_own_preview and not own_in_results %}
+          <p class="team-own-notice">此卡片仅队员可见；当前筛选或招募展示条件未包含此队伍。</p>
+        {% endif %}
+        <span class="team-avatar">
+          {{ team.name|slice:':1' }}
+        </span>
+        <h2>
+          {{ team.name }}
+        </h2>
+        <p>
+          {{ team.intro|default:'一个正在萌芽的好想法。' }}
+        </p>
+        <div class="team-needs">
+          <span>
+            我们正在寻找
+          </span>
+          <strong>
+            {{ team.needs|default:'带着好奇心的你' }}
+          </strong>
+        </div>
+        <div class="card-bottom">
+          <code>
+            {{ team.code }}
+          </code>
+          {% if participant and not own_team and hackathon.teams_open %}
+          {% if not hackathon.matching_enabled or not hackathon.matching_roster_enabled %}
+            {% if team.applied_state == 'pending' %}
+              <div class="applied-note">
+                <span>
+                  已申请，等待队长回复
+                </span>
+                <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="withdraw">
+                  <input type="hidden" name="application" value="{{ team.applied_id }}">
+                  <button class="text-button" type="submit">
+                    撤回申请
+                  </button>
+                </form>
+              </div>
+            {% elif team.applied_state %}
+              <div class="applied-note">
+                <span>
+                  {{ team.applied_label }}
+                </span>
+                <details>
+                  <summary class="text-link">
+                    重新申请
+                  </summary>
+                  <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="apply">
+                    <input type="hidden" name="team" value="{{ team.pk }}">
+                    <label for="reapply-{{ team.pk }}">
+                      介绍一下你能带来的技能
+                    </label>
+                    <textarea id="reapply-{{ team.pk }}" name="message" required maxlength="300" rows="3">
+                    </textarea>
+                    <button type="submit" class="button small">
+                      再次申请
+                    </button>
+                  </form>
+                </details>
+              </div>
+            {% else %}
+              <details>
+                <summary class="text-link">
+                  申请加入              </summary>
+                <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="apply">
+                  <input type="hidden" name="team" value="{{ team.pk }}">
+                  <label for="apply-{{ team.pk }}">
+                    介绍一下你能带来的技能
+                  </label>
+                  <textarea id="apply-{{ team.pk }}" name="message" required maxlength="300" rows="3">
+                  </textarea>
+                  <button type="submit" class="button small">
+                    发送申请
+                  </button>
+                </form>
+              </details>
+            {% endif %}
+          {% endif %}
+          {% endif %}
+        </div>
+      </article>

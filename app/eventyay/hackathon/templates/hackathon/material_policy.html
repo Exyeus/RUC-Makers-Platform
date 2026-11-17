@@ -1,0 +1,7 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+<section class="page-heading"><div><h1>材料规则与资格快照</h1><p>先补齐并保存队伍和作品信息，再手动选择材料用途上传。初评短视频与现场材料分别保存。</p></div><a class="button secondary" href="{% url 'hackathon:submissions' hackathon.slug %}">返回作品检查</a></section>
+<section class="panel"><h2>本届材料要求</h2><p>会议口径：初评视频不超过 60 秒，可无声配字幕；现场材料选择 PDF 或不超过 3 分钟的视频。服务器校验不代替现场设备实际播放检查。</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="policy">{% include 'hackathon/form_fields.html' %}<button class="button" type="submit">保存材料规则</button></form></section>
+<section class="panel"><h2>生成固定资格材料快照</h2><p>截止锁定已登记的提交意图；已登记任务可在凭证期限内继续传输。快照记录当前文件与未完成任务，后到材料进入新版本，不覆盖评委已使用的材料集合。</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="capture"><label for="snapshot-reason">本次用途或更正理由</label><input id="snapshot-reason" name="reason" required maxlength="500"><button class="button" type="submit">生成新版本快照</button></form></section>
+<section class="panel"><h2>已有快照</h2>{% for item in snapshots %}<p><a href="{% url 'hackathon:material-snapshot' hackathon.slug item.pk %}">下载 V{{ item.version }} · {{ item.captured_at|date:'Y-m-d H:i:s' }}</a> · {{ item.reason }}</p><p class="muted">SHA-256 {{ item.sha256 }}</p>{% empty %}<p>尚未生成快照。生成后，该版本不会随续传或替换文件改变。</p>{% endfor %}</section>
+{% endblock %}

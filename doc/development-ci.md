@@ -44,3 +44,15 @@ bash tools/check-activity.sh
 示例账号仅用于测试服务；按自己的独立实例修改。脚本要求显式 host，避免误用日常运行配置。检查会创建和迁移测试数据库，并生成临时文件；不要用 `start-local.sh` 代替检查入口。
 
 CI 通过说明当前检查范围通过，不代表浏览器视觉、真实外部服务、生产容量或旧业务数据升级已经验证。共享库迁移和发布仍需单独确认目标与恢复安排。
+
+## 按需质量与浏览器证据
+
+Activity CI 保留原检查入口，并追加 `tools/check-quality.sh`、锁定的浏览器安装及 `tools/quality-browser/run.sh`。轻量脚本校验原版工具文件、运行工具自身的负例测试、扫描增量候选；全量历史扫描只用于建立基线，不自动添加豁免。PR 使用目标基线，手动运行没有基线或基线不可用时执行全量扫描（不把空diff当完整覆盖）。
+
+浏览器使用独立本地数据库、合成账号、临时存储和通知替身。默认 `QA_SCOPE=all`，所有 required 契约完整才通过；局部 team 门禁不表示完整验收或发布就绪。HTML/Trace 和机器报告位于 `.local-services/quality-evidence/browser`，需要按受限测试证据处理。
+
+原版指导、锁版本、专项显式调用入口及未验证项见 `.agents/quality/README.md`。CI 只检查，不发布。
+
+## 自动检查与完整验收
+
+PR 和 main 的 Activity CI 执行自动浏览器冒烟（QA_MODE=smoke）；成功只表明已实现的浏览器用例通过，不代表完整验收或发布就绪。工作流手动运行执行完整证据门禁（QA_MODE=full、QA_SCOPE=all），默认命令也保持完整门禁；缺少独立理解审查等 required 证据时必须 no-go。仓库 Actions allowlist 当前不允许 upload-artifact，CI 不自动保存证据附件；需在可信隔离环境保留报告与截图后再作验收判断。

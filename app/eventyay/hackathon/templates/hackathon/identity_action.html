@@ -1,0 +1,18 @@
+{% extends 'hackathon/entry_base.html' %}
+{% block auth_card %}
+<section class="glass-card auth-card" id="join" aria-labelledby="action-title">
+  <h2 id="action-title">{{ title }}</h2>
+  {% if done %}<p role="status">已取消活动动态及后续活动信息邮件。账号、参赛资格和密码找回功能不受影响。</p>
+  {% elif invalid %}<p role="alert">链接已失效或无效，请重新申请或登录账号管理邮件订阅。</p>
+  {% else %}
+    {% if action == 'reset-request' %}<p>输入学号或邮箱，重置链接将发送至账号已验证的邮箱。链接 30 分钟内有效。</p>{% endif %}
+    {% if action == 'verify' %}<p>点击下方按钮确认邮箱归属。邮箱验证成功后，参赛资格仍以本届通过名单为准。</p>{% endif %}
+    {% if action == 'unsubscribe' %}<p>确认取消活动动态及后续活动信息邮件？账号安全邮件继续正常发送。</p>{% endif %}
+    <form method="post">{% csrf_token %}{% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+      {% if form %}{% include 'hackathon/form_fields.html' %}{% endif %}
+      <button class="button" type="submit">{% if action == 'verify' %}确认验证邮箱{% elif action == 'unsubscribe' %}确认退订{% elif action == 'reset-request' %}发送重置邮件{% else %}保存新密码{% endif %}</button>
+    </form>
+  {% endif %}
+  <p><a href="{% url 'hackathon:home' hackathon.slug %}#join">返回宣传页 / 登录</a></p>
+</section>
+{% endblock %}

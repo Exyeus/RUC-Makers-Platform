@@ -1,0 +1,92 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <h1>参与队伍</h1>
+      <p>了解招募中的队伍，认识仍在寻找队伍的伙伴。名单冻结：{{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}。</p>
+    </div>
+    {% if hackathon.matching_enabled %}
+      <a class="button secondary" href="{% url 'hackathon:matching' hackathon.slug %}">匹配推荐与组队进度</a>
+    {% endif %}
+  </section>
+  {% include 'hackathon/team_sections.html' %}
+  {% if own_team %}
+    <aside class="ui-context-link"><span>你已加入 {{ own_team.name }}。成员、招募资料和入队申请可在“我的队伍”管理。</span><a href="{% url 'hackathon:teams' hackathon.slug %}">管理我的队伍 <span aria-hidden="true">↗</span></a></aside>
+  {% elif participant %}
+    {% if not hackathon.matching_enabled or not hackathon.matching_roster_enabled %}
+      <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="panel invite-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="invite">
+        <div>
+          <strong>
+            已经和队友约好了？
+          </strong>
+          <p>
+            输入队长给你的私密邀请码，直接加入。
+          </p>
+        </div>
+        <label class="sr-only" for="code">
+          队伍邀请码
+        </label>
+        <input name="code" id="code" placeholder="输入队伍邀请码" required maxlength="32">
+        <button type="submit" class="button secondary">
+          加入队伍        </button>
+      </form>
+    {% endif %}
+  {% endif %}
+  {% if my_applications %}
+    <section class="panel" id="my-applications">
+      <div class="section-heading">
+        <div>
+          <h2>
+            我发出的申请
+          </h2>
+          <p>
+            队长的回复会出现在这里；当前进度也可在“我的队伍”查看，名单冻结前可撤回待处理申请。
+          </p>
+        </div>
+      </div>
+      {% for application in my_applications %}
+        <div class="application">
+          <p>
+            <strong>
+              {{ application.team.name }}
+            </strong>
+            ·
+            {{ application.team.code }}
+          </p>
+          <p>
+            {{ application.message }}
+          </p>
+          <p class="muted">
+            {{ application.label }}
+          </p>
+          {% if application.state == 'pending' and hackathon.teams_open %}
+            <form method="post" action="{% url 'hackathon:team-action' hackathon.slug %}" class="inline-form">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="withdraw">
+              <input type="hidden" name="application" value="{{ application.pk }}">
+              <button class="text-button" type="submit">
+                撤回申请
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+  {% include 'hackathon/team_filters.html' %}
+  <section aria-labelledby="team-results-heading" id="team-results">
+    <div class="section-heading outside">
+      <div><h2 id="team-results-heading">招募中的队伍</h2><p>找到方向相近的队伍，一起把想法做出来。</p></div>
+    </div>
+    <div class="card-grid">
+      {% for team in teams %}
+        {% include 'hackathon/team_directory_card.html' with is_own_preview=False %}
+      {% empty %}
+        <div class="empty panel"><h3>暂时没有匹配的招募队伍</h3><p>可以调整筛选，或在“我的队伍”发起新队伍。</p><a class="text-link" href="{% url 'hackathon:teams' hackathon.slug %}">前往我的队伍</a></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% include 'hackathon/team_seekers.html' %}
+{% endblock %}

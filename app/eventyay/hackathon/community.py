@@ -15,14 +15,16 @@ def square_context(hackathon, participant, params) -> dict:
         excluded = matching.excluded_ids(hackathon, participant)
         posts = posts.exclude(author_id__in=excluded)
         ideas = ideas.exclude(author_id__in=excluded)
-    pool_posts = posts.filter(kind__in=['showcase', 'idea', 'co_create']).select_related('author')
     kind = params.get('kind', '')
     if kind in CommunityPost.Kind.values:
         posts = posts.filter(kind=kind)
+    if kind not in {'', 'idea'}:
+        ideas = ideas.none()
     query = params.get('q', '').strip()
     if query:
         posts = posts.filter(Q(title__icontains=query) | Q(body__icontains=query))
         ideas = ideas.filter(Q(title__icontains=query) | Q(problem__icontains=query))
+    pool_posts = posts.filter(kind__in=['showcase', 'idea', 'co_create']).select_related('author')
     return {
         'community_posts': posts.select_related('author')[:60],
         'pool_ideas': ideas.select_related('author')[:60],

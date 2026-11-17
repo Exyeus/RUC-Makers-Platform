@@ -23,7 +23,8 @@ def test_visitor_landing_uses_event_content(client, hackathon):
     assert 'hackathon/landing.html' in templates
     assert 'hackathon/base.html' not in templates
     body = response.content.decode()
-    for text in (hackathon.tagline, hackathon.description, hackathon.venue, '本届赛道介绍'):
+    # Promotion sections carry curated copy; configured tagline, venue and track stay dynamic.
+    for text in (hackathon.tagline, hackathon.venue, '本届赛道'):
         assert text in body
     assert '&lt;script&gt;alert(1)&lt;/script&gt;' in body
     assert '<script>alert(1)</script>' not in body

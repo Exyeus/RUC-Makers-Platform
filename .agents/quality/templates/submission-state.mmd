@@ -1,0 +1,15 @@
+%% Proposed states: reconcile names/transitions with actual product rules.
+stateDiagram-v2
+  [*] --> Draft
+  Draft --> Uploading: 选择合成材料
+  Uploading --> Processing: 字节传输完成
+  Uploading --> Recoverable: 中断或失败
+  Recoverable --> Uploading: 已确认安全重试
+  Processing --> Ready: 服务端确认文件可用
+  Processing --> Recoverable: 校验失败
+  Ready --> Submitting: 用户正式提交
+  Submitting --> Submitted: 服务端确认回执
+  Submitting --> Reconcile: 响应丢失或未知
+  Reconcile --> Submitted: 查询确认已完成
+  Reconcile --> Ready: 查询确认尚未完成
+  Submitted --> Submitted: 刷新仍可查到有效回执
