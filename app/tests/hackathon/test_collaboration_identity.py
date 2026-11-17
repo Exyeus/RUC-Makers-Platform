@@ -382,9 +382,13 @@ def test_the_player_reads_every_round_of_the_thread_in_order(client, hackathon, 
     ticket = make_ticket(hackathon, user)
     client.force_login(organizer_user)
     path = endpoint(hackathon, 'support-reply', ticket_id=ticket.pk)
-    client.post(path, {'action': 'reply', 'state': 'waiting_user', 'body': '先看一眼浏览器控制台的报错。', 'last_message_id': 0})
+    client.post(
+        path, {'action': 'reply', 'state': 'waiting_user', 'body': '先看一眼浏览器控制台的报错。', 'last_message_id': 0}
+    )
     latest = ticket.messages.latest('id').id
-    client.post(path, {'action': 'reply', 'state': 'resolved', 'body': '问题已修复，感谢配合。', 'last_message_id': latest})
+    client.post(
+        path, {'action': 'reply', 'state': 'resolved', 'body': '问题已修复，感谢配合。', 'last_message_id': latest}
+    )
 
     client.force_login(user)
     content = client.get(endpoint(hackathon, 'support')).content.decode()
