@@ -1,0 +1,16 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div><h1>评审工作台 · 选择轮次</h1><p>初评与决赛分别保存；各轮仅显示分配给你的打分任务或复核资料。</p></div>
+  </section>
+  {% for round in rounds %}
+    <section class="panel">
+      <h2>{{ round.name }} · {{ round.get_kind_display }} v{{ round.version }}</h2>
+      <p>本轮职责：{% if round.viewer_can_score and round.viewer_can_review %}打分与独立复核（按队伍分工）{% elif round.viewer_can_score %}打分评委{% else %}独立复核 / 名单签认，只读{% endif %}。</p>
+      <p>{% if hackathon.results_published %}结果已公布，本轮评分只读。{% elif round.viewer_window_open %}评分窗口开放{% if not round.viewer_can_score %}；复核资料只读，无需提交个人评分{% endif %}。{% else %}评分窗口关闭，可查看已保存记录。{% endif %}</p>
+      <a class="button" href="{% url 'hackathon:workflow-tasks' hackathon.slug round.pk %}">{% if not round.viewer_can_score %}进入本轮复核资料{% elif not round.viewer_window_open %}查看本轮评分记录{% else %}进入本轮评分任务{% endif %}</a>
+    </section>
+  {% empty %}
+    <section class="panel"><p>尚未分配本轮打分任务或复核资料，请联系主办方。没有任务不代表全部评分已完成。</p></section>
+  {% endfor %}
+{% endblock %}

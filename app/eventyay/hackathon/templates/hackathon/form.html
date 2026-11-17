@@ -36,6 +36,9 @@
         预览选手页面      </a>
     {% endif %}
   </section>
+  {% if form.keywords and participant and hackathon.matching_enabled %}
+    <p class="panel">个人标签可用于发现伙伴与队伍。<a href="{% url 'hackathon:matching-profile' hackathon.slug %}">管理匹配字段与隐私授权</a>；只有主动授权的字段参与计算。</p>
+  {% endif %}
   <form method="post" class="panel form-panel" data-dirty-form data-once-form>
     {% csrf_token %}
     {% include 'hackathon/form_fields.html' %}

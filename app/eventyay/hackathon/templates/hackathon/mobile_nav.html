@@ -43,13 +43,13 @@
       <svg aria-hidden="true"><use href="#i-grid" /></svg><span>首页</span>
     </a>
     <a href="{% url 'hackathon:teams' hackathon.slug %}" {% if active == 'teams' or active == 'team-edit' %}aria-current="page"{% endif %}>
-      <svg aria-hidden="true"><use href="#i-users" /></svg><span>组队</span>
+      <svg aria-hidden="true"><use href="#i-users" /></svg><span>我的队伍</span>
     </a>
-    <a href="{% url 'hackathon:project' hackathon.slug %}" {% if active == 'project' %}aria-current="page"{% endif %}>
-      <svg aria-hidden="true"><use href="#i-folder" /></svg><span>作品</span>
+    <a href="{% url 'hackathon:team-directory' hackathon.slug %}" {% if active == 'team-directory' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-users" /></svg><span>参与队伍</span>
     </a>
-    <a href="{% url 'hackathon:schedule' hackathon.slug %}" {% if active == 'schedule' %}aria-current="page"{% endif %}>
-      <svg aria-hidden="true"><use href="#i-calendar" /></svg><span>日程</span>
+    <a href="{% url 'hackathon:idea-exchange' hackathon.slug %}" {% if active == 'idea-exchange' %}aria-current="page"{% endif %}>
+      <svg aria-hidden="true"><use href="#i-spark" /></svg><span>想法交流</span>
     </a>
   {% endif %}
   <button type="button" data-nav-toggle aria-controls="sidebar" aria-expanded="false" aria-label="展开全部导航">

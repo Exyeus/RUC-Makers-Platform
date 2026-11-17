@@ -4,7 +4,7 @@
   <form method="post" class="panel form-panel">
     {% csrf_token %}<input type="hidden" name="operation" value="configure"><input type="hidden" name="idempotency_key" value="{{ request_key }}:configure">
     <h2>本轮政策</h2>
-    <div class="form-field checkbox-field"><input id="enabled" type="checkbox" name="enabled" {% if hackathon.matching_enabled %}checked{% endif %}><label for="enabled">开放 组队广场（启用后旧入口同样要求全员确认）</label></div>
+    <div class="form-field checkbox-field"><input id="enabled" type="checkbox" name="enabled" {% if hackathon.matching_enabled %}checked{% endif %}><label for="enabled">开放匹配推荐与隐私设置（入队方式由下方名单政策控制）</label></div>
     <div class="form-field checkbox-field"><input id="roster" type="checkbox" name="roster" {% if hackathon.matching_roster_enabled %}checked{% endif %}><label for="roster">已批准全员确认、冻结前退出及队长先交接政策，开放正式入队</label></div>
     <div class="form-field checkbox-field"><input id="single" type="checkbox" name="single" {% if hackathon.matching_single_allowed %}checked{% endif %}><label for="single">允许单人正式参赛</label></div>
     <div class="form-field"><label for="capacity">正式录取容量</label><input id="capacity" name="capacity" type="number" min="1" max="10000" value="{{ hackathon.matching_capacity }}" required></div>

@@ -1,22 +1,50 @@
 from django.urls import include, path
 
-from eventyay.hackathon import accounts, community_views, judging_views, matching_views, upload_views, views
+from eventyay.hackathon import (
+    accounts,
+    community_views,
+    identity_views,
+    judging_views,
+    matching_views,
+    social_views,
+    staff_tools,
+    stage_requests,
+    submission_views,
+    upload_views,
+    views,
+)
 
 
 app_name = 'hackathon'
 event_patterns = [
+    path("manage/material-policy/", submission_views.materials, name="material-policy"),
+    path("manage/material-snapshots/<int:snapshot_id>/", submission_views.snapshot, name="material-snapshot"),
+    path('manage/judges/batch/', staff_tools.batch_judges, name='judge-batch'),
+    path('assets/<uuid:asset_id>/media/', staff_tools.media, name='media'),
+    path('assets/<uuid:asset_id>/source/', staff_tools.media_source, name='media-source'),
+    path('stage/requests/', stage_requests.requests, name='stage-requests'),
+    path('manage/stage/requests/', stage_requests.manage, name='stage-requests-manage'),
+    path('stage/requests/<uuid:request_id>/evidence/', stage_requests.evidence, name='stage-request-evidence'),
+    path('messages/', social_views.inbox, name='social-inbox'),
+    path('messages/privacy/', social_views.privacy, name='social-privacy'),
+    path('messages/<uuid:intent_id>/', social_views.conversation, name='social-chat'),
+    path('manage/reports/', social_views.reports, name='social-reports'),
     path('', views.home, name='home'),
     path('account/login/', accounts.student_auth, name='student-login'),
     path('account/organizer/', accounts.organizer_login, name='organizer-login'),
     path('account/judge/', accounts.organizer_login, {'judge': True}, name='judge-login'),
     path('account/logout/', accounts.logout, name='logout'),
     path('account/signup/', accounts.student_auth, {'signup': True}, name='student-signup'),
-    path('account/password-reset/', accounts.student_password_reset_request, name='student-password-reset-request'),
+    path('account/password-reset/', identity_views.password_reset_request, name='student-password-reset-request'),
     path(
         'account/password-reset/confirm/',
-        accounts.student_password_reset_confirm,
+        identity_views.password_reset_confirm,
         name='student-password-reset-confirm',
     ),
+    path('account/', identity_views.account, name='account'),
+    path('account/verify-email/', identity_views.verify_email, name='verify-email'),
+    path('account/unsubscribe/', identity_views.unsubscribe, name='unsubscribe'),
+    path('manage/admission/', identity_views.admission_manage, name='admission-manage'),
     path('register/', views.register, name='register'),
     path('market/', matching_views.market, name='matching'),
     path('market/profile/', matching_views.profile, name='matching-profile'),
@@ -27,6 +55,8 @@ event_patterns = [
     path('market/operations/<uuid:receipt_id>/', matching_views.receipt, name='matching-receipt'),
     path('manage/matching/', matching_views.operations, name='matching-operations'),
     path('teams/', views.teams, name='teams'),
+    path('teams/discover/', views.team_directory, name='team-directory'),
+    path('ideas/', views.idea_exchange, name='idea-exchange'),
     path('teams/posts/new/', community_views.post_edit, name='post-new'),
     path('teams/posts/<int:post_id>/', community_views.post_detail, name='post-detail'),
     path('teams/posts/<int:post_id>/edit/', community_views.post_edit, name='post-edit'),
@@ -40,6 +70,8 @@ event_patterns = [
     path('project/uploads/<uuid:upload_id>/admit/', upload_views.admit, name='upload-admit'),
     path('project/uploads/<uuid:upload_id>/chunk/', upload_views.chunk, name='upload-chunk'),
     path('project/uploads/<uuid:upload_id>/finish/', upload_views.finish, name='upload-finish'),
+    path('project/uploads/<uuid:upload_id>/direct/', upload_views.direct, name='upload-direct'),
+    path('project/uploads/<uuid:upload_id>/ack/', upload_views.acknowledge, name='upload-ack'),
     path('project/uploads/<uuid:upload_id>/cancel/', upload_views.cancel, name='upload-cancel'),
     path('projects/<uuid:project_id>/', views.project_detail, name='project-detail'),
     path('assets/<uuid:asset_id>/', views.download, name='download'),
@@ -84,7 +116,13 @@ event_patterns = [
     path('station/assets/<uuid:asset_id>/', views.station_asset, name='station-asset'),
 ]
 
+from eventyay.hackathon.workflow_views import event_patterns as workflow_patterns  # noqa: E402
+
+
+event_patterns += workflow_patterns
+
 urlpatterns = [
+    path('email/unsubscribe/', identity_views.unsubscribe, name='unsubscribe-account'),
     path('', views.index, name='index'),
     path('camp/', views.legacy_workspace, name='legacy-workspace'),
     path('camp/<path:suffix>', views.legacy_workspace),

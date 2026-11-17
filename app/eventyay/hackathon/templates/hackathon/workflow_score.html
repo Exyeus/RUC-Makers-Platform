@@ -1,0 +1,62 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <h1>{{ material.team }} · {{ round.get_kind_display }} v{{ round.version }}</h1>
+      <p>{{ material.title }}。{% if can_score %}当前分数只计入{{ round.name }}。{% if score.final %}本轮评分已确认。{% endif %}{% else %}复核页面，只读；不能代替打分评委提交。{% endif %}</p>
+      <p>{% if hackathon.results_published %}结果已公布，本轮评分只读。{% elif window_open %}本轮评分窗口开放中。{% else %}本轮窗口已关闭，当前只读。{% endif %}</p>
+    </div>
+    <a href="{% url 'hackathon:workflow-tasks' hackathon.slug round.pk %}">返回本轮{% if can_score %}任务{% else %}复核资料{% endif %}</a>
+  </section>
+  <section class="panel">
+    <h2>{% if round.kind == 'preliminary' %}初评视频{% else %}本轮冻结材料{% endif %}</h2>
+    {% for asset in material.assets %}
+      {% if round.kind == 'preliminary' and asset.kind == 'preliminary' or round.kind == 'final' and asset.kind == material.final_material_kind %}
+        <p>{{ asset.kind }} · {{ asset.filename }} · SHA256 {% if asset.sha256 %}{{ asset.sha256 }}{% else %}{{ asset.checksum }}{% endif %}</p>
+        {% if asset.kind == 'preliminary' or asset.kind == 'video' %}
+          <section data-media-player data-source-url="{% url 'hackathon:workflow-media-source' hackathon.slug round.pk project.pk asset.kind %}">
+            <video controls playsinline preload="metadata" referrerpolicy="no-referrer" aria-label="本轮视频播放器" style="width:100%;max-height:60vh"></video>
+            <p data-media-status role="status">点击加载本轮冻结视频。</p>
+            <button class="button secondary" type="button" data-media-load>加载 / 恢复播放</button>
+          </section>
+        {% else %}
+          <a class="button secondary" href="{% url 'hackathon:workflow-media' hackathon.slug round.pk project.pk asset.kind %}">下载本轮冻结PDF</a>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    <p>播放异常请联系主办方并保留本轮、队伍及材料编号，不将无法播放记为0分。</p>
+    <a href="{% url 'hackathon:support' hackathon.slug %}">报告材料播放异常</a>
+  </section>
+  <section class="panel" data-score-panel>
+    {% if can_edit_score %}
+      <h2>本轮个人评分</h2>
+      <form method="post">
+        {% csrf_token %}
+        {% include 'hackathon/form_fields.html' %}
+        <div class="actions">
+          <button class="button secondary" name="action" value="draft">保存本轮草稿</button>
+          <button class="button" name="action" value="final">确认本轮评分并返回任务</button>
+        </div>
+      </form>
+    {% elif can_score %}
+      <h2>已保存的个人评分（只读）</h2>
+      {% if read_only_error %}<p role="alert">{{ read_only_error }}</p>{% endif %}
+      {% if score %}
+        <p>{% if score.final %}已确认{% else %}草稿，尚未计分{% endif %} · 评分版本{{ score.revision }}</p>
+        <dl>{% for value in saved_values %}<dt>{{ value.label }} · {{ value.weight }}%</dt><dd>{{ value.value|default_if_none:'未填写' }} / 10</dd>{% endfor %}</dl>
+        {% if score.feedback %}<h3>已保存的改进建议</h3><p>{{ score.feedback|linebreaksbr }}</p>{% endif %}
+      {% else %}
+        <p>本轮尚无已保存评分记录。</p>
+      {% endif %}
+    {% else %}
+      <h2>原评委评分（复核只读）</h2>
+      <p>下方是本队原评委已确认的评分；复核人无需提交个人评分。打分记录不全或有分歧时，请联系主办方核对。</p>
+      {% for source in review_row.judge_scores %}
+        <h3>{{ source.judge }} · 评分版本{{ source.revision }}</h3>
+        <dl>{% for value in source.values %}<dt>{{ value.label }} · {{ value.weight }}%</dt><dd>{{ value.value|default_if_none:'未填写' }} / 10</dd>{% endfor %}</dl>
+      {% empty %}
+        <p>本队尚无已确认的原评委评分记录。</p>
+      {% endfor %}
+    {% endif %}
+  </section>
+{% endblock %}

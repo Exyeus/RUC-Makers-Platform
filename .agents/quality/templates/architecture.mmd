@@ -1,0 +1,14 @@
+%% Proposed QA architecture, not an observed execution graph.
+flowchart TD
+  Task[任务卡与已定用户目标] --> Scope[改动范围与风险]
+  Scope --> Static[增量文案 / 注释 / UI扫描]
+  Scope --> CI[既有 Activity CI]
+  Static --> Browser[Playwright固定流程与故障注入]
+  CI --> Browser
+  Browser --> Audit[独立角色黑盒体验]
+  Audit --> Evidence[截图分镜 / Trace / 断言 / 服务端证据]
+  Evidence --> Gate{关键契约满足?}
+  Gate -->|是| Human[现有review与发布授权]
+  Gate -->|否| Repair[授权范围内修复或报告阻塞]
+  Repair --> Browser
+  Audit --> Recurrence[复发根因转架构 / 类型 / Lint / 测试]

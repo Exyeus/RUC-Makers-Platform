@@ -26,6 +26,8 @@ WORKBENCH_CSS = Path(__file__).resolve().parents[2] / 'eventyay' / 'static' / 'h
 WORKSPACE_PAGES = (
     'home',
     'teams',
+    'team-directory',
+    'idea-exchange',
     'project',
     'resources',
     'schedule',
@@ -158,7 +160,8 @@ def test_anonymous_navigation_offers_only_public_entries(client, hackathon):
         'resources',
         'gallery',
         'stage',
-        'teams',
+        'team-directory',
+        'idea-exchange',
         'support',
         'judge-login',
         'results',
@@ -174,6 +177,8 @@ def test_participant_navigation_leads_with_their_own_work(client, hackathon, par
     assert set(routes(response)) == {
         'home',
         'teams',
+        'team-directory',
+        'idea-exchange',
         'project',
         'schedule',
         'announcements',
@@ -306,10 +311,10 @@ def test_organizer_previewing_volunteer_work_keeps_a_way_back(client, hackathon,
     'fixture_name,entry,expected',
     [
         ('organizer_user', 'manage', ['总控', '作品', '路演', '成绩', '更多']),
-        ('organizer_user', 'home', ['首页', '组队', '作品', '日程', '更多']),
+        ('organizer_user', 'home', ['首页', '我的队伍', '参与队伍', '想法交流', '更多']),
         ('judge_user', 'judging', ['路演', '评审', '日程', '指南', '更多']),
         ('volunteer_user', 'tasks', ['任务', '日程', '指南', '支持', '更多']),
-        ('user', 'home', ['首页', '组队', '作品', '日程', '更多']),
+        ('user', 'home', ['首页', '我的队伍', '参与队伍', '想法交流', '更多']),
     ],
 )
 def test_mobile_bar_follows_the_working_identity(
@@ -322,7 +327,9 @@ def test_mobile_bar_follows_the_working_identity(
 
 
 def test_mobile_bar_for_anonymous_visitors(client, hackathon):
-    assert mobile_bar(client.get(endpoint(hackathon, 'schedule'))) == ['首页', '组队', '作品', '日程', '更多']
+    assert mobile_bar(client.get(endpoint(hackathon, 'schedule'))) == [
+        '首页', '我的队伍', '参与队伍', '想法交流', '更多',
+    ]
 
 
 def test_switching_identity_does_not_grant_permissions(client, hackathon, judge_user):
@@ -384,8 +391,8 @@ def test_participant_headings_are_task_names(client, hackathon, participant, use
 
 
 def test_team_square_heading_matches_the_navigation_label(client, hackathon, participant, user):
-    anonymous = client.get(endpoint(hackathon, 'teams'))
-    assert '组队广场' in re.sub(
+    anonymous = client.get(endpoint(hackathon, 'team-directory'))
+    assert '参与队伍' in re.sub(
         r'<[^>]+>', '', re.search(r'<h1[^>]*>(.*?)</h1>', anonymous.content.decode(), re.S).group(1)
     )
     client.force_login(user)
@@ -401,6 +408,8 @@ def test_team_square_heading_matches_the_navigation_label(client, hackathon, par
     [
         ('user', 'home'),
         ('user', 'teams'),
+        ('user', 'team-directory'),
+        ('user', 'idea-exchange'),
         ('user', 'schedule'),
         ('user', 'gallery'),
         ('user', 'resources'),

@@ -1,0 +1,81 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+<div class="workflow-snapshot">
+    <section class="page-heading">
+        <div>
+            <h1>{{ snapshot.get_kind_display }} v{{ snapshot.version }}</h1>
+            <p>{% if snapshot.signed_at %}{{ snapshot.signed_by.get_display_name }} · {{ snapshot.signed_at }}已签认{% else %}待指定非学生总负责人签认，尚未生效{% endif %}</p>
+        </div>
+        <a class="button secondary" href="{% url 'hackathon:workflow-export' hackathon.slug snapshot.pk %}">下载本版本JSON</a>
+    </section>
+    {% for error in errors %}<p role="alert" class="form-errors">{{ error }}</p>{% endfor %}
+    <section class="panel snapshot-source">
+        <p>依据：{{ snapshot.reason }}</p>
+        <details class="snapshot-disclosure">
+            <summary>查看来源与校验值</summary>
+            <dl>
+                <div><dt>来源轮次</dt><dd>{{ snapshot.round.name }} v{{ snapshot.round.version }}</dd></div>
+                <div><dt>材料快照</dt><dd><code>{{ snapshot.manifest.material_snapshot_id }}</code></dd></div>
+                <div><dt>校验值</dt><dd><code>{{ snapshot.sha256 }}</code></dd></div>
+            </dl>
+        </details>
+        {% if not snapshot.signed_at and can_sign %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="sha256" value="{{ snapshot.sha256 }}">
+                <button class="button" name="action" value="sign">签认本版名单及来源评分</button>
+            </form>
+        {% endif %}
+    </section>
+    <section class="panel" aria-labelledby="snapshot-entries-heading">
+        <h2 id="snapshot-entries-heading">{% if snapshot.kind == 'awards' %}决赛奖项核对{% else %}队伍资格与顺序{% endif %}</h2>
+        <p class="snapshot-list-note">按本版本记录的顺序展示。{% if snapshot.kind == 'awards' %}奖项栏仅显示已登记的奖项名称；空白奖项显示为“未获奖”。{% else %}入围、候补和未入围资格分别标明。{% endif %}</p>
+        <ol class="snapshot-list">
+            {% for row in snapshot.manifest.entries|dictsort:'position' %}
+                <li value="{{ row.position }}" data-snapshot-entry data-position="{{ row.position }}">
+                    <dl class="snapshot-entry">
+                        <div class="snapshot-entry-order"><dt>顺序</dt><dd>{{ row.position }}</dd></div>
+                        <div class="snapshot-entry-team">
+                            <dt>赛道 / 队伍</dt>
+                            <dd><span class="snapshot-track">{{ row.track }}</span><strong>{{ row.team }}</strong>
+                                <details class="snapshot-disclosure snapshot-project-id"><summary>作品编号</summary><code>{{ row.project_id }}</code></details>
+                            </dd>
+                        </div>
+                        <div><dt>名次 / 平均分</dt><dd>{{ row.rank }} / {{ row.average }}</dd></div>
+                        <div class="snapshot-entry-result">
+                            <dt>{% if snapshot.kind == 'awards' %}奖项{% else %}资格{% endif %}</dt>
+                            <dd data-snapshot-result>{% if snapshot.kind == 'awards' %}{% if row.award %}{{ row.award }}{% else %}未获奖{% endif %}{% elif row.status == 'finalist' %}入围{% elif row.status == 'alternate' %}候补{% elif row.status == 'excluded' %}未入围{% elif row.status == 'withdrawn' %}已退出{% else %}待核对{% endif %}</dd>
+                        </div>
+                    </dl>
+                </li>
+            {% empty %}
+                <li class="empty">本版本暂无队伍记录。</li>
+            {% endfor %}
+        </ol>
+    </section>
+    {% if is_organizer and snapshot.kind == 'finalists' and snapshot.signed_at %}
+        <section class="panel">
+            <h2>同版联络与路演队列</h2>
+            <form method="post">{% csrf_token %}<button class="button" name="action" value="queue">按本版入围顺序生成队列</button></form>
+            <p>系统只操作已签认入围队伍，不改变其他作品的材料审核状态。确认入口（队长登录）：<a href="{{ confirmation_url }}">打开本版队长确认入口</a>。由主办方选择实际渠道发送，系统不会自动通知。</p>
+            {% if contacts %}
+                <ul class="snapshot-contacts">
+                    {% for contact in contacts %}
+                        <li><a href="{% url 'hackathon:workflow-contact' hackathon.slug contact.pk %}">{{ contact.team.name }}</a> · {{ contact.get_state_display }} · 截止{{ contact.deadline|default:'待送达' }} · {% if contact.arrived %}已到场{% else %}待到场{% endif %} · {% if contact.equipment_ready %}设备已核对{% else %}待核对设备{% endif %}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </section>
+        <section class="panel">
+            <h2>授权递补（生成新版本，仍需负责人签认）</h2>
+            <form method="post" class="snapshot-promotion">
+                {% csrf_token %}
+                <p><label>退出队伍作品UUID <input name="outgoing" required></label></p>
+                <p><label>同赛道候补作品UUID <input name="incoming" required></label></p>
+                <p><label>递补依据 <textarea name="reason" required maxlength="2000"></textarea></label></p>
+                <button class="button secondary" name="action" value="promote">生成递补名单</button>
+            </form>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

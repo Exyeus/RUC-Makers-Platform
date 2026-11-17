@@ -66,6 +66,7 @@
           {{ asset.filename }}
           ↓
         </a>
+        {% include 'hackathon/media_player.html' with asset=asset %}
       {% endfor %}
       {% if hackathon.results_published and project.award %}
         <div class="award">

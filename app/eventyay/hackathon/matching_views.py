@@ -182,7 +182,17 @@ def read_payload(h, actor, operation, params):
         query = params.get('q', '').strip()
         if query:
             candidates = candidates.filter(
-                Q(name__icontains=query) | Q(bio__icontains=query) | Q(skills__icontains=query)
+                Q(name__icontains=query)
+                | (
+                    Q(looking_for_team=True)
+                    & Q(bio__icontains=query)
+                    & ~Q(social_preference__hidden_fields__contains=['bio'])
+                )
+                | (
+                    Q(looking_for_team=True)
+                    & Q(skills__icontains=query)
+                    & ~Q(social_preference__hidden_fields__contains=['skills'])
+                )
             )
         return {'people': [matching.public_person(candidate, candidate.matching_profile) for candidate in candidates]}
     if operation == 'teams':
@@ -197,11 +207,9 @@ def read_payload(h, actor, operation, params):
                     'remaining': h.team_size - t.member_count,
                     'roster_version': t.roster_version,
                     'recipient_id': str(t.captain_id),
+                    'contact_available': matching.visible_to(p, t.captain),
                 }
-                for t in Team.objects.filter(
-                    hackathon=h, recruiting=True, state='recruiting', captain__matching_profile__opt_in=True
-                )
-                .exclude(captain__matching_profile__visibility='paused')
+                for t in Team.objects.filter(hackathon=h, recruiting=True, state='recruiting')
                 .exclude(members__pk__in=excluded)
                 .annotate(member_count=Count('members'))
                 .select_related('captain')
@@ -382,7 +390,25 @@ def market(request):
                 if item.status >= 400 or 'error' in item.result:
                     messages.error(request, item.result.get('message', item.result.get('error', '操作失败。')))
                 else:
-                    messages.success(request, '已记录。接受交流不代表正式入队；正式名单需全员确认。')
+                    if operation == 'intents':
+                        message = '合作意向已发送，等待对方回应；发送意向不会变更正式队伍。'
+                    elif operation == 'intent-decision' and item.result.get('state') == 'accepted':
+                        message = '已同意交流；这不会变更正式队伍。'
+                        if request.participant.team_id:
+                            message += '可在“我的队伍”查看当前名单。'
+                        elif h.matching_roster_enabled:
+                            message += '商量好后，请在名单提案中确认具体名单，完整名单需每位成员同意。'
+                        else:
+                            message += '商量好后，可在“参与队伍”申请入队，由队长处理。'
+                    elif operation == 'intent-decision':
+                        message = {
+                            'cancelled': '合作意向已撤回。',
+                            'declined': '已婉拒交流邀请。',
+                            'expired': '合作意向已过期，未变更正式队伍。',
+                        }.get(item.result.get('state'), '合作意向状态已更新，请查看最新进度。')
+                    else:
+                        message = '操作已完成。请在“我的组队进度”查看最新结果。'
+                    messages.success(request, message)
             except matching.MatchingError as error:
                 messages.error(request, error.message)
         return redirect(url(h, 'matching'))
@@ -423,6 +449,11 @@ def market(request):
         'matching',
         title='匹配推荐与组队进度',
         own_members=Participant.objects.filter(hackathon=h, team_id=p.team_id) if p.team_id else [],
+        eligibility_label=(
+            '开放测试体验（非录用确认）'
+            if request.hackathon_open_testing
+            else ('已通过本届资格核验' if request.hackathon_admitted else '尚未通过本届资格核验')
+        ),
         people=people,
         market_teams=teams,
         ideas=ideas,
@@ -519,13 +550,15 @@ def idea_edit(request, idea_id=None):
             lambda locked: matching.save_idea(locked, request.user, form, idea_id),
         )
         if receipt:
-            return redirect(url(h, 'matching'))
+            return redirect(url(h, 'idea-exchange'))
     return page(
         request,
         'matching_form',
         form=form,
         title='发布 / 编辑 Idea',
         subtitle='组队型保留作者；揭榜型允许多个团队独立实现，作者不会自动占用名额。',
+        back_url=url(h, 'idea-exchange'),
+        back_label='返回想法交流',
         request_key=uuid.uuid4().hex,
     )
 

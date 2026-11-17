@@ -4,6 +4,7 @@
   </div>
 {% endif %}
 {% for field in form %}
+  {% if field.name != skip_field and field.name != skip_field_2 %}
   {% if field.is_hidden %}
     {{ field }}
     {% if field.errors %}
@@ -45,5 +46,6 @@
         </div>
       {% endif %}
     </div>
+  {% endif %}
   {% endif %}
 {% endfor %}

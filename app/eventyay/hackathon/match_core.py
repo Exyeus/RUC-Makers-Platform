@@ -13,8 +13,8 @@ from itertools import combinations
 from math import isfinite
 
 
-ALGORITHM_VERSION = 'ruc-reference-1.0'
-FEATURE_WEIGHTS = {'interest': 0.30, 'skill_need': 0.35, 'time': 0.20, 'goal': 0.15}
+ALGORITHM_VERSION = 'ruc-consent-2.0'
+FEATURE_WEIGHTS = {'interest': 0.25, 'skill_need': 0.30, 'time': 0.15, 'goal': 0.10, 'keywords': 0.10, 'style': 0.10}
 
 
 def _unit(value: float, name: str) -> None:
@@ -38,6 +38,8 @@ class Profile:
     blocked_ids: frozenset[str] = frozenset()
     team_id: str | None = None
     async_ok: bool = False
+    keywords: frozenset[str] | None = None
+    collaboration_style: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
         if not self.person_id or not self.event_id:
@@ -128,6 +130,8 @@ def pair_reasons(a: Profile, b: Profile) -> tuple[str, ...]:
 def directed_score(a: Profile, b: Profile) -> FeatureScore:
     features = {
         'interest': jaccard(a.interests, b.interests),
+        'keywords': jaccard(a.keywords, b.keywords),
+        'style': jaccard(a.collaboration_style, b.collaboration_style),
         'skill_need': need_coverage(a, b),
         'time': time_overlap(a, b),
         # Nominal categories, not one-dimensional cosine similarity.
@@ -162,6 +166,8 @@ def common_slots(members: Sequence[Profile]) -> frozenset[int] | None:
 def team_coverage(members: Sequence[Profile], idea: Idea) -> float | None:
     if not members or not idea.role_weights or sum(idea.role_weights.values()) == 0:
         return None
+    if any(p.skills is None for p in members):
+        return None
     # Conservative lower bound: unreported skills are not treated as proven ability.
     return sum(
         weight * max((p.skills or {}).get(role, 0.0) for p in members) for role, weight in idea.role_weights.items()
@@ -169,6 +175,8 @@ def team_coverage(members: Sequence[Profile], idea: Idea) -> float | None:
 
 
 def marginal_coverage(members: Sequence[Profile], candidate: Profile, idea: Idea) -> float | None:
+    if candidate.skills is None or any(p.skills is None for p in members):
+        return None
     before = team_coverage(members, idea)
     after = team_coverage([*members, candidate], idea)
     if after is None:

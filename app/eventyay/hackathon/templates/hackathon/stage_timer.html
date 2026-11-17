@@ -24,10 +24,12 @@
     等待开始
   </div>
   <p class="stage-rule">
-    {{ hackathon.demo_seconds }}
-    秒展示 ·
-    {{ hackathon.transition_seconds }}
-    秒评分与换场 · 不设现场 Q&A
+    {% if material_policy.enabled %}
+      {% if hackathon.demo_seconds == 240 %}3 分钟演示 + 1 分钟答问（合计 240 秒）{% else %}演示与答问合计 {{ hackathon.demo_seconds }} 秒{% endif %}
+      · {{ hackathon.transition_seconds }} 秒换场；答问由场控口令衔接
+    {% else %}
+      {{ hackathon.demo_seconds }} 秒展示 · {{ hackathon.transition_seconds }} 秒评分与换场 · 不设现场 Q&A
+    {% endif %}
   </p>
   <div class="next-up" data-stage-upcoming>
   </div>

@@ -66,7 +66,7 @@ def test_no_team_recommends_team_before_reading(client, hackathon, participant, 
     required_resource(hackathon)
     response, _ = overview(client, hackathon, user)
     assert response.context['current_task'].key == 'team'
-    assert response.context['current_task'].url == endpoint(hackathon, 'teams')
+    assert response.context['current_task'].url == endpoint(hackathon, 'team-directory')
 
 
 def test_unread_is_personal_and_never_blocks_project(client, hackathon, team, user):
@@ -374,7 +374,8 @@ def test_populated_public_information_retains_content_and_escaping(client, hacka
 
 
 @pytest.mark.parametrize('route', [
-    'schedule', 'announcements', 'resources', 'teams', 'project', 'gallery', 'stage', 'support',
+    'schedule', 'announcements', 'resources', 'teams', 'team-directory', 'idea-exchange',
+    'project', 'gallery', 'stage', 'support',
 ])
 def test_workspace_theme_and_navigation_survive_page_changes(client, hackathon, team, user, route):
     client.force_login(user)

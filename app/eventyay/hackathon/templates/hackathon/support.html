@@ -1,5 +1,6 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
+<div class="support-refresh">
   <section class="page-heading">
     <div>
       <div class="eyebrow">
@@ -19,8 +20,8 @@
       {{ hackathon.contact }}
     </div>
   {% endif %}
-  <div class="two-column">
-    <section>
+  <div class="two-column support-layout">
+    <section class="support-list">
       <h2>
         {% if is_organizer %}
           本届支持工单
@@ -112,7 +113,7 @@
         </div>
       {% endfor %}
     </section>
-    <form method="post" class="panel">
+    <form method="post" class="panel support-create">
       {% csrf_token %}
       <input type="hidden" name="action" value="new">
       <h2>
@@ -123,4 +124,5 @@
         提交支持请求      </button>
     </form>
   </div>
+</div>
 {% endblock %}

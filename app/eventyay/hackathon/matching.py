@@ -6,13 +6,14 @@ from datetime import timedelta
 from itertools import combinations
 from uuid import UUID
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from eventyay.hackathon import identity, social
 from eventyay.hackathon import match_core as core
-from eventyay.hackathon.matching_forms import ROLE_LABELS
+from eventyay.hackathon.matching_privacy import allowed_fields
 from eventyay.hackathon.models import (
     Idea,
     IdeaImplementation,
@@ -25,15 +26,18 @@ from eventyay.hackathon.models import (
     MatchingReceipt,
     MatchIntent,
     Participant,
+    Project,
     ProposalConsent,
     RecommendationRun,
     Team,
     TeamMembership,
     TeamProposal,
     Track,
+    invitation_code,
 )
 from eventyay.hackathon.permissions import is_organizer
-from eventyay.hackathon.services import audit, lock_event
+from eventyay.hackathon.services import audit, close_join_requests, lock_event
+from eventyay.hackathon.services import transfer_captain as transfer_team_captain
 
 
 ALGORITHM_VERSION = f'idea-market-1.0/{core.ALGORITHM_VERSION}'
@@ -114,13 +118,16 @@ def visible_to(viewer, target, *, discovery=False) -> bool:
 
 def public_person(p, profile=None) -> dict:
     profile = profile if profile is not None else profile_for(p)
+    social.mask(p)
     return {
         'id': str(p.pk),
         'name': p.name,
-        'tagline': p.tagline,
-        'bio': p.bio,
-        'skills': profile.skills if profile else {},
-        'interests': profile.interests if profile else [],
+        'tagline': p.tagline if p.looking_for_team else '',
+        'bio': p.bio if p.looking_for_team else '',
+        'skills': profile.skills
+        if profile and 'skills' in profile.public_fields and 'skills' not in social.hidden(p)
+        else {},
+        'interests': profile.interests if profile and 'interests' in profile.public_fields else [],
         'version': profile.version if profile else 0,
         'updated_at': profile.updated.isoformat() if profile else None,
         'team_id': str(p.team_id) if p.team_id else None,
@@ -178,6 +185,12 @@ def save_profile(h, actor, data):
             'help_requested',
         )
     }
+    values.update(
+        {
+            key: data.get(key, getattr(current, key, []) if current else [])
+            for key in ('matching_fields', 'public_fields', 'collaboration_style')
+        }
+    )
     values.update(needs={role: 1 for role in data['needs']}, version=data['version'] + 1, confirmed_at=timezone.now())
     profile, _ = MatchingProfile.objects.update_or_create(hackathon=h, participant=p, defaults=values)
     if data.get('availability_confirmed') and 'unavailable_slots' in data:
@@ -217,6 +230,16 @@ def save_idea(h, actor, form, idea_id=None):
 
 def send_intent(h, actor, recipient_id, message, team_id=None):
     sender, recipient = own_person(h, actor), person(h, recipient_id)
+    if MatchIntent.objects.filter(hackathon=h, sender=sender, recipient=recipient, state='declined').exists():
+        raise MatchingError('NOT_AVAILABLE', '对方已拒绝交流申请，请尊重对方的选择。', 403)
+    pref = social.preference(recipient)
+    if pref and not pref.allow_requests:
+        raise MatchingError('NOT_AVAILABLE', '对方暂不接收新的交流申请。', 403)
+    if (
+        MatchIntent.objects.filter(hackathon=h, sender=sender, created__gte=timezone.now() - timedelta(days=1)).count()
+        >= 20
+    ):
+        raise MatchingError('CONTACT_LIMIT', '今日交流申请已达上限，请明日再试。', 429)
     if sender.pk == recipient.pk or not visible_to(sender, recipient):
         raise MatchingError('NOT_AVAILABLE', '该合作对象暂不可联系。', 404)
     if not message.strip() or len(message) > 500:
@@ -271,15 +294,14 @@ def decide_intent(h, actor, intent_id, decision, version):
 
 
 def shared_contacts(h, viewer, intent):
-    if viewer.pk not in {intent.sender_id, intent.recipient_id} or intent.state != 'accepted':
-        return {}
-    if blocked(intent.sender, intent.recipient):
+    try:
+        item, other = social.chat_intent(h, viewer, intent.pk)
+    except PermissionDenied:
         return {}
     return {
-        str(c.participant_id): c.text
-        for c in MatchingContact.objects.filter(
-            hackathon=h, participant_id__in=[intent.sender_id, intent.recipient_id], share_on_accept=True
-        )
+        str(owner.pk): '；'.join(social.contacts(h, item, owner).values())
+        for owner in (viewer, other)
+        if social.contacts(h, item, owner)
     }
 
 
@@ -289,7 +311,9 @@ def snapshot_roster(h, members, idea, team):
         not profiles[p.pk].opt_in or profiles[p.pk].visibility == 'paused' for p in members
     ):
         raise MatchingError('PROFILE_NEEDS_CONFIRMATION', '所有成员需先确认匹配资料与参与意愿。', 422)
-    if any(p.admission_state != 'admitted' for p in members):
+    if any(
+        not (identity.admitted(p.user, h) if h.admission_required else p.admission_state == 'admitted') for p in members
+    ):
         raise MatchingError('ROSTER_NOT_AVAILABLE', '名单资格尚未满足，请本人联系工作人员。')
     if any(blocked(a, b) for a, b in combinations(members, 2)):
         raise MatchingError('ROSTER_NOT_AVAILABLE', '当前名单不可确认，请重新协商。')
@@ -392,6 +416,11 @@ def consent_proposal(h, actor, proposal_id, proposal_hash, decision):
         return {'error': 'PROPOSAL_EXPIRED', 'state': 'expired'}
     if decision not in {'accept', 'decline'}:
         raise MatchingError('INVALID_DECISION', '请选择同意或拒绝。', 422)
+    if decision == 'accept' and not (team and team.track_id == item.track_id):
+        if not Track.published(h).filter(pk=item.track_id).exists():
+            item.state = 'stale'
+            item.save(update_fields=['state', 'updated'])
+            return {'error': 'TRACK_NOT_AVAILABLE', 'state': 'stale', 'message': '该赛道已关闭，请重新选择已发布赛道。'}
     try:
         current = snapshot_roster(h, members, Idea.objects.get(hackathon=h, pk=item.idea_id), team)
     except MatchingError as error:
@@ -421,9 +450,10 @@ def consent_proposal(h, actor, proposal_id, proposal_hash, decision):
         for member in members:
             TeamMembership.objects.get_or_create(hackathon=h, participant=member, team=team, left_at=None)
         Participant.objects.filter(hackathon=h, pk__in=ids).update(team=team, looking_for_team=False)
+        close_join_requests(h, members)
         team.roster_version += 1
-        team.recruiting = len(members) < h.team_size
-        team.state = 'recruiting' if team.recruiting else 'ready'
+        team.recruiting = team.recruiting and len(members) < h.team_size
+        team.state = 'recruiting' if len(members) < h.team_size else 'ready'
         team.save(update_fields=['name', 'track', 'roster_version', 'recruiting', 'state', 'updated'])
         item.target_team, item.state = team, 'confirmed'
         IdeaImplementation.objects.get_or_create(hackathon=h, idea=item.idea, team=team)
@@ -459,13 +489,19 @@ def leave(h, actor):
         raise MatchingError('NOT_IN_TEAM', '当前尚未入队。')
     if team.captain_id == p.pk and team.members.count() > 1:
         raise MatchingError('CAPTAIN_TRANSFER_REQUIRED', '队长需先交接队伍管理权限。')
+    if team.members.count() == 1 and Project.objects.filter(hackathon=h, team=team).exists():
+        raise MatchingError(
+            'PROJECT_HANDOVER_REQUIRED', '队伍已有作品，最后一名成员不能退出。请联系主办方处理或先交接。'
+        )
     TeamMembership.objects.filter(hackathon=h, participant=p, left_at=None).update(left_at=timezone.now())
     p.team = None
     p.save(update_fields=['team', 'updated'])
     team.roster_version += 1
     team.state = 'dissolved' if not team.members.exists() else 'recruiting'
-    team.recruiting = team.state == 'recruiting'
-    team.save(update_fields=['roster_version', 'state', 'recruiting', 'updated'])
+    team.recruiting = team.recruiting and team.state == 'recruiting'
+    if team.state == 'dissolved':
+        team.invite_code = invitation_code()
+    team.save(update_fields=['roster_version', 'state', 'recruiting', 'invite_code', 'updated'])
     emit(h, 'TeamMemberLeft', {'participant_id': str(p.pk), 'team_id': str(team.pk)})
     audit(h, actor, '退出正式名单', team.code)
     return {'state': 'left'}
@@ -531,6 +567,7 @@ def core_profiles(h):
     profiles, by_id = {}, {}
     for record in records:
         p = record.participant
+        allowed = allowed_fields(record)
         # JSON columns are checked at this boundary, including records imported outside forms.
         if (
             not isinstance(record.skills, dict)
@@ -544,16 +581,20 @@ def core_profiles(h):
             profiles[str(p.pk)] = core.Profile(
                 person_id=str(p.pk),
                 event_id=str(h.event_id),
-                skills=record.skills,
-                needs=record.needs,
-                interests=frozenset(record.interests) or None,
-                slots=frozenset(record.slots) if record.slots is not None else None,
-                goal=record.goal or None,
-                eligible=p.admission_state == 'admitted',
+                skills=record.skills if 'skills' in allowed else None,
+                needs=record.needs if 'needs' in allowed else None,
+                interests=(frozenset(record.interests) or None) if 'interests' in allowed else None,
+                keywords=(frozenset(p.keywords) or None) if 'keywords' in allowed else None,
+                collaboration_style=(frozenset(record.collaboration_style) or None)
+                if 'collaboration_style' in allowed
+                else None,
+                slots=frozenset(record.slots) if record.slots is not None and 'slots' in allowed else None,
+                goal=(record.goal or None) if 'goal' in allowed else None,
+                eligible=identity.admitted(p.user, h) if h.admission_required else p.admission_state == 'admitted',
                 opt_in=record.opt_in and record.visibility != 'paused',
                 blocked_ids=frozenset(exclusions.get(str(p.pk), set())),
                 team_id=str(p.team_id) if p.team_id else None,
-                async_ok=record.async_ok,
+                async_ok=record.async_ok and 'async_ok' in allowed,
             )
         except (ValueError, TypeError):
             continue
@@ -573,23 +614,44 @@ def core_idea(idea):
     )
 
 
+DIMENSION_LABELS = {
+    'interest': '兴趣 / 方向',
+    'keywords': '个人标签',
+    'skill_need': '技能互补',
+    'time': '协作时间',
+    'goal': '参赛目标',
+    'style': '性格 / 协作偏好',
+}
+
+
 def public_reasons(a, b):
-    reasons = []
-    shared = sorted((a.interests or frozenset()) & (b.interests or frozenset()))
-    if shared:
-        reasons.append({'code': 'SHARED_INTEREST', 'public_text': '共同关注：' + '、'.join(shared)})
-    roles = [ROLE_LABELS.get(r, r) for r in (a.needs or {}) if (b.skills or {}).get(r, 0) > 0]
-    if roles:
-        reasons.append({'code': 'ROLE_CONTRIBUTION', 'public_text': '对方可贡献：' + '、'.join(sorted(roles))})
-    slots = core.common_slots([a, b])
-    if slots:
-        reasons.append({'code': 'COMMON_TIME', 'public_text': f'已确认 {len(slots)} 个共同半小时时段，可进一步讨论。'})
-    elif slots is None:
-        reasons.append({'code': 'TIME_UNKNOWN', 'public_text': '协作时间尚待双方确认。'})
-    return reasons
+    scores = core.directed_score(a, b).features
+    return [
+        {'code': key.upper(), 'public_text': label + '较契合'}
+        for key, label in DIMENSION_LABELS.items()
+        if scores.get(key) is not None and scores[key] >= 0.6
+    ]
 
 
+def presentation(row):
+    score, evidence = row['score'], row['evidence_completeness']
+    row['compatibility'] = round(score * 100) if score is not None else None
+    row['coverage_percent'] = round(evidence * 100)
+    row['compatibility_label'] = (
+        '资料不足，待交流确认'
+        if score is None or evidence < 0.5
+        else '高度契合'
+        if score >= 0.75
+        else '值得交流'
+        if score >= 0.5
+        else '可探索不同方向'
+    )
+    return row
+
+
+@transaction.atomic
 def recommendations(h, viewer, target='people', limit=5):
+    h = lock_event(h)
     require_enabled(h)
     profiles, records = core_profiles(h)
     me = profiles.get(str(viewer.pk))
@@ -606,6 +668,14 @@ def recommendations(h, viewer, target='people', limit=5):
     }
     rows = []
     if target == 'people':
+        if (
+            me.team_id
+            and not Team.objects.filter(pk=me.team_id, hackathon=h, recruiting=True, state='recruiting')
+            .annotate(size=Count('members'))
+            .filter(size__lt=h.team_size)
+            .exists()
+        ):
+            return {'results': [], 'unknown_fields': [], 'algorithm_version': ALGORITHM_VERSION}
         for pid, other in profiles.items():
             if pid in dismissed or other.team_id or core.pair_reasons(me, other):
                 continue
@@ -614,6 +684,8 @@ def recommendations(h, viewer, target='people', limit=5):
                 continue
             forward, reverse = core.directed_score(me, other), core.directed_score(other, me)
             score = core.harmonic(forward.value, reverse.value)
+            if score is None:
+                continue
             rows.append(
                 {
                     'target_id': pid,
@@ -654,8 +726,10 @@ def recommendations(h, viewer, target='people', limit=5):
             delta = core.marginal_coverage(group, me, core_idea(idea)) if idea else None
             scores = [core.reciprocal_score(me, p) for p in group]
             score = sum(scores) / len(scores) if all(s is not None for s in scores) else None
-            if delta is not None and score is not None:
-                score = score * 0.6 + delta * 0.4
+            if score is None:
+                continue
+            if delta is not None:
+                score = score * 0.8 + delta * 0.2
             reasons = [
                 {
                     'code': 'TEAM_VACANCY',
@@ -664,8 +738,10 @@ def recommendations(h, viewer, target='people', limit=5):
             ]
             if delta is not None and delta > 0:
                 reasons.append({'code': 'MARGINAL_COVERAGE', 'public_text': '你能补充该项目当前尚缺的角色能力。'})
-            if slots:
-                reasons.append({'code': 'GROUP_TIME', 'public_text': f'与全队有 {len(slots)} 个共同半小时时段。'})
+            for key, label in DIMENSION_LABELS.items():
+                values = [core.directed_score(me, p).features[key] for p in group]
+                if all(v is not None for v in values) and sum(values) / len(values) >= 0.6:
+                    reasons.append({'code': key.upper(), 'public_text': '与现有成员的' + label + '较契合'})
             rows.append(
                 {
                     'target_id': str(team.pk),
@@ -675,7 +751,10 @@ def recommendations(h, viewer, target='people', limit=5):
                     'roster_version': team.roster_version,
                     'profile_versions': {p.person_id: records[p.person_id].version for p in full},
                     'score': score,
-                    'evidence_completeness': sum(core.directed_score(me, p).evidence_weight for p in group)
+                    'evidence_completeness': sum(
+                        min(core.directed_score(me, p).evidence_weight, core.directed_score(p, me).evidence_weight)
+                        for p in group
+                    )
                     / len(group),
                     'reasons': reasons,
                     'unknown_fields': ['time'] if slots is None else [],
@@ -685,25 +764,23 @@ def recommendations(h, viewer, target='people', limit=5):
             )
     else:
         raise MatchingError('INVALID_TARGET', '推荐类型无效。', 422)
-    ordered = sorted(rows, key=lambda x: (x['score'] is None, -(x['score'] or 0), x['target_id']))
-    exposure = {}
-    for run in RecommendationRun.objects.filter(hackathon=h, viewer=viewer).order_by('-created')[:100]:
-        for result in run.results:
-            exposure[result['target_id']] = exposure.get(result['target_id'], 0) + 1
-    chosen = ordered[: max(0, limit - 2)]
-    rest = [r for r in ordered if r not in chosen]
-    if rest:
-        low = min(rest, key=lambda r: (exposure.get(r['target_id'], 0), r['target_id']))
-        chosen.append(low)
-        rest.remove(low)
-    if rest:
-        chosen.append(max(rest, key=lambda r: (r['updated_at'], r['target_id'])))
+    ordered = sorted(
+        rows,
+        key=lambda x: (
+            x['evidence_completeness'] < 0.5,
+            x['score'] is None,
+            -(x['score'] or 0),
+            -x['evidence_completeness'],
+            x['target_id'],
+        ),
+    )
+    chosen = [presentation(row) for row in ordered[: max(0, limit)]]
     # Save internal scores; the public payload intentionally exposes factual explanations only.
     snapshot = {
         'policy_version': h.matching_policy_version,
         'versions': {pid: record.version for pid, record in records.items()},
         'target': target,
-        'profiles': {pid: profile_snapshot(profile) for pid, profile in profiles.items()},
+        'profiles': {pid: {'fields': sorted(allowed_fields(records[pid]))} for pid in profiles},
     }
     run = RecommendationRun.objects.create(
         hackathon=h,
@@ -880,6 +957,8 @@ def configure(h, actor, enabled, roster, single, minimum, maximum, capacity=150)
 
 
 def set_admission(h, actor, participant_id, state):
+    if h.admission_required:
+        raise MatchingError('ADMISSION_MANAGED_SEPARATELY', '请在通过名单与准入页面维护本届选拔结果。')
     if not is_organizer(actor, h):
         raise PermissionDenied
     p = person(h, participant_id)
@@ -915,6 +994,8 @@ def profile_snapshot(profile):
         'interests': sorted(profile.interests) if profile.interests is not None else None,
         'slots': sorted(profile.slots) if profile.slots is not None else None,
         'goal': profile.goal,
+        'keywords': sorted(profile.keywords) if profile.keywords is not None else None,
+        'collaboration_style': sorted(profile.collaboration_style) if profile.collaboration_style is not None else None,
         'eligible': profile.eligible,
         'opt_in': profile.opt_in,
         'blocked_ids': sorted(profile.blocked_ids),
@@ -924,22 +1005,7 @@ def profile_snapshot(profile):
 
 
 def contacts_for_intents(h, viewer, intents):
-    excluded = excluded_ids(h, viewer)
-    accepted = [
-        i
-        for i in intents
-        if i.state == 'accepted'
-        and viewer.pk in {i.sender_id, i.recipient_id}
-        and not ({i.sender_id, i.recipient_id} & excluded)
-    ]
-    ids = {pid for item in accepted for pid in (item.sender_id, item.recipient_id)}
-    contacts = {
-        c.participant_id: c.text
-        for c in MatchingContact.objects.filter(hackathon=h, participant_id__in=ids, share_on_accept=True)
-    }
-    return {
-        i.pk: {str(pid): contacts[pid] for pid in (i.sender_id, i.recipient_id) if pid in contacts} for i in accepted
-    }
+    return {i.pk: shared_contacts(h, viewer, i) for i in intents if i.state == 'accepted'}
 
 
 def transfer_captain(h, actor, participant_id):
@@ -956,9 +1022,9 @@ def transfer_captain(h, actor, participant_id):
     successor = next((p for p in members if p.pk == participant_id and p.pk != leader.pk), None)
     if successor is None:
         raise MatchingError('NOT_AVAILABLE', '请选择当前队伍中的另一位成员。', 404)
-    team.captain = successor
-    team.roster_version += 1
-    team.save(update_fields=['captain', 'roster_version', 'updated'])
+    try:
+        team = transfer_team_captain(h, leader, successor)
+    except ValidationError as error:
+        raise MatchingError('TRANSFER_BLOCKED', '；'.join(error.messages)) from error
     emit(h, 'TeamCaptainTransferred', {'team_id': str(team.pk), 'captain_id': str(successor.pk)})
-    audit(h, actor, '转交队长', team.code, successor.code)
     return {'state': 'transferred', 'captain_id': str(successor.pk)}

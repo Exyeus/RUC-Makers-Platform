@@ -8,3 +8,10 @@
     {% endfor %}
   </nav>
 {% endfor %}
+{% if participant %}
+  <div class="nav-label">沟通与隐私</div>
+  <nav aria-label="沟通与隐私">
+    <a class="nav-item{% if request.resolver_match.url_name == 'social-inbox' or request.resolver_match.url_name == 'social-chat' %} active{% endif %}" href="{% url 'hackathon:social-inbox' hackathon.slug %}"{% if request.resolver_match.url_name == 'social-inbox' or request.resolver_match.url_name == 'social-chat' %} aria-current="page"{% endif %}><svg aria-hidden="true"><use href="#i-chat" /></svg>站内沟通</a>
+    <a class="nav-item{% if request.resolver_match.url_name == 'social-privacy' %} active{% endif %}" href="{% url 'hackathon:social-privacy' hackathon.slug %}"{% if request.resolver_match.url_name == 'social-privacy' %} aria-current="page"{% endif %}><svg aria-hidden="true"><use href="#i-settings" /></svg>展示与沟通隐私</a>
+  </nav>
+{% endif %}

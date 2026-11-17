@@ -1,0 +1,44 @@
+// Copy into the approved Playwright runner. Use synthetic accounts and materials.
+import type { Page, TestInfo } from '@playwright/test';
+import { test } from '@playwright/test';
+
+export async function recordStep(
+  page: Page,
+  info: TestInfo,
+  id: string,
+  description: string,
+  actionAndAssertions: () => Promise<void>,
+): Promise<void> {
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Step ID must be a safe filename component.');
+  await test.step(description, async () => {
+    const started = Date.now();
+    let didFail = false;
+    let failure: unknown;
+    const before = info.outputPath(`${id}-before.png`);
+    await page.screenshot({ path: before, fullPage: true, animations: 'disabled' });
+    await info.attach(`${id}:before`, { path: before, contentType: 'image/png' });
+    try {
+      // This callback must assert the intended result, not only perform clicks.
+      await actionAndAssertions();
+    } catch (error) {
+      didFail = true;
+      failure = error;
+    }
+    try {
+      const after = info.outputPath(`${id}-after.png`);
+      await page.screenshot({ path: after, fullPage: true, animations: 'disabled' });
+      await info.attach(`${id}:after`, { path: after, contentType: 'image/png' });
+      const url = new URL(page.url());
+      url.username = ''; url.password = ''; url.search = ''; url.hash = '';
+      await info.attach(`${id}:step`, {
+        body: JSON.stringify({ id, description, status: didFail ? 'failed' : 'passed',
+          elapsed_ms: Date.now() - started, page: url.toString() }),
+        contentType: 'application/json',
+      });
+    } catch (captureError) {
+      if (!didFail) throw captureError;
+      await info.attach(`${id}:capture-gap`, { body: 'Evidence capture failed; retain original action failure and trace.', contentType: 'text/plain' });
+    }
+    if (didFail) throw failure;
+  });
+}

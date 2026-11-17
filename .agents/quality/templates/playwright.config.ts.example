@@ -1,0 +1,48 @@
+// Adapt into the existing QA runner; this is configuration, not a completed website test suite.
+import { defineConfig } from '@playwright/test';
+import path from 'node:path';
+
+const baseURL = process.env.QA_BASE_URL;
+const allowedOrigin = process.env.QA_ALLOWED_ORIGIN;
+const reportRoot = process.env.QA_REPORT_DIR;
+const environment = process.env.QA_ENV;
+if (!baseURL || !allowedOrigin || !reportRoot) {
+  throw new Error('Set QA_BASE_URL, QA_ALLOWED_ORIGIN and an approved private QA_REPORT_DIR.');
+}
+if (!['local-isolated', 'staging-isolated'].includes(environment ?? '')) {
+  throw new Error('QA_ENV must identify an isolated environment.');
+}
+const base = new URL(baseURL);
+if (!['http:', 'https:'].includes(base.protocol) || base.origin !== new URL(allowedOrigin).origin) {
+  throw new Error('QA origin mismatch. Check authorization and test-data isolation before running.');
+}
+if (base.username || base.password) throw new Error('Keep credentials out of URLs.');
+
+export default defineConfig({
+  testDir: './tests', // Relative to the final config file location.
+  fullyParallel: true,
+  forbidOnly: true,
+  retries: 0, // Do not conceal flaky acceptance with a silently successful retry.
+  workers: 2,
+  timeout: 60_000,
+  outputDir: path.join(reportRoot, 'test-results'),
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: path.join(reportRoot, 'playwright-report'), open: 'never' }],
+    ['json', { outputFile: path.join(reportRoot, 'playwright-results.json') }],
+  ],
+  use: {
+    baseURL,
+    timezoneId: 'Asia/Shanghai',
+    locale: 'zh-CN',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    // Record milestone screenshots explicitly even on success using recordStep.
+    // Avoid shared storageState for tests that modify server-side state.
+  },
+  projects: [
+    { name: 'chromium-wide', use: { browserName: 'chromium', viewport: { width: 1440, height: 900 } } },
+    { name: 'chromium-narrow', use: { browserName: 'chromium', viewport: { width: 390, height: 844 } } },
+  ],
+});

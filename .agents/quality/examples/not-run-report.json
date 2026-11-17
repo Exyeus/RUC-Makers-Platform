@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "run": {
+    "id": "example-not-executed",
+    "title": "RUCMA 验收报告格式预览（未测试网站）",
+    "kind": "example-not-executed",
+    "revision": "not-executed",
+    "source_fingerprint": "not-executed",
+    "environment": "not-executed",
+    "disclaimer": "本页仅演示验收报告结构。网站场景全部未运行，没有实际网站截图；工具包自测另见 SELFTEST.md。"
+  },
+  "checks": [
+    {
+      "id": "AUTH-01",
+      "name": "登录和会话恢复",
+      "status": "not_run",
+      "kind": "browser",
+      "exit_code": null,
+      "summary": "等待本地 Codex 绑定真实路由、账号和用例后执行。",
+      "assertions": {},
+      "steps": [],
+      "evidence": []
+    },
+    {
+      "id": "TEAM-01",
+      "name": "陌生选手发现并联系伙伴",
+      "status": "not_run",
+      "kind": "browser",
+      "exit_code": null,
+      "summary": "等待本地 Codex 绑定真实路由、账号和用例后执行。",
+      "assertions": {},
+      "steps": [],
+      "evidence": []
+    },
+    {
+      "id": "TEAM-02",
+      "name": "双方组队状态一致",
+      "status": "not_run",
+      "kind": "browser",
+      "exit_code": null,
+      "summary": "等待本地 Codex 绑定真实路由、账号和用例后执行。",
+      "assertions": {},
+      "steps": [],
+      "evidence": []
+    },
+    {
+      "id": "SUBMIT-01",
+      "name": "上传进度与失败恢复",
+      "status": "not_run",
+      "kind": "browser",
+      "exit_code": null,
+      "summary": "等待本地 Codex 绑定真实路由、账号和用例后执行。",
+      "assertions": {},
+      "steps": [],
+      "evidence": []
+    },
+    {
+      "id": "SUBMIT-02",
+      "name": "正式提交回执与持久化",
+      "status": "not_run",
+      "kind": "browser",
+      "exit_code": null,
+      "summary": "等待本地 Codex 绑定真实路由、账号和用例后执行。",
+      "assertions": {},
+      "steps": [],
+      "evidence": []
+    },
+    {
+      "id": "SUBMIT-03",
+      "name": "重复、断网与截止边界",
+      "status": "not_run",
+      "kind": "browser",
+      "exit_code": null,
+      "summary": "等待本地 Codex 绑定真实路由、账号和用例后执行。",
+      "assertions": {},
+      "steps": [],
+      "evidence": []
+    },
+    {
+      "id": "SUBMIT-04",
+      "name": "跨账号与队伍访问隔离",
+      "status": "not_run",
+      "kind": "browser",
+      "exit_code": null,
+      "summary": "等待本地 Codex 绑定真实路由、账号和用例后执行。",
+      "assertions": {},
+      "steps": [],
+      "evidence": []
+    },
+    {
+      "id": "OPS-01",
+      "name": "主办方接管与导出",
+      "status": "not_run",
+      "kind": "browser",
+      "exit_code": null,
+      "summary": "等待本地 Codex 绑定真实路由、账号和用例后执行。",
+      "assertions": {},
+      "steps": [],
+      "evidence": []
+    }
+  ],
+  "findings": [],
+  "gaps": [
+    "Windows/WSL/阿里云目标环境尚未运行。",
+    "未获得登录态、数据库或 OSS 测试隔离证据。",
+    "本页不能作为上线验收通过记录。"
+  ]
+}

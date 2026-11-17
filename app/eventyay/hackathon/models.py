@@ -4,28 +4,19 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.files.storage import FileSystemStorage
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
-from django.utils.deconstruct import deconstructible
 from django_scopes import ScopedManager
 
 from eventyay.base.models.mixins import TimestampedModel
+from eventyay.hackathon.matching_privacy import default_matching_fields, default_public_fields
 from eventyay.hackathon.scoring import CRITERIA, weighted_total
+from eventyay.hackathon.storage import PrivateStorage
 
 
 def invitation_code():
     return secrets.token_urlsafe(12)
-
-
-@deconstructible
-class PrivateStorage(FileSystemStorage):
-    def __init__(self):
-        super().__init__(location=Path(settings.DATA_DIR) / 'hackathon-private')
-
-    def url(self, name):
-        raise ValueError('Hackathon assets must be downloaded through an authorised view.')
 
 
 def asset_path(instance, filename):
@@ -72,6 +63,7 @@ class Hackathon(TimestampedModel):
         '换场秒数', default=30, validators=[MinValueValidator(10), MaxValueValidator(300)]
     )
     is_public = models.BooleanField('活动公开', default=False)
+    admission_required = models.BooleanField('仅通过名单中的选手可进入活动', default=False)
     gallery_open = models.BooleanField('公开已审核且同意展示的作品', default=False)
     results_published = models.BooleanField('公布成绩与评语', default=False)
     judging_open = models.BooleanField('开放评分', default=False)
@@ -258,6 +250,7 @@ class JoinRequest(EventRecord):
             ('accepted', '已加入'),
             ('declined', '已婉拒'),
             ('withdrawn', '已撤回'),
+            ('unavailable', '已组队，申请已关闭'),
         ],
     )
 
@@ -302,6 +295,10 @@ class Project(EventRecord):
     revision = models.PositiveIntegerField(default=0)
     review_note = models.TextField('检查意见 / 补录理由', blank=True)
     equipment_checked = models.BooleanField('投影、声音、视频切换已演练', default=False)
+    final_material_kind = models.CharField(
+        '现场上场材料（手动选择）', max_length=12, blank=True, db_default='',
+        choices=[('slides', 'PDF 演示文稿'), ('video', '现场视频')]
+    )
     award = models.CharField('奖项 / 后续孵化资源', max_length=200, blank=True)
 
     @property
@@ -318,6 +315,7 @@ class Asset(EventRecord):
         SLIDES = 'slides', '演示文稿'
         VIDEO = 'video', '备用录屏'
         SOURCE = 'source', '项目附件'
+        PRELIMINARY = 'preliminary', '初评短视频'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='assets')
@@ -327,6 +325,7 @@ class Asset(EventRecord):
     original_filename = models.CharField('原文件名', max_length=255, blank=True)
     checksum = models.CharField(max_length=64)
     size = models.PositiveBigIntegerField()
+    media_probe = models.JSONField('视频校验结果', default=dict, db_default={}, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['project', 'kind'], name='hack_asset_kind')]
@@ -353,6 +352,10 @@ class UploadSession(EventRecord):
     checksum_bound_at = models.DateTimeField(null=True, blank=True)
     deadline_at = models.DateTimeField(null=True, blank=True)
     lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    transport = models.CharField(max_length=12, default='relay', db_default='relay')
+    storage_name = models.CharField(max_length=512, blank=True, db_default='')
+    storage_upload_id = models.CharField(max_length=512, blank=True, db_default='')
+    intent_manifest = models.JSONField('上传登记时的作品信息与已有材料', default=dict, db_default={}, blank=True)
     last_error = models.CharField(max_length=500, blank=True)
     asset = models.ForeignKey(Asset, on_delete=models.SET_NULL, null=True)
 
@@ -586,6 +589,9 @@ class MatchingProfile(EventRecord):
         PAUSED = 'paused', '暂停匹配 / 单人参赛'
 
     participant = models.OneToOneField(Participant, on_delete=models.CASCADE, related_name='matching_profile')
+    matching_fields = models.JSONField(default=default_matching_fields, blank=True)
+    public_fields = models.JSONField(default=default_public_fields, blank=True)
+    collaboration_style = models.JSONField(default=list, blank=True)
     skills = models.JSONField(default=dict, blank=True)
     needs = models.JSONField(default=dict, blank=True)
     interests = models.JSONField(default=list, blank=True)
@@ -798,6 +804,9 @@ class CommunityPost(EventRecord):
 
 
 class CommunityResponse(EventRecord):
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
+    removed = models.BooleanField(default=False)
+
     post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE, related_name='responses')
     author = models.ForeignKey(Participant, on_delete=models.PROTECT)
     body = models.TextField('我的回应', max_length=1000)
@@ -836,3 +845,66 @@ class BonusClaim(EventRecord):
         constraints = [
             models.UniqueConstraint(fields=['rule', 'participant'], name='hack_bonus_claim_once'),
         ]
+
+
+# Register account-side models after EventRecord is available.
+from eventyay.hackathon.account_models import (  # noqa: E402,F401
+    AccountActionToken,
+    AccountSecurity,
+    AdmissionGrant,
+    UpdateDelivery,
+)
+
+
+class SocialPreference(EventRecord):
+    participant = models.OneToOneField(Participant, on_delete=models.CASCADE, related_name='social_preference')
+    allow_requests = models.BooleanField(default=True)
+    allow_chat = models.BooleanField(default=True)
+    hidden_fields = models.JSONField(default=list, blank=True)
+    contacts = models.JSONField(default=dict, blank=True)
+
+
+class ChatMessage(EventRecord):
+    intent = models.ForeignKey(MatchIntent, on_delete=models.CASCADE, related_name='chat_messages')
+    author = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    body = models.TextField(max_length=2000)
+    client_id = models.UUIDField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['intent', 'author', 'client_id'], name='hack_chat_retry')]
+        indexes = [models.Index(fields=['intent', 'id'], name='hack_chat_cursor')]
+
+
+class ContactGrant(EventRecord):
+    intent = models.ForeignKey(MatchIntent, on_delete=models.CASCADE)
+    owner = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    fields = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['intent', 'owner'], name='hack_contact_grant')]
+
+
+class PostReaction(EventRecord):
+    post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE)
+    author = models.ForeignKey(Participant, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['post', 'author'], name='hack_post_like')]
+
+
+class SocialReport(EventRecord):
+    reporter = models.ForeignKey(Participant, on_delete=models.PROTECT)
+    target_type = models.CharField(max_length=16)
+    target_id = models.CharField(max_length=64)
+    reason = models.TextField(max_length=1000)
+    resolved = models.BooleanField(default=False)
+
+
+from eventyay.hackathon.stage_models import StageOrderRequest  # noqa: E402,F401
+from eventyay.hackathon.submission_models import MaterialPolicy, SubmissionSnapshot  # noqa: E402,F401
+from eventyay.hackathon.workflow_models import (  # noqa: E402,F401
+    FinalistContact,
+    JudgingRound,
+    ResultSnapshot,
+    RoundScore,
+)

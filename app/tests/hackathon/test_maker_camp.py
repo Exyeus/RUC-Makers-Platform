@@ -186,7 +186,7 @@ def test_absence_hours_visible_to_organizer_and_export_only(client, hackathon, p
     assert summary in response.content.decode()
     assert summary in client.get(endpoint(hackathon, 'export', kind='participants')).content.decode()
     client.logout()
-    assert summary not in client.get(endpoint(hackathon, 'teams')).content.decode()
+    assert summary not in client.get(endpoint(hackathon, 'team-directory')).content.decode()
 
 
 def test_absence_grid_converts_to_matching_half_hours(hackathon):
@@ -261,14 +261,14 @@ def test_root_selects_camp_and_never_disabled_hackathon(client, hackathon):
 
 
 def test_square_and_work_pool_show_camp_content_without_matching(client, hackathon, community_post):
-    response = client.get(endpoint(hackathon, 'teams'))
+    response = client.get(endpoint(hackathon, 'idea-exchange'))
     assert response.status_code == 200
     assert community_post.title in response.content.decode()
     assert '作品池' in response.content.decode()
     assert list(response.context['pool_posts']) == [community_post]
     hackathon.matching_enabled = True
     hackathon.save()
-    assert client.get(endpoint(hackathon, 'teams')).status_code == 200
+    assert client.get(endpoint(hackathon, 'idea-exchange')).status_code == 200
 
 
 def test_square_preserves_matching_visibility(client, hackathon, participant, other_participant):
@@ -288,14 +288,14 @@ def test_square_preserves_matching_visibility(client, hackathon, participant, ot
         solution='一起研究',
         mode='either',
     )
-    assert idea.title not in client.get(endpoint(hackathon, 'teams')).content.decode()
+    assert idea.title not in client.get(endpoint(hackathon, 'idea-exchange')).content.decode()
     client.force_login(other_participant.user)
-    response = client.get(endpoint(hackathon, 'teams'))
+    response = client.get(endpoint(hackathon, 'team-directory'))
     assert participant not in response.context['seekers']
-    assert idea.title in response.content.decode()
+    assert idea.title in client.get(endpoint(hackathon, 'idea-exchange')).content.decode()
     profile.visibility = 'event'
     profile.save()
-    assert participant in client.get(endpoint(hackathon, 'teams')).context['seekers']
+    assert participant in client.get(endpoint(hackathon, 'team-directory')).context['seekers']
 
 
 def test_post_create_edit_and_private_draft(client, hackathon, participant, user, other_participant):
@@ -317,7 +317,7 @@ def test_post_create_edit_and_private_draft(client, hackathon, participant, user
     client.force_login(other_participant.user)
     assert client.get(endpoint(hackathon, 'post-detail', post_id=post.pk)).status_code == 404
     assert client.get(endpoint(hackathon, 'post-edit', post_id=post.pk)).status_code == 404
-    assert post.title not in client.get(endpoint(hackathon, 'teams')).content.decode()
+    assert post.title not in client.get(endpoint(hackathon, 'idea-exchange')).content.decode()
 
 
 def test_private_responses_only_visible_to_parties(client, hackathon, community_post, participant, other_participant):

@@ -1,0 +1,46 @@
+# 原始资料
+
+核验：2026-11-16。官方文档优先；上游链接会变化，部署时锁定选用 commit/version。已安装原版技能的 commit/license/SHA-256 见 `upstream-lock.json`；其余链接仅供参考。项目资料通过连接的 GitHub 读取；以本地当前检出为准。
+
+- [S01] Codex skills / .agents/skills — https://learn.chatgpt.com/docs/build-skills
+- [S02] Codex subagents / inheritance / configuration — https://learn.chatgpt.com/docs/agent-configuration/subagents
+- [S03] Impeccable detector — https://impeccable.style/docs/detector/
+- [S04] Impeccable installation — https://impeccable.style/tutorials/getting-started/
+- [S05] Impeccable hooks — https://impeccable.style/docs/hooks/
+- [S06] Vercel Web Interface Guidelines / official skill — https://vercel.com/design/guidelines
+- [S07] Microsoft HAX Human-AI Interaction Guidelines — https://www.microsoft.com/en-us/haxtoolkit/ai-guidelines/
+- [S08] Nielsen usability heuristics — https://www.nngroup.com/articles/ten-usability-heuristics/
+- [S09] W3C status messages — https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html
+- [S10] sloptrim-cn upstream (community project; inspect before use) — https://github.com/pakco77/sloptrim-cn
+- [S11] ESLint no-warning-comments — https://eslint.org/docs/latest/rules/no-warning-comments
+- [S12] Stylelint disallowed property/value pairs — https://stylelint.io/user-guide/rules/declaration-property-value-disallowed-list
+- [S13] ESLint no-restricted-syntax — https://eslint.org/docs/latest/rules/no-restricted-syntax
+- [S14] Playwright installation/platform requirements — https://playwright.dev/docs/intro
+- [S15] Playwright authentication and isolation — https://playwright.dev/docs/auth
+- [S16] Playwright reporters — https://playwright.dev/docs/test-reporters
+- [S17] Playwright Trace Viewer — https://playwright.dev/docs/trace-viewer
+- [S18] Playwright accessibility / axe-core — https://playwright.dev/docs/accessibility-testing
+- [S19] Playwright CLI installation and .agents skill — https://playwright.dev/agent-cli/installation
+- [S20] Playwright CLI named sessions / dashboard — https://playwright.dev/agent-cli/sessions
+- [S21] Mermaid CLI — https://github.com/mermaid-js/mermaid-cli
+- [S22] pstack official repository — https://github.com/cursor/plugins/tree/main/pstack
+- [S23] pstack create-verification-skill — https://github.com/cursor/plugins/blob/main/pstack/skills/create-verification-skill/SKILL.md
+- [S24] pstack maintain-verification-skill — https://github.com/cursor/plugins/blob/main/pstack/skills/maintain-verification-skill/SKILL.md
+- [S25] pstack correct — https://github.com/cursor/plugins/blob/main/pstack/skills/correct/SKILL.md
+- [S26] Gitleaks — https://github.com/gitleaks/gitleaks
+- [S27] pip-audit — https://github.com/pypa/pip-audit
+- [S28] ZAP baseline — https://www.zaproxy.org/docs/docker/baseline-scan/
+- [S29] Playwright MCP — https://github.com/microsoft/playwright-mcp
+- [S30] k6 load testing — https://grafana.com/docs/k6/latest/testing-guides/load-testing-websites/
+- [S31] Hypothesis stateful testing — https://hypothesis.readthedocs.io/en/latest/stateful.html
+- [S32] Toxiproxy — https://github.com/Shopify/toxiproxy
+- [S33] Django deployment checklist (use project-matching version) — https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+- [S34] WSL networking — https://learn.microsoft.com/en-us/windows/wsl/networking
+- [S35] Codex Windows app / WSL configuration separation — https://learn.chatgpt.com/docs/windows/windows-app
+- [S36] Playwright network interception — https://playwright.dev/docs/network
+- [S37] Playwright Test Agents — https://playwright.dev/docs/test-agents
+- [S38] Playwright visual comparison environments — https://playwright.dev/docs/test-snapshots
+- [S39] MDN XMLHttpRequest upload events — https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/upload
+- [R01] Existing project workflow — https://github.com/Exyeus/RUC-Makers-Platform/blob/main/.agents/WORKFLOW.md
+- [R02] Existing adversarial audit — https://github.com/Exyeus/RUC-Makers-Platform/blob/main/.agents/skills/adversarial-audit/SKILL.md
+- [R03] Existing Activity CI — https://github.com/Exyeus/RUC-Makers-Platform/blob/main/doc/development-ci.md
