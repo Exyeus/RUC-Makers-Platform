@@ -35,6 +35,7 @@ def plan_for(hackathon):
 def round_rules(kind, plan):
     return {
         'criteria': [{'key': key, 'label': label, 'weight': weight} for key, label, weight in ROUND_CRITERIA[kind]],
+        'scale': 'points',
         'aggregation': 'mean',
         'trim': 0,
         'minimum_judges': 2 if kind == 'preliminary' else 1,

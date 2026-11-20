@@ -126,3 +126,38 @@ def test_awards_are_suggested_by_rank_signed_and_exported(client, hackathon, org
     table = list(csv.reader(io.StringIO(response.content.decode('utf-8-sig'))))
     assert table[0][:3] == ['赛道', '决赛名次', '奖项']
     assert sorted(row[2] for row in table[1:]) == ['一等奖', '一等奖', '二等奖', '二等奖']
+
+
+def test_each_dimension_is_scored_up_to_its_full_marks(hackathon, organizer_user):
+    from django.core.exceptions import ValidationError
+
+    plan, projects, judges = plan_with(hackathon, organizer_user)
+    hackathon.submission_deadline = timezone.now() - timedelta(minutes=1)
+    hackathon.save()
+    competition_day.lock_and_start(hackathon)
+    item = JudgingRound.objects.get(hackathon=hackathon, kind='preliminary')
+    assert item.rules['scale'] == 'points'
+    assert [c['weight'] for c in item.rules['criteria']] == [25, 40, 25, 10]
+    task = item.tasks[0]
+    judge = next(j for j in judges if str(j.pk) in task['judges'])
+    project = next(p for p in projects if str(p.pk) == task['project_id'])
+    with pytest.raises(ValidationError):
+        workflow.save_round_score(
+            hackathon,
+            judge,
+            item,
+            project,
+            values={'fit': 25, 'function': 41, 'value': 25, 'clarity': 10},
+            final=True,
+            revision=0,
+        )
+    workflow.save_round_score(
+        hackathon,
+        judge,
+        item,
+        project,
+        values={'fit': 23, 'function': 37, 'value': 21, 'clarity': 9},
+        final=True,
+        revision=0,
+    )
+    assert workflow.score_total(item.rules, {'fit': 23, 'function': 37, 'value': 21, 'clarity': 9}) == 90

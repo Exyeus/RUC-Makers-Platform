@@ -235,3 +235,21 @@ def test_roadshow_package_refuses_when_a_finalist_has_no_material(client, hackat
     assert response.status_code == 302
     follow = client.get(response.url).content.decode()
     assert '路演材料包未生成' in follow and '没有路演材料' in follow
+
+
+def test_confirming_a_score_opens_the_next_unscored_work(client, hackathon, organizer_user):
+    plan, projects, judges = plan_with(hackathon, organizer_user)
+    hackathon.submission_deadline = timezone.now() - timedelta(minutes=1)
+    hackathon.save()
+    competition_day.lock_and_start(hackathon)
+    item = JudgingRound.objects.get(hackathon=hackathon, kind='preliminary')
+    judge = judges[0]
+    mine = [task['project_id'] for task in item.tasks if str(judge.pk) in task['judges']]
+    assert len(mine) >= 2
+    client.force_login(judge)
+    page = client.get(endpoint(hackathon, 'workflow-score', round_id=item.pk, project_id=mine[0])).content.decode()
+    assert 'name="' + item.rules['criteria'][0]['key'] + '"' in page and '总分' in page
+    data = {'action': 'final', 'revision': 0, 'feedback': ''}
+    data.update({criterion['key']: 7 for criterion in item.rules['criteria']})
+    response = client.post(endpoint(hackathon, 'workflow-score', round_id=item.pk, project_id=mine[0]), data)
+    assert response.url == endpoint(hackathon, 'workflow-score', round_id=item.pk, project_id=mine[1])

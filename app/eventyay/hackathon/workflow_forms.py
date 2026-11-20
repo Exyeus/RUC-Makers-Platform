@@ -4,18 +4,20 @@ from django.db.models import Q
 from eventyay.base.models import User
 from eventyay.hackathon.models import StaffAssignment, Track
 from eventyay.hackathon.workflow_models import JudgingRound
+from eventyay.hackathon.workflow_services import criterion_max
 
 
+# 需求文档 6.1：各维度按满分直接打分，四项相加为总分（满分 100）。
 ROUND_CRITERIA = {
     'preliminary': [
         ('fit', '赛道契合与问题判断', 25),
-        ('function', '作品可见的功能与完成度', 40),
+        ('function', '功能与完成度', 40),
         ('value', '应用价值与可验证性', 25),
-        ('clarity', '表达清晰度', 10),
+        ('clarity', '视频表达', 10),
     ],
     'final': [
-        ('fit', '赛道契合', 25),
-        ('demo', '作品演示', 35),
+        ('fit', '问题与赛道契合', 25),
+        ('demo', '现场演示及完成度', 35),
         ('value', '实际价值与验证', 25),
         ('answers', '答问与表达', 15),
     ],
@@ -115,6 +117,7 @@ class RoundForm(forms.Form):
         kind = self.cleaned_data['kind']
         return {
             'criteria': [{'key': key, 'label': label, 'weight': weight} for key, label, weight in ROUND_CRITERIA[kind]],
+            'scale': 'points',
             'aggregation': self.cleaned_data['aggregation'],
             'trim': self.cleaned_data['trim'],
             'minimum_judges': 2 if kind == 'preliminary' else 6,
@@ -136,8 +139,14 @@ class RoundScoreForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.round = round
         for criterion in reversed(round.rules['criteria']):
+            top = criterion_max(round.rules, criterion)
             self.fields[criterion['key']] = forms.IntegerField(
-                label=f'{criterion["label"]} · {criterion["weight"]}%', min_value=0, max_value=10, required=confirm
+                label=f'{criterion["label"]}（满分 {top}）'
+                if round.rules.get('scale') == 'points'
+                else f'{criterion["label"]} · {criterion["weight"]}%',
+                min_value=0,
+                max_value=top,
+                required=confirm,
             )
             self.fields.move_to_end(criterion['key'], last=False) if hasattr(self.fields, 'move_to_end') else None
         self.order_fields([row['key'] for row in round.rules['criteria']] + ['feedback', 'revision'])

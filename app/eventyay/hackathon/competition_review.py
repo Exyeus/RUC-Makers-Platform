@@ -24,10 +24,7 @@ def judge_totals(item, row):
     names = {judge['user_id']: judge.get('name', '') for judge in item.panel}
     totals = []
     for source in row['scores']:
-        total = sum(
-            Decimal(str(source['values'][criterion['key']])) * criterion['weight'] / 10
-            for criterion in item.rules['criteria']
-        )
+        total = workflow.score_total(item.rules, source['values'])
         totals.append({'name': names.get(source['judge_id'], ''), 'total': total.quantize(Decimal('.1'))})
     return totals
 
@@ -36,7 +33,7 @@ def tie_groups(rows):
     """Consecutive complete rows with the same average, as lists of indexes."""
     groups, start = [], 0
     for index in range(1, len(rows) + 1):
-        if index == len(rows) or not rows[index]['complete'] or rows[index]['average'] != rows[start]['average']:
+        if index == len(rows) or not rows[index]['complete'] or rows[index]['exact'] != rows[start]['exact']:
             if index - start > 1 and rows[start]['complete']:
                 groups.append(list(range(start, index)))
             start = index

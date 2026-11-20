@@ -218,7 +218,12 @@ def confirm(request, snapshot_id):
 
 def score_values(round, values):
     return [
-        {'label': criterion['label'], 'weight': criterion['weight'], 'value': values.get(criterion['key'])}
+        {
+            'label': criterion['label'],
+            'weight': criterion['weight'],
+            'max': workflow.criterion_max(round.rules, criterion),
+            'value': values.get(criterion['key']),
+        }
         for criterion in round.rules['criteria']
     ]
 
@@ -236,6 +241,25 @@ def review_entry(round, row):
             for source in row['scores']
         ],
     }
+
+
+def judge_queue(item, user):
+    """Works this user may open in this round, in task order."""
+    return [
+        task['project_id'] for task in item.tasks if workflow.can_read_round_material(item, user, task['project_id'])
+    ]
+
+
+def next_unscored(item, user, current):
+    done = {
+        str(project_id)
+        for project_id in RoundScore.objects.filter(round=item, judge=user, final=True).values_list(
+            'project_id', flat=True
+        )
+    }
+    mine = [task['project_id'] for task in item.tasks if str(user.pk) in task['judges']]
+    start = mine.index(current) + 1 if current in mine else 0
+    return next((pid for pid in mine[start:] + mine[:start] if pid not in done and pid != current), None)
 
 
 @event_view('login')
@@ -381,7 +405,11 @@ def score(request, round_id, project_id):
                         hackathon=h, round=item, project=project, judge=request.user
                     ).first()
             else:
-                messages.success(request, '本轮评分已确认。' if action == 'final' else '本轮草稿已保存，尚未计分。')
+                messages.success(request, '评分已确认。' if action == 'final' else '草稿已保存，尚未计分。')
+                if action == 'final':
+                    following = next_unscored(item, request.user, str(project.pk))
+                    if following:
+                        return redirect(address(h, 'score', round_id=item.pk, project_id=following))
                 return redirect(address(h, 'tasks', round_id=item.pk))
     material = item.materials[str(project.pk)]
     review_row = (
@@ -389,6 +417,8 @@ def score(request, round_id, project_id):
         if not can_score
         else None
     )
+    queue = judge_queue(item, request.user)
+    here = queue.index(str(project.pk)) if str(project.pk) in queue else None
     # Only immutable IDs from this round are presented; playback endpoints re-check current authorization.
     return page(
         request,
@@ -405,6 +435,11 @@ def score(request, round_id, project_id):
         can_edit_score=can_edit_score,
         window_open=window_open,
         read_only_error=read_only_error,
+        position=here + 1 if here is not None else None,
+        queue_total=len(queue),
+        previous_id=queue[here - 1] if here else None,
+        next_id=queue[here + 1] if here is not None and here + 1 < len(queue) else None,
+        score_fields=[(form[row['key']], row) for row in item.rules['criteria']] if form else [],
     )
 
 

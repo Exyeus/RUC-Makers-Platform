@@ -34,3 +34,25 @@ if (blocks.length) {
   };
   tick();
 }
+
+// Judge score form: each dimension has a number box and a slider kept in step; the total is their sum.
+(function () {
+  function update(form) {
+    var out = form.querySelector('[data-sw-total]');
+    var total = 0, filled = 0;
+    form.querySelectorAll('.sw-dim-input').forEach(function (input) {
+      if (input.value === '') return;
+      var value = Math.max(0, Math.min(Number(input.max), Math.round(Number(input.value))));
+      if (!isNaN(value)) { filled += 1; total += value; }
+    });
+    if (out) { out.textContent = String(total); out.toggleAttribute('data-empty', !filled); }
+  }
+  document.querySelectorAll('form[data-sw-score]').forEach(function (form) {
+    form.querySelectorAll('[data-sw-dim]').forEach(function (dim) {
+      var input = dim.querySelector('.sw-dim-input'), range = dim.querySelector('.sw-dim-range');
+      range.addEventListener('input', function () { input.value = range.value; range.removeAttribute('data-empty'); update(form); });
+      input.addEventListener('input', function () { if (input.value !== '') { range.value = input.value; range.removeAttribute('data-empty'); } update(form); });
+    });
+    update(form);
+  });
+})();
