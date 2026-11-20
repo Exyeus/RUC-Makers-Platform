@@ -320,7 +320,7 @@ html[data-theme] .mobile-nav a[aria-current], html[data-theme] .mobile-nav a.act
 .sw-sched-row .sw-state { font-weight: 700; }
 .sw-sched-row.is-past { color: #8c8c8c; }
 .sw-sched-row.is-now .sw-what { font-weight: 700; }
-.sw-sched-row.is-deadline .sw-what::after { content: '截止'; margin-left: 4px; padding: 0 5px; font-size: 11px; font-weight: 700; background: var(--sw-ink); color: #fff; }
+.sw-sched-row.is-deadline .sw-what::after { content: '截止'; margin-left: 4px; padding: 0 5px; font-size: var(--sw-fs-caption); font-weight: 700; background: var(--sw-ink); color: #fff; }
 .sw-sched-row.is-past.is-deadline .sw-what::after { background: #8c8c8c; }
 .sw-tracks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 24px; row-gap: 32px; }
 .sw-track { display: flex; flex-direction: column; gap: 14px; border-top: 4px solid var(--sw-ink); padding-top: 16px; min-width: 0; }

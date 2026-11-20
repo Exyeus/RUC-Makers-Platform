@@ -2,7 +2,7 @@
 {% block content %}
 <div class="market-refresh">
   <section class="page-heading">
-    <div><div class="eyebrow">PEOPLE × IDEA × TEAM</div><h1>{{ title }}</h1><p>发起项目、加入项目、先探索或单人参赛。名单冻结：{{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}。</p></div>
+    <div><h1>{{ title }}</h1><p>发起项目、加入项目、先探索或单人参赛。名单冻结：{{ hackathon.team_freeze_at|date:'m 月 d 日 H:i' }}。</p></div>
     <a class="button secondary" href="{% url 'hackathon:matching-profile' hackathon.slug %}">匹配资料与隐私设置</a>
   </section>
   <p><a href="{% url 'hackathon:team-directory' hackathon.slug %}">← 参与队伍</a> · <a href="{% url 'hackathon:idea-exchange' hackathon.slug %}">想法交流</a></p>

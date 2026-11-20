@@ -40,7 +40,7 @@
     </a>
     <aside class="sidebar" id="sidebar" aria-label="主导航">
       <button type="button" class="nav-close icon-button" data-nav-close aria-label="关闭导航">×</button>
-      <a class="brand" href="{% url 'hackathon:home' hackathon.slug %}" aria-label="创协活动主页">{% include 'hackathon/brand.html' %}</a>
+      <a class="brand" href="{% url 'hackathon:home' hackathon.slug %}" aria-label="创协活动主页">{% include 'hackathon/brand.html' with show_name=True %}</a>
       {% include 'hackathon/workbench_navigation.html' %}
       {% if not is_organizer %}
         <nav class="nav-account-links" aria-label="账户登录">

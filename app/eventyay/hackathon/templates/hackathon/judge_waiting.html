@@ -1,7 +1,7 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
   <section class="page-heading">
-    <div><div class="eyebrow">LIVE JUDGING</div><h1>当前路演</h1><p>{{ rule_description }}</p></div>
+    <div><h1>当前路演</h1><p>{{ rule_description }}</p></div>
     <a class="button secondary" href="{% url 'hackathon:judging' hackathon.slug %}">全部队伍与评分</a>
   </section>
   {% include 'hackathon/judge_sync.html' %}

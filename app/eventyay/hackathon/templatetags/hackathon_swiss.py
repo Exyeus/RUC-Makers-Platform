@@ -101,3 +101,11 @@ def sw_milestones(hackathon, limit=8, items=None):
     first_open = next((i for i, entry in enumerate(entries) if entry['state'] != 'past'), len(entries))
     start = max(0, min(first_open - 1, len(entries) - limit))
     return entries[start : start + limit]
+
+
+@register.filter
+def weekday_zh(value):
+    """星期几，固定中文，不随界面语言变化。"""
+    if not value:
+        return ''
+    return '星期' + '一二三四五六日'[timezone.localtime(value).weekday()]
