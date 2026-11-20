@@ -452,11 +452,12 @@ def test_internal_links_carry_no_outward_arrow(client, hackathon, participant, r
         assert leaves_workspace, f'{visible} → {destination}'
 
 
-def test_long_term_promotion_is_collapsed_by_default(client, hackathon, participant, user):
+def test_sidebar_carries_navigation_only(client, hackathon, participant, user):
+    """Swiss layout: the sidebar holds navigation, no promotional note or vendor badge."""
     client.force_login(user)
     body = client.get(endpoint(hackathon, 'home')).content.decode()
-    assert '<details class="sidebar-note">' in body
-    assert '查看孵化与往届资源' in body
+    assert 'sidebar-note' not in body
+    assert 'Powered by' not in body
 
 
 def test_timeline_carries_the_same_items_and_deadlines_as_the_grid(hackathon):

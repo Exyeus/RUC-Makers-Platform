@@ -54,7 +54,7 @@ def test_unregistered_next_task_and_deadlines(client, hackathon, user):
     assert len(deadlines) == 2
     assert deadlines[0]['datetime'] == deadlines[1]['datetime']
     assert deadlines[0].text == deadlines[1].text
-    assert 'Asia/Shanghai' in soup.select_one('.ruc-deadline-value').text
+    assert '北京时间' in soup.select_one('.ruc-deadline-value').text
     assert deadlines[0].text == timezone.localtime(
         hackathon.submission_deadline, ZoneInfo(hackathon.event.timezone)
     ).strftime('%Y 年 %-m 月 %-d 日 %H:%M')

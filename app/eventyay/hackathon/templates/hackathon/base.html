@@ -1,10 +1,10 @@
 {% load static hackathon_static %}
 <!DOCTYPE html>
-<html lang="zh-CN" class="ruc-root">
+<html lang="zh-CN" class="ruc-root" data-sw-server-now="{% now 'c' %}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#0b0d14" data-theme-light="#f3edf8">
+    <meta name="theme-color" content="#ffffff">
     <script src="{% versioned_static 'hackathon/theme-init.js' %}"></script>
     <title>
       {% block title %}
@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="{% versioned_static 'hackathon/theme.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/media-player.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/workflow.css' %}">
+    <link rel="stylesheet" href="{% versioned_static 'hackathon/swiss.css' %}">
     <script type="module" src="{% versioned_static 'hackathon/ui.js' %}"></script>
     <script type="module" src="{% versioned_static 'hackathon/hub.js' %}">
     </script>
@@ -30,6 +31,7 @@
     <script type="module" src="{% versioned_static 'hackathon/media-player.js' %}"></script>
     <script type="module" src="{% static 'hackathon/responsive.js' %}"></script>
     <script type="module" src="{% static 'hackathon/camp.js' %}"></script>
+    <script type="module" src="{% versioned_static 'hackathon/swiss.js' %}"></script>
   </head>
   <body class="workspace-page ruc-app {% if display %}display-mode{% endif %}">
     {% include 'hackathon/icons.html' %}
@@ -48,32 +50,7 @@
           <a class="nav-item" href="{% url 'hackathon:organizer-login' hackathon.slug %}">主办方登录</a>
         </nav>
       {% endif %}
-      <div class="sidebar-bottom">
-        <details class="sidebar-note">
-          <summary>
-            <svg aria-hidden="true"><use href="#i-spark" /></svg>
-            <span>让好想法，继续生长。</span>
-          </summary>
-          <p>
-            教程、队友与下一步机会，
-            <br>
-            都在这里等你。
-          </p>
-          <a href="{% url 'hackathon:resources' hackathon.slug %}?category=incubate">
-            查看孵化与往届资源
-          </a>
-        </details>
-        <a class="powered" href="{% url 'presale:events.upcoming' %}">
-          Powered by
-          <strong>
-            eventyay
-          </strong>
-          <span>
-            ↗
-          </span>
-        </a>
-      </div>
-    </aside>
+      </aside>
     <button type="button" class="nav-backdrop" data-nav-close aria-label="关闭导航" tabindex="-1" hidden></button>
     <div class="workspace">
       <header class="topbar">
@@ -158,20 +135,8 @@
         {% block content %}
         {% endblock %}
         <footer class="page-footer">
-          <span>
-            BUILD SOMETHING THAT MATTERS.
-          </span>
-          <span>
-            {{ hackathon.name }}
-            ·
-            {{ hackathon.event.date_from|date:'Y' }}
-            <span class="footer-dot">
-              ·
-            </span>
-            时间以
-            {{ hackathon.event.timezone }}
-            为准
-          </span>
+          <span>{{ hackathon.name }} · {{ hackathon.event.date_from|date:'Y' }}</span>
+          <span>所有时间均为{% if hackathon.event.timezone == 'Asia/Shanghai' %}北京时间{% else %}{{ hackathon.event.timezone }}{% endif %}，以服务器时间为准</span>
         </footer>
       </main>
     </div>

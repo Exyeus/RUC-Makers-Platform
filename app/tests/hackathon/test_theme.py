@@ -14,7 +14,7 @@ from tests.hackathon.test_workflows import endpoint
 @pytest.mark.parametrize(
     'route,authenticated', [('home', False), ('student-signup', False), ('home', True), ('teams', True)]
 )
-def test_theme_bootstraps_before_styles_and_keeps_a_native_fallback(client, hackathon, user, route, authenticated):
+def test_theme_bootstraps_before_styles_and_swiss_layer_loads_last(client, hackathon, user, route, authenticated):
     if authenticated:
         client.force_login(user)
     response = client.get(endpoint(hackathon, route))
@@ -26,10 +26,10 @@ def test_theme_bootstraps_before_styles_and_keeps_a_native_fallback(client, hack
     assert bootstrap.get('type') != 'module'
     head = str(soup.head)
     assert head.index(str(bootstrap)) < head.index(str(soup.select_one('head link[rel="stylesheet"]')))
-    native = soup.select_one('[data-ui-theme] select[data-theme-select]')
-    assert native is not None
-    assert {option.get('value') for option in native.select('option')} == {'light', 'dark', 'system'}
-    assert native.get('aria-label') or soup.select_one('label[for="' + native.get('id', '') + '"]')
+    stylesheets = [link.get('href', '') for link in soup.select('head link[rel="stylesheet"]')]
+    assert 'hackathon/swiss.css' in stylesheets[-1]
+    # The Swiss system is light only; there is no appearance switch to show.
+    assert soup.select_one('[data-ui-theme]') is None
 
 
 def test_appearance_runtime_regressions():

@@ -238,7 +238,7 @@ def workspace_navigation(request, hackathon, identity):
     doc/ui-workbench.md).
     """
     activity = [('schedule', '活动日程', 'calendar'), ('announcements', '通知公告', 'bell')]
-    reference = [('resources', '学习与指南', 'book'), ('gallery', '作品展厅', 'spark')]
+    reference = [('resources', '学习与指南', 'book'), ('gallery', '作品展厅', 'gallery')]
     help_entry = ('support', '帮助与支持', 'help')
     contestant_entries = [('teams', '我的队伍', 'users'), ('project', '我的作品', 'folder')]
     collaboration_entries = [('team-directory', '参与队伍', 'users'), ('idea-exchange', '想法交流', 'spark')]
@@ -527,6 +527,7 @@ def landing_context(request):
         'featured_resources': Resource.published(h)[:3],
         'calendar_days': schedule_heatmap(h, schedule_items),
         'calendar_timeline': schedule_timeline(h, schedule_items),
+        'schedule_items': schedule_items,
     }
 
 
