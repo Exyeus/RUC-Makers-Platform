@@ -484,3 +484,4 @@ html[data-theme] .project-summary, html[data-theme] .project-workflow .panel { m
 html[data-theme] .form-errors, html[data-theme] .message.warning, html[data-theme] .warning-text { background: transparent !important; border: 0 !important; border-top: 1px solid var(--sw-ink) !important; border-bottom: 1px solid var(--sw-ink) !important; color: var(--sw-ink) !important; padding: 12px 0 12px 16px !important; box-shadow: inset 4px 0 0 var(--sw-pink) !important; }
 html[data-theme] .form-errors strong { color: var(--sw-ink) !important; }
 html[data-theme] .form-errors ul { margin: 6px 0 0; padding-left: 18px; }
+.sw-copy { width: 100%; font-family: var(--sw-mono) !important; font-size: 12px !important; }

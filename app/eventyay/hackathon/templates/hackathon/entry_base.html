@@ -62,7 +62,7 @@
           </div>
         </section>
         <section class="sw-grid sw-section" id="join" aria-label="登录与账号">
-          <div class="sw-section-num"><span class="sw-num">1</span><strong>登录参赛</strong><span class="sw-label">学号或邮箱登录同一账号</span></div>
+          <div class="sw-section-num"><span class="sw-num">1</span>{% block auth_heading %}<strong>登录参赛</strong><span class="sw-label">学号或邮箱登录同一账号</span>{% endblock %}</div>
           <div class="sw-section-body sw-auth">{% block auth_card %}{% include 'hackathon/student_auth_card.html' with form=login_form %}{% endblock %}</div>
         </section>
         {% block landing_details %}{% endblock %}

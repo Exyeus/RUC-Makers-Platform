@@ -52,3 +52,18 @@ class UpdateDelivery(TimestampedModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['hackathon', 'campaign', 'user'], name='hack_update_delivery')]
+
+
+class JudgeInvite(EventRecord):
+    """A named judge seat's sign-in link. Only the SHA-256 of the token is stored."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='hackathon_judge_invites')
+    digest = models.CharField(max_length=64, unique=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    use_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created']

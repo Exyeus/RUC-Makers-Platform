@@ -1,0 +1,22 @@
+{% extends 'hackathon/entry_base.html' %}
+{% block page_title %}评委登录 · {{ hackathon.name }}{% endblock %}
+{% block auth_heading %}<strong>评委登录</strong><span class="sw-label">专属链接 · 无需密码</span>{% endblock %}
+{% block auth_card %}
+<section class="glass-card auth-card" id="join" aria-labelledby="judge-link-title">
+  {% if invite %}
+    <div class="auth-heading"><h2 id="judge-link-title">{{ invite.user.get_display_name }} 评委，你好</h2></div>
+    <p>这是组委会为你准备的评委席位。点击下方按钮，即可直接进入本届黑客松的评审工作台，按分配的任务查看作品并打分。</p>
+    {% if switching %}<p class="message warning">当前浏览器已登录 {{ current.get_display_name|default:'其他账户' }}。继续将切换为评委身份。</p>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="button" type="submit">进入评审工作台</button>
+    </form>
+    <p>请不要转发这条链接：它就是你的登录凭证。链接失效或换设备时，请联系赛务重新获取。</p>
+  {% else %}
+    <div class="auth-heading"><h2 id="judge-link-title">链接已失效</h2></div>
+    <p>这条评委链接已被作废、已过期，或评委席位已调整。请联系赛务重新获取链接。</p>
+    <p><a href="{% url 'hackathon:judge-login' hackathon.slug %}">已有评委账号？用邮箱和密码登录</a></p>
+  {% endif %}
+</section>
+{% endblock %}

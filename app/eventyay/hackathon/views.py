@@ -123,6 +123,7 @@ ORGANIZER_ROUTES = {
     'material-policy',
     'material-snapshot',
     'judge-batch',
+    'judge-links',
 }
 JUDGE_ROUTES = {'judging', 'judge-live', 'score', 'workflow-judging', 'workflow-tasks', 'workflow-score'}
 VOLUNTEER_ROUTES = {'tasks'}
@@ -161,6 +162,7 @@ NAVIGATION_ALIASES = {
     'workflow-contact': 'workflow-manage',
     'material-snapshot': 'material-policy',
     'judge-batch': 'staff',
+    'judge-links': 'staff',
     'workflow-judging': 'judging',
     'workflow-tasks': 'judging',
     'workflow-score': 'judging',
