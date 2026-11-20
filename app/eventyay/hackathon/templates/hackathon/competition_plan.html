@@ -1,0 +1,43 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+<section class="page-heading"><div><h1>比赛日配置</h1></div></section>
+{% if plan.locked_at %}
+  <p class="message">已于 {{ plan.locked_at|date:'n 月 j 日 H:i' }} 自动锁定作品并开放初评。</p>
+{% elif plan.last_error %}
+  <div class="message error" role="alert"><strong>自动锁定未完成（{{ plan.last_attempt_at|date:'H:i' }}）</strong><p>{{ plan.last_error }}</p></div>
+{% elif problems %}
+  <div class="form-errors" role="status"><strong>到截止时间前请补齐</strong><ul>{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul></div>
+{% elif plan %}
+  <p class="message">{{ hackathon.submission_deadline|date:'n 月 j 日 H:i' }} 截止后自动锁定作品并开放初评。</p>
+{% endif %}
+<form method="post" class="sw-plan">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <section class="panel" aria-labelledby="pre-title">
+    <h2 id="pre-title"><span class="sw-mono">01</span> 初评评委</h2>
+    {% for track, judges, reviewer in form.track_rows %}
+      <fieldset class="sw-track-panel">
+        <legend class="sw-strong">{{ track.name }}</legend>
+        <div class="sw-checks">{{ judges }}</div>
+        <div class="form-field"><label for="{{ reviewer.id_for_label }}">复核人</label>{{ reviewer }}</div>
+      </fieldset>
+    {% empty %}
+      <p class="muted">请先发布赛道。</p>
+    {% endfor %}
+  </section>
+  <section class="panel" aria-labelledby="final-title">
+    <h2 id="final-title"><span class="sw-mono">02</span> 决赛评委</h2>
+    <div class="sw-checks">{{ form.final }}</div>
+  </section>
+  <section class="panel" aria-labelledby="flow-title">
+    <h2 id="flow-title"><span class="sw-mono">03</span> 入围与路演</h2>
+    {% for field in form.flow_fields %}
+      <div class="form-field{% if field.name == 'auto_lock' %} checkbox-field{% endif %}">
+        {% if field.name == 'auto_lock' %}{{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}
+        {% if field.errors %}<div class="field-error" role="alert">{{ field.errors }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  </section>
+  <button class="button" type="submit">保存配置</button>
+</form>
+{% endblock %}

@@ -588,3 +588,10 @@ html[data-theme] .sw-masthead nav a { align-items: flex-start !important; }
   html[data-theme] .sw-masthead nav a:last-child { align-items: center !important; font-size: var(--sw-fs-body) !important; }
   html[data-theme] .sw-masthead .sw-brand > span:first-child { font-size: var(--sw-fs-body); min-height: 44px; }
 }
+
+/* ---------- Competition-day plan ---------- */
+.sw-plan .sw-track-panel { border: 0; border-top: 1px solid var(--sw-rule-soft); margin: 0; padding: 14px 0 18px; display: grid; grid-template-columns: 200px 1fr 240px; gap: 16px 24px; align-items: start; }
+.sw-plan .sw-track-panel legend { float: left; padding: 0; font-size: var(--sw-fs-body); }
+.sw-checks > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0 16px; }
+.sw-checks label { display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 400 !important; font-size: var(--sw-fs-small) !important; cursor: pointer; }
+@media (max-width: 900px) { .sw-plan .sw-track-panel { grid-template-columns: 1fr; } }

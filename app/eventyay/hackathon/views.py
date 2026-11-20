@@ -124,6 +124,7 @@ ORGANIZER_ROUTES = {
     'material-snapshot',
     'judge-batch',
     'judge-links',
+    'competition-plan',
 }
 JUDGE_ROUTES = {'judging', 'judge-live', 'score', 'workflow-judging', 'workflow-tasks', 'workflow-score'}
 VOLUNTEER_ROUTES = {'tasks'}
@@ -163,6 +164,7 @@ NAVIGATION_ALIASES = {
     'material-snapshot': 'material-policy',
     'judge-batch': 'staff',
     'judge-links': 'staff',
+    'competition-plan': 'manage',
     'workflow-judging': 'judging',
     'workflow-tasks': 'judging',
     'workflow-score': 'judging',
@@ -377,6 +379,10 @@ def working_identities(request, hackathon, identity):
 
 def page(request, template, **context):
     hackathon = request.hackathon
+    # Competition day runs on its own: the first page view after the deadline performs any due step.
+    from eventyay.hackathon.competition_day import tick
+
+    tick(hackathon)
     participant = request.participant
     route = request.resolver_match.url_name
     common = {

@@ -123,3 +123,44 @@ class FinalistContact(EventRecord):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['snapshot', 'team'], name='hack_finalist_contact')]
+
+
+class CompetitionPlan(EventRecord):
+    """What the platform does on its own on competition day, set up before the deadline."""
+
+    preliminary_panel = models.JSONField('初评评委（按赛道）', default=dict, blank=True)
+    final_panel = models.JSONField('决赛评委', default=list, blank=True)
+    reviewers = models.JSONField('复核人（按赛道）', default=dict, blank=True)
+    signer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name='+'
+    )
+    seats = models.PositiveSmallIntegerField('每赛道入围', default=8)
+    alternates = models.PositiveSmallIntegerField('每赛道候补', default=2)
+    roadshow_start = models.DateTimeField('路演开始', null=True, blank=True)
+    slot_minutes = models.PositiveSmallIntegerField('每队时长（分钟，含换场）', default=5)
+    confirm_minutes = models.PositiveSmallIntegerField('入围确认时限（分钟）', default=15)
+    auto_lock = models.BooleanField('截止后自动锁定并开始初评', default=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    locked_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=500, blank=True)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['hackathon'], name='hack_competition_plan')]
+
+
+class RoadshowOrder(EventRecord):
+    """A random roadshow order for one signed finalist list; never reshuffled once generated."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    snapshot = models.ForeignKey(ResultSnapshot, on_delete=models.PROTECT, related_name='orders')
+    version = models.PositiveIntegerField()
+    entries = models.JSONField()
+    reason = models.CharField(max_length=500)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    published_at = models.DateTimeField(null=True, blank=True)
+    supersedes = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['hackathon', 'version'], name='hack_roadshow_order_version')]
+        ordering = ['-version']

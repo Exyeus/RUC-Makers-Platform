@@ -109,8 +109,10 @@ def create_round(hackathon, user, *, kind, name, rules, panel, signer, signer_no
     validate_rules(rules)
     if not signer_nonstudent or not signer.is_active or signer.is_spam:
         raise ValidationError('请指定已核实身份的非学生总负责人签认名单。')
-    minimum = 2 if kind == 'preliminary' else 6
-    nonstudent = 0 if kind == 'preliminary' else 6
+    planned = rules.get('source') == 'plan'
+    # A competition plan states its own panel sizes; manual rounds keep the documented floors.
+    minimum = 2 if kind == 'preliminary' else (1 if planned else 6)
+    nonstudent = 0 if kind == 'preliminary' or planned else 6
     if rules['minimum_judges'] < minimum or rules['minimum_nonstudent'] < nonstudent:
         raise ValidationError('评委门槛低于本届方案：初评每道2人含非学生复核；决赛至少6名非学生评委。')
     if kind == 'final' and any(row['tracks'] for row in panel):
@@ -158,7 +160,7 @@ def create_round(hackathon, user, *, kind, name, rules, panel, signer, signer_no
             raise ValidationError(
                 f'「{project.team.name}」的有效评委或非学生评委不足，已自动排除本队成员；本轮未建立。'
             )
-        if kind == 'preliminary' and not any(
+        if kind == 'preliminary' and not planned and not any(
             row.get('nonstudent') is True
             and (row['user_id'], str(project.team_id)) not in conflicts
             and row['user_id'] not in {judge['user_id'] for judge in judges}
