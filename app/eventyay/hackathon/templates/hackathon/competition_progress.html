@@ -1,0 +1,26 @@
+<section class="sw-stage-panel" aria-labelledby="stage-title">
+  <h2 id="stage-title">{{ title }}</h2>
+  <div class="sw-big-row">
+    <span class="sw-num">{{ progress.confirmed }}<small> / {{ progress.expected }}</small></span>
+    <p>份评分已提交</p>
+  </div>
+  <progress class="sw-progress" value="{{ progress.confirmed }}" max="{{ progress.expected|default:1 }}" aria-label="评分进度">{{ progress.percent }}%</progress>
+  <div class="sw-progress-grid">
+    <div>
+      <div class="sw-rule-head"><h3>评委</h3><span>还剩</span></div>
+      {% for judge in progress.judges %}
+        <div class="sw-mini-row is-{% if judge.left %}open{% else %}past{% endif %}"><span>{{ judge.name }}</span><span></span><span class="{% if judge.left >= 8 %}sw-tag sw-tag--now{% else %}sw-mono{% endif %}">{% if judge.left %}{{ judge.left }}{% else %}完成{% endif %}</span></div>
+      {% endfor %}
+    </div>
+    <div>
+      <div class="sw-rule-head"><h3>缺评作品</h3><span class="sw-mono">{{ progress.incomplete }}</span></div>
+      {% for row in progress.rows %}{% if not row.complete %}
+        <div class="sw-mini-row"><span class="sw-mono">{{ row.code }}</span><span>{{ row.title }}</span><span class="sw-mono">{{ row.confirmed }} / {{ row.expected }}</span></div>
+      {% endif %}{% empty %}<p class="sw-label">暂无</p>{% endfor %}
+    </div>
+  </div>
+  <form method="post" class="sw-stage-actions">
+    {% csrf_token %}<input type="hidden" name="action" value="{{ action }}">
+    <button class="sw-btn{% if progress.confirmed < progress.expected %} sw-btn--outline{% endif %}" type="submit">{{ label }}{% if progress.left %} · 还差 {{ progress.left }} 份{% endif %}</button>
+  </form>
+</section>

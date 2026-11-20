@@ -1,0 +1,21 @@
+{% extends 'hackathon/entry_base.html' %}
+{% block page_title %}评委登录 · {{ hackathon.name }}{% endblock %}
+{% block auth_heading %}<strong>评委</strong>{% endblock %}
+{% block auth_card %}
+<section class="glass-card auth-card" id="join" aria-labelledby="judge-link-title">
+  {% if invite %}
+    <div class="auth-heading"><h2 id="judge-link-title">{{ invite.user.get_display_name }}</h2></div>
+    {% if switching %}<p class="message warning">将退出 {{ current.get_display_name|default:'当前账户' }}，以评委身份登录。</p>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="button" type="submit">进入评审工作台</button>
+    </form>
+    <p class="sw-label">此链接仅限本人使用，请勿转发。</p>
+  {% else %}
+    <div class="auth-heading"><h2 id="judge-link-title">链接已失效</h2></div>
+    <p>请联系赛务获取新链接。</p>
+    <p><a href="{% url 'hackathon:judge-login' hackathon.slug %}">使用邮箱和密码登录</a></p>
+  {% endif %}
+</section>
+{% endblock %}

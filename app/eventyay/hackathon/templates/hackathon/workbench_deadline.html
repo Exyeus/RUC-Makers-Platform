@@ -1,1 +1,1 @@
-<time datetime="{{ hackathon.submission_deadline|date:'c' }}">{{ hackathon.submission_deadline|date:'Y 年 n 月 j 日 H:i' }}</time>（{{ hackathon.event.timezone }}）
+<time datetime="{{ hackathon.submission_deadline|date:'c' }}">{{ hackathon.submission_deadline|date:'Y 年 n 月 j 日 H:i' }}</time>（{% if hackathon.event.timezone == 'Asia/Shanghai' %}北京时间{% else %}{{ hackathon.event.timezone }}{% endif %}）

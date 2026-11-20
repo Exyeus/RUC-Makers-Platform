@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0004_hackathon_impact_weight_and_more'),
     ]
@@ -63,6 +62,16 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='project',
             name='state',
-            field=models.CharField(choices=[('draft', '草稿'), ('queued', '已登记，等待材料上传'), ('submitted', '待检查'), ('changes', '需要补充'), ('approved', '已通过')], default='draft', max_length=12),
+            field=models.CharField(
+                choices=[
+                    ('draft', '草稿'),
+                    ('queued', '已登记，等待材料上传'),
+                    ('submitted', '待检查'),
+                    ('changes', '需要补充'),
+                    ('approved', '已通过'),
+                ],
+                default='draft',
+                max_length=12,
+            ),
         ),
     ]

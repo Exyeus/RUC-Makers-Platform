@@ -381,11 +381,11 @@ def test_signed_awards_are_authoritative_and_public_toggle_does_not_unlock(clien
     client.force_login(organizer_user)
     results_url = reverse('hackathon:results', kwargs={'hackathon_slug': hackathon.slug})
     body = client.get(results_url).content.decode()
-    assert '作品演示 35%' in body
+    assert '现场演示及完成度 35%' in body
     assert '答问与表达 15%' in body
     export_url = reverse('hackathon:export', kwargs={'hackathon_slug': hackathon.slug, 'kind': 'results'})
     exported = client.get(export_url).content.decode('utf-8-sig')
-    assert '作品演示 35%' in exported
+    assert '现场演示及完成度 35%' in exported
     assert str(snapshot.pk) in exported
     assert snapshot.sha256 in exported
     assert '一等奖' in exported and 'untrusted edit' not in exported

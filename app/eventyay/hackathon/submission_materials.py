@@ -21,16 +21,45 @@ def material_policy(hackathon):
     return MaterialPolicy.objects.filter(hackathon=hackathon).first()
 
 
+# With the two-material policy only these kinds belong to a submission.
+POLICY_KINDS = ('preliminary', 'video', 'slides')
+POLICY_LABELS = {
+    'preliminary': '初评材料 · MP4 视频（≤ 1 分钟）',
+    'video': '路演材料 · 视频（≤ 3 分钟）',
+    'slides': '路演材料 · PDF',
+}
+
+
 def material_kind_label(kind, policy):
     """Name material by its enabled purpose without changing persisted kind values."""
-    if kind == Asset.Kind.VIDEO and policy and policy.enabled:
-        return '现场视频'
+    if policy and policy.enabled and kind in POLICY_LABELS:
+        return POLICY_LABELS[kind]
     return dict(Asset.Kind.choices).get(kind, kind)
+
+
+def material_format_error(hackathon, kind, filename):
+    """Upload-time format rule of the two-material policy; '' when acceptable."""
+    policy = material_policy(hackathon)
+    if not policy or not policy.enabled:
+        return ''
+    if kind not in POLICY_KINDS:
+        return '本届只收初评材料（MP4 视频）和路演材料（视频或 PDF），请选择对应用途。'
+    if kind == 'slides' and not str(filename).lower().endswith('.pdf'):
+        return '路演材料只接受 PDF 或视频，不接受 PPT；请导出为 PDF 后上传。'
+    return ''
 
 
 def information_errors(project):
     if project is None:
         return ['请先填写并保存作品信息。']
+    policy = material_policy(project.hackathon)
+    if policy and policy.enabled:
+        # Two-material policy: name, description and a track are all that is mandatory.
+        required = [('title', '作品名称'), ('summary', '项目说明')]
+        missing = [label for name, label in required if not str(getattr(project, name, '') or '').strip()]
+        if not project.team.name.strip() or not project.team.track_id:
+            missing.append('队伍名称与赛道')
+        return [f'请先补齐并保存：{label}。' for label in missing]
     missing = []
     for name, label in [
         ('title', '作品名称'),
@@ -134,7 +163,7 @@ def policy_submission_errors(project, pending_kinds=()):
     errors = information_errors(project)
     if policy.require_preliminary_video:
         if 'preliminary' not in kinds:
-            errors.append('请上传独立的初评短视频；Demo 或备用链接不能替代。')
+            errors.append('请上传初评材料：独立的初评短视频（MP4，不超过 1 分钟）；Demo 或备用链接不能替代。')
         elif 'preliminary' in assets and 'preliminary' not in pending_kinds:
             probe = assets['preliminary'].media_probe
             if probe.get('state') != 'verified':
@@ -147,15 +176,15 @@ def policy_submission_errors(project, pending_kinds=()):
     if policy.require_final_material:
         chosen = project.final_material_kind
         if chosen not in ('slides', 'video'):
-            errors.append('请手动选择现场上场使用 PDF 演示文稿或现场视频，并保存。')
+            errors.append('请上传路演材料：不超过 3 分钟的视频，或 PDF。')
         elif chosen not in kinds:
-            errors.append('请上传已选择的现场上场材料。')
+            errors.append('请上传路演材料：不超过 3 分钟的视频，或 PDF。')
         elif chosen == 'slides' and chosen in assets and not assets[chosen].filename.lower().endswith('.pdf'):
-            errors.append('现场上场文稿必须是 PDF，请重新导出后上传。')
+            errors.append('路演材料只接受 PDF 或视频，请导出为 PDF 后重新上传。')
         elif chosen == 'video' and chosen in assets and chosen not in pending_kinds:
             probe = assets[chosen].media_probe
             if probe.get('state') != 'verified' or probe.get('duration_seconds', float('inf')) > 180:
-                errors.append('现场视频必须通过服务器校验且不超过 3 分钟，请重新上传。')
+                errors.append('路演视频须通过服务器校验且不超过 3 分钟，请重新上传。')
     return errors
 
 

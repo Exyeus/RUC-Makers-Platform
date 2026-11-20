@@ -1,0 +1,84 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+<div class="sw-command">
+  <div class="sw-command-head">
+    <h1>比赛日</h1>
+    <dl class="sw-kv">
+      <dt>提交截止</dt><dd class="sw-mono">{{ hackathon.submission_deadline|date:'m.d H:i' }}</dd>
+      <dt>配置</dt><dd><a class="text-link" href="{% url 'hackathon:competition-plan' hackathon.slug %}">比赛日配置</a></dd>
+    </dl>
+  </div>
+
+  <ol class="sw-stages" aria-label="比赛日阶段">
+    {% for stage in stages %}
+      <li class="is-{{ stage.state }}"{% if stage.state == 'now' %} aria-current="step"{% endif %}><span class="sw-mono">{{ stage.no }}</span><strong>{{ stage.label }}</strong></li>
+    {% endfor %}
+  </ol>
+
+  {% with s=state.stage %}
+  {% if s == 'deadline' %}
+    <section class="sw-stage-panel" aria-labelledby="stage-title">
+      <h2 id="stage-title">提交截止</h2>
+      {% if state.problems %}
+        <div class="form-errors" role="status"><strong>截止前请补齐</strong><ul>{% for problem in state.problems %}<li>{{ problem }}</li>{% endfor %}</ul></div>
+        <a class="sw-btn" href="{% url 'hackathon:competition-plan' hackathon.slug %}">去配置<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
+      {% else %}
+        <div class="sw-big-row" data-sw-countdown="{{ hackathon.submission_deadline|date:'c' }}">
+          <span class="sw-num sw-count"><span data-sw-main>—</span><span class="sw-sec" data-sw-tail></span></span>
+          <p>到点自动锁定作品，并按配置开放初评。</p>
+        </div>
+        {% if state.plan.last_error %}
+          <div class="message error" role="alert"><strong>自动锁定未完成</strong><p>{{ state.plan.last_error }}</p></div>
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="lock"><button class="sw-btn" type="submit">重试</button></form>
+        {% endif %}
+      {% endif %}
+    </section>
+
+  {% elif s == 'preliminary' or s == 'final' %}
+    {% if s == 'preliminary' %}{% with p=state.preliminary %}{% include 'hackathon/competition_progress.html' with progress=p title='初评' action='close-preliminary' label='关闭初评' %}{% endwith %}
+    {% else %}{% with p=state.final %}{% include 'hackathon/competition_progress.html' with progress=p title='决赛评分' action='close-final' label='关闭决赛评分' %}{% endwith %}{% endif %}
+
+  {% elif s == 'review' %}
+    <section class="sw-stage-panel" aria-labelledby="stage-title">
+      <h2 id="stage-title">入围复核</h2>
+      <p>复核各赛道排名与同分，生成入围名单，由 {{ state.preliminary.round.signer.get_display_name }} 签认。</p>
+      <a class="sw-btn" href="{% url 'hackathon:competition-review' hackathon.slug %}">复核入围名单<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
+    </section>
+
+  {% elif s == 'publish' %}
+    <section class="sw-stage-panel" aria-labelledby="stage-title">
+      <h2 id="stage-title">发布名单与路演顺序</h2>
+      {% if not state.order %}
+        <p>入围名单已签认 · {{ state.finalists.manifest.entries|length }} 件作品参与排名。路演顺序为全部入围队伍整体随机，生成后不会因刷新而改变。</p>
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="shuffle"><button class="sw-btn" type="submit">生成随机路演顺序<svg aria-hidden="true"><use href="#i-arrow" /></svg></button></form>
+      {% else %}
+        {% include 'hackathon/competition_order.html' %}
+        <div class="sw-stage-actions">
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="publish"><button class="sw-btn sw-btn--commit" type="submit">发布名单与顺序<svg aria-hidden="true"><use href="#i-arrow" /></svg></button></form>
+          <a class="sw-btn sw-btn--outline" href="{% url 'hackathon:roadshow-package' hackathon.slug %}">下载路演材料 ZIP</a>
+        </div>
+      {% endif %}
+    </section>
+
+  {% else %}
+    <section class="sw-stage-panel" aria-labelledby="stage-title">
+      <h2 id="stage-title">{% if s == 'done' %}获奖名单已签认{% elif s == 'awards' %}获奖确认{% else %}决赛路演{% endif %}</h2>
+      <p class="sw-label">已确认参加 {{ state.accepted }} / {{ order_rows|length }}</p>
+      {% include 'hackathon/competition_order.html' %}
+      <div class="sw-stage-actions">
+        {% if s == 'roadshow' %}
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="start-final"><button class="sw-btn" type="submit">开始决赛评分<svg aria-hidden="true"><use href="#i-arrow" /></svg></button></form>
+          <a class="sw-btn sw-btn--outline" href="{% url 'hackathon:manage-stage' hackathon.slug %}">路演调度</a>
+          <a class="sw-btn sw-btn--outline" href="{% url 'hackathon:roadshow-package' hackathon.slug %}">下载路演材料 ZIP</a>
+        {% elif s == 'awards' %}
+          <a class="sw-btn" href="{% url 'hackathon:competition-review' hackathon.slug %}">确认获奖名单<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
+        {% elif s == 'done' %}
+          <a class="sw-btn" href="{% url 'hackathon:awards-export' hackathon.slug %}">下载获奖名单 CSV</a>
+          <a class="sw-btn sw-btn--outline" href="{% url 'hackathon:competition-review' hackathon.slug %}">查看获奖名单</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+  {% endwith %}
+</div>
+{% endblock %}

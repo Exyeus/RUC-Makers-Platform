@@ -90,6 +90,16 @@ def safe_name(value):
     return re.sub(r'[^\w.\-\u4e00-\u9fff]+', '_', str(value))[:80].strip('._') or 'team'
 
 
+def refuse_bundle(request, text):
+    from django.contrib import messages
+    from django.shortcuts import redirect
+
+    from eventyay.hackathon.views import url
+
+    messages.error(request, text)
+    return redirect(url(request.hackathon, 'submissions'))
+
+
 def frozen_bundle(request):
     """Returns None only for legacy events without a signed workflow or material policy."""
     from eventyay.hackathon.workflow_services import current_signed_snapshot
@@ -99,13 +109,13 @@ def frozen_bundle(request):
     policy = MaterialPolicy.objects.filter(hackathon=h, enabled=True).first()
     if signed is None:
         if policy:
-            return HttpResponse(
-                '请先生成并签认入围名单，再下载固定路演包。原始材料归档可用于检查，不能作为签认上场包。', status=409
+            return refuse_bundle(
+                request, '请先生成并签认入围名单，再下载固定路演包。原始材料归档可用于检查，不能作为签认上场包。'
             )
         return None
     final_round = JudgingRound.objects.filter(hackathon=h, kind='final').order_by('-version').first()
     if final_round is None or final_round.source_snapshot_id != signed.pk:
-        return HttpResponse('请先按当前签认入围名单冻结决赛轮次与材料，再下载路演包。', status=409)
+        return refuse_bundle(request, '请先按当前签认入围名单冻结决赛轮次与材料，再下载路演包。')
     material_id = final_round.rules.get('material_snapshot_id')
     material_sha = final_round.rules.get('material_snapshot_sha256')
     frozen = (
@@ -114,8 +124,8 @@ def frozen_bundle(request):
         else None
     )
     if frozen is None:
-        return HttpResponse(
-            '这版入围名单尚未绑定固定材料快照，请生成并重新签认新版本；未下载可漂移的材料包。', status=409
+        return refuse_bundle(
+            request, '这版入围名单尚未绑定固定材料快照，请生成并重新签认新版本；未下载可漂移的材料包。'
         )
     by_id = {row['project_id']: row for row in frozen.manifest.get('entries', [])}
     selected = sorted(

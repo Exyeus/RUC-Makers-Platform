@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0019_legacy_workspace_enabled_default'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
@@ -46,7 +45,14 @@ class Migration(migrations.Migration):
                 ('verified_at', models.DateTimeField(blank=True, null=True)),
                 ('activity_updates', models.BooleanField(default=False, verbose_name='接收活动动态')),
                 ('future_updates', models.BooleanField(default=False, verbose_name='接收后续活动信息')),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='hackathon_security', to=settings.AUTH_USER_MODEL)),
+                (
+                    'user',
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name='hackathon_security',
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
                 'abstract': False,
@@ -61,12 +67,26 @@ class Migration(migrations.Migration):
                 ('student_id', models.CharField(max_length=32, verbose_name='学号')),
                 ('email', models.EmailField(blank=True, max_length=190, verbose_name='原报名邮箱')),
                 ('approved', models.BooleanField(default=True, verbose_name='通过选拔')),
-                ('reason', models.CharField(blank=True, max_length=500, verbose_name='核验 / 更正原因（仅主办方可见）')),
-                ('assigned_user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='hackathon_grants', to=settings.AUTH_USER_MODEL)),
+                (
+                    'reason',
+                    models.CharField(blank=True, max_length=500, verbose_name='核验 / 更正原因（仅主办方可见）'),
+                ),
+                (
+                    'assigned_user',
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name='hackathon_grants',
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
                 ('hackathon', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='hackathon.hackathon')),
             ],
             options={
-                'constraints': [models.UniqueConstraint(fields=('hackathon', 'student_id'), name='hack_admission_student')],
+                'constraints': [
+                    models.UniqueConstraint(fields=('hackathon', 'student_id'), name='hack_admission_student')
+                ],
             },
         ),
         migrations.CreateModel(
@@ -81,7 +101,9 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'constraints': [models.UniqueConstraint(fields=('hackathon', 'campaign', 'user'), name='hack_update_delivery')],
+                'constraints': [
+                    models.UniqueConstraint(fields=('hackathon', 'campaign', 'user'), name='hack_update_delivery')
+                ],
             },
         ),
     ]

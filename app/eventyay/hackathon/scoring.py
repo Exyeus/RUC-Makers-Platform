@@ -32,9 +32,7 @@ def effective_trim(hackathon, count):
 
 
 def aggregate(scores, hackathon):
-    totals = sorted(
-        total for total in (weighted_total(score, hackathon) for score in scores) if total is not None
-    )
+    totals = sorted(total for total in (weighted_total(score, hackathon) for score in scores) if total is not None)
     if not totals:
         return None, 0
     trim = effective_trim(hackathon, len(totals))

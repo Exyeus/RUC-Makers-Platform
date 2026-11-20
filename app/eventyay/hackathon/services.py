@@ -315,6 +315,12 @@ def submission_errors(project, pending_kinds=()):
         and UploadSession.objects.filter(project=project, state='uploading', expires_at__gt=timezone.now()).exists()
     ):
         errors.append('还有材料正在上传，请完成上传或取消任务后再正式提交。')
+    from eventyay.hackathon.submission_materials import material_policy
+
+    policy = material_policy(project.hackathon)
+    if policy and policy.enabled:
+        # The two-material policy replaces the legacy poster / repository / checklist rules.
+        return errors
     kinds = set(project.assets.values_list('kind', flat=True)) if project.created else set()
     kinds.update(pending_kinds)
     if not project.description.strip():
@@ -815,8 +821,7 @@ def station_rotation_impact(hackathon):
     return {
         'state': 'active',
         'text': (
-            '现场助手正在使用当前令牌。更换后旧令牌立即失效，'
-            '现场电脑需要填入新令牌重新连接，才能继续拉取材料与状态。'
+            '现场助手正在使用当前令牌。更换后旧令牌立即失效，现场电脑需要填入新令牌重新连接，才能继续拉取材料与状态。'
         ),
     }
 

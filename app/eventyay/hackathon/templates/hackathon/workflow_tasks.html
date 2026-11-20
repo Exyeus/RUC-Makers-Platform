@@ -1,45 +1,55 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
-  <section class="page-heading">
+<div class="sw-command sw-tasks">
+  <div class="sw-command-head">
     <div>
-      <h1>{{ round.name }} · {{ round.get_kind_display }} v{{ round.version }}</h1>
-      {% if total %}
-        <p>本轮已确认{{ confirmed }} / 应评{{ total }}。{% if confirmed == total %}本轮打分任务已全部确认。{% endif %}</p>
-      {% else %}
-        <p>本轮可复核{{ read_total }}份材料。复核页面只读，不需要提交个人评分。</p>
-      {% endif %}
-      <p>{% if hackathon.results_published %}结果已公布，本轮评分只读。{% elif window_open %}本轮评分窗口开放中。{% else %}本轮评分窗口已关闭，可查看已保存记录。{% endif %}</p>
+      <h1>{{ round.get_kind_display }}</h1>
+      <p class="sw-judge-state"><span class="sw-tag{% if window_open %} sw-tag--now{% endif %}">{% if window_open %}进行中{% else %}只读{% endif %}</span>{% if hackathon.results_published %}结果已公布，本轮评分只读。{% elif window_open %}本轮评分窗口开放中。{% else %}本轮评分窗口已关闭，可查看已保存记录。{% endif %}</p>
     </div>
-    <a href="{% url 'hackathon:workflow-judging' hackathon.slug %}">选择其他轮次</a>
-  </section>
+    {% if total %}
+      <div class="sw-big-row"><span class="sw-num">{{ confirmed }}<small> / {{ total }}</small></span><p>已确认{% if confirmed == total %} · 本轮打分任务已全部确认{% endif %}</p></div>
+    {% else %}
+      <p class="sw-label">本轮可复核{{ read_total }}份材料，无需提交个人评分。</p>
+    {% endif %}
+  </div>
+
+  {% if entries %}
+  <ol class="sw-task-list">
+    {% for entry in entries %}
+      <li>
+        <a href="{% url 'hackathon:workflow-score' hackathon.slug round.pk entry.project_id %}">
+          <span class="sw-mono">{{ forloop.counter|stringformat:'02d' }}</span>
+          <span class="sw-task-main"><strong>{{ entry.material.title }}</strong><span class="sw-label">{{ entry.material.team }} · {{ entry.material.track }}</span></span>
+          <span>
+            {% if not entry.can_score %}<span class="sw-label">查看材料与原评委评分</span>
+            {% elif entry.score.final %}<span class="sw-tag sw-tag--done">已确认</span>
+            {% elif entry.score %}<span class="sw-tag sw-tag--draft">草稿</span>
+            {% else %}<span class="sw-tag sw-tag--now">未评分</span>{% endif %}
+          </span>
+          <svg aria-hidden="true"><use href="#i-arrow" /></svg>
+        </a>
+      </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+
   {% if can_review %}
-    <section class="panel">
-      <h2>本轮复核资料（只读）</h2>
-      <p>请核对边界同分和分歧项目。打分记录不全或有分歧时，请联系原评委；名单由指定总负责人签认。</p>
+    <section class="sw-stage-panel" aria-labelledby="review-title">
+      <h2 id="review-title">原评委评分</h2>
       {% for row in review_rows %}
-        <details>
-          <summary>{{ row.track }} · {{ row.team }} · 已收到{{ row.confirmed }}份打分记录（本队应收{{ row.expected }}份） · 平均{{ row.average|default_if_none:'尚无正式打分记录' }}</summary>
+        <details class="sw-review-item">
+          <summary><span class="sw-strong">{{ row.team }}</span><span class="sw-label">{{ row.track }}</span><span class="sw-mono">{{ row.confirmed }} / {{ row.expected }} 份 · 均分 {{ row.average|default_if_none:'—' }}</span></summary>
           {% for source in row.judge_scores %}
-            <div class="list-row">
-              <p>{{ source.judge }} · 评分版本{{ source.revision }}</p>
-              <dl>
-                {% for value in source.values %}<dt>{{ value.label }} · {{ value.weight }}%</dt><dd>{{ value.value|default_if_none:'未填写' }} / 10</dd>{% endfor %}
-              </dl>
-            </div>
+            <h3>{{ source.judge }} <span class="sw-label">版本 {{ source.revision }}</span></h3>
+            <dl class="sw-score-list">{% for value in source.values %}<dt>{{ value.label }}</dt><dd class="sw-mono">{{ value.value|default_if_none:'—' }} / {{ value.max }}</dd>{% endfor %}</dl>
           {% endfor %}
-          {% if row.missing %}<p>原评委的打分记录尚未收齐，请联系主办方核对。</p>{% endif %}
+          {% if row.missing %}<p class="sw-label">评分尚未收齐。</p>{% endif %}
         </details>
       {% endfor %}
       {% for snapshot in snapshots %}
-        <p><a href="{% url 'hackathon:workflow-snapshot' hackathon.slug snapshot.pk %}">{{ snapshot.get_kind_display }} v{{ snapshot.version }} · {% if snapshot.signed_at %}已签认{% else %}待签认{% endif %}</a></p>
+        <p><a class="text-link" href="{% url 'hackathon:workflow-snapshot' hackathon.slug snapshot.pk %}">{{ snapshot.get_kind_display }} v{{ snapshot.version }} · {% if snapshot.signed_at %}已签认{% else %}待签认{% endif %}</a></p>
       {% endfor %}
     </section>
   {% endif %}
-  {% for entry in entries %}
-    <section class="panel">
-      <h2>{{ entry.material.track }} · {{ entry.material.team }}</h2>
-      <p>{{ entry.material.title }} · {% if entry.can_score %}{% if entry.score.final %}个人评分已确认{% elif entry.score %}个人评分草稿{% else %}尚无个人评分记录{% endif %}{% else %}复核资料，只读{% endif %}</p>
-      <a class="button" href="{% url 'hackathon:workflow-score' hackathon.slug round.pk entry.project_id %}">{% if not entry.can_score %}查看材料与原评委评分{% elif not entry.can_edit_score %}查看材料与已保存评分{% elif round.kind == 'preliminary' %}查看初评视频并评分{% else %}查看决赛材料并评分{% endif %}</a>
-    </section>
-  {% endfor %}
+</div>
 {% endblock %}

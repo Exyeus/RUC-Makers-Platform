@@ -1,6 +1,6 @@
 <section class="panel judge-live-bar" data-judge-sync data-state-url="{% url 'hackathon:judge-state' hackathon.slug %}" data-project-id="{{ project.pk }}" data-follow="{{ follow_live|yesno:'true,false' }}" data-rules-revision="{{ hackathon.scoring_revision }}">
   <div>
-    <span class="eyebrow">LIVE / 路演现场</span>
+    <span class="eyebrow">路演现场</span>
     <strong data-live-team>{% if current %}{{ current.team }} · {{ current.title }}{% else %}等待下一队开始路演{% endif %}</strong>
     <p data-live-status role="status">{% if follow_live %}跟随现场中；开始填写后暂停自动切换。{% else %}回看模式；现场切换不会离开当前页面。{% endif %}</p>
   </div>

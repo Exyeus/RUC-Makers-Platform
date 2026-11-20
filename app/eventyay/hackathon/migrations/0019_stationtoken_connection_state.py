@@ -11,7 +11,6 @@ def keep_only_newest_station_token(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0018_alter_joinrequest_state'),
     ]

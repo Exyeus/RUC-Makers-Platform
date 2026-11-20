@@ -176,9 +176,7 @@ def score(request, project_id):
                     return redirect(url(h, 'judge-live'))
                 if confirm:
                     task = context['next_task']
-                    return redirect(
-                        url(h, 'score', project_id=task['project'].pk) if task else url(h, 'judging')
-                    )
+                    return redirect(url(h, 'score', project_id=task['project'].pk) if task else url(h, 'judging'))
                 return redirect(url(h, 'score', project_id=item.pk))
     return page(
         request,

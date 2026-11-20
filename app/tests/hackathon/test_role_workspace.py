@@ -102,10 +102,7 @@ def heading_text(response):
 
 def page_access_levels():
     """每个路由的访问级别，取自 event_view 装饰器。"""
-    return {
-        pattern.name: getattr(pattern.callback, 'access', 'public')
-        for pattern in hackathon_urls.event_patterns
-    }
+    return {pattern.name: getattr(pattern.callback, 'access', 'public') for pattern in hackathon_urls.event_patterns}
 
 
 # 下载与轮询类响应不渲染工作台页面，因此不参与侧栏身份判定。
@@ -118,9 +115,7 @@ def test_every_restricted_route_keeps_its_own_sidebar_column():
     for name, access in page_access_levels().items():
         if access in {'public', 'login'} or name in NON_PAGE_ROUTES:
             continue
-        assert any(
-            name in expected or navigation_column(name) in expected for expected in sets
-        ), name
+        assert any(name in expected or navigation_column(name) in expected for expected in sets), name
 
 
 def columns_the_identity_can_open(identity, roles=()):
@@ -224,9 +219,10 @@ def test_organizer_navigation_keeps_every_management_entry(client, hackathon, or
     client.force_login(organizer_user)
     response = client.get(endpoint(hackathon, 'manage'))
     assert response.context['is_organizer']
-    assert primary(response) == ['manage', 'participants', 'submissions', 'manage-stage', 'results', 'publish']
+    assert primary(response) == ['competition-day', 'manage', 'participants', 'submissions', 'manage-stage', 'results']
     assert len(primary(response)) <= 6
     for expected in (
+        'publish',
         'content',
         'staff',
         'settings',
@@ -294,7 +290,7 @@ def test_sidebar_follows_the_switched_identity(client, hackathon, organizer_user
     assert player_view.context['working_identity'] == '选手'
     assert player_view.context['page_title'] == '参赛总览'
     assert 'manage' not in routes(player_view)
-    assert 'aria-label="主办方后台"' in player_view.content.decode()
+    assert 'aria-label="当前工作身份"' in player_view.content.decode()
     back = next(item for item in player_view.context['identities'] if item['key'] == 'organizer')
     assert client.get(back['url']).context['navigation_groups'][0][0] == '我的待办'
 
@@ -328,7 +324,11 @@ def test_mobile_bar_follows_the_working_identity(
 
 def test_mobile_bar_for_anonymous_visitors(client, hackathon):
     assert mobile_bar(client.get(endpoint(hackathon, 'schedule'))) == [
-        '首页', '我的队伍', '参与队伍', '想法交流', '更多',
+        '首页',
+        '我的队伍',
+        '参与队伍',
+        '想法交流',
+        '更多',
     ]
 
 
@@ -452,11 +452,12 @@ def test_internal_links_carry_no_outward_arrow(client, hackathon, participant, r
         assert leaves_workspace, f'{visible} → {destination}'
 
 
-def test_long_term_promotion_is_collapsed_by_default(client, hackathon, participant, user):
+def test_sidebar_carries_navigation_only(client, hackathon, participant, user):
+    """Swiss layout: the sidebar holds navigation, no promotional note or vendor badge."""
     client.force_login(user)
     body = client.get(endpoint(hackathon, 'home')).content.decode()
-    assert '<details class="sidebar-note">' in body
-    assert '查看孵化与往届资源' in body
+    assert 'sidebar-note' not in body
+    assert 'Powered by' not in body
 
 
 def test_timeline_carries_the_same_items_and_deadlines_as_the_grid(hackathon):
@@ -591,9 +592,7 @@ def test_sidebar_covers_every_page_the_identity_can_open(
     account = request.getfixturevalue(fixture_name)
     client.force_login(account)
     response = client.get(endpoint(hackathon, entry))
-    roles = set(
-        StaffAssignment.objects.filter(hackathon=hackathon, user=account).values_list('role', flat=True)
-    )
+    roles = set(StaffAssignment.objects.filter(hackathon=hackathon, user=account).values_list('role', flat=True))
     missing = columns_the_identity_can_open(identity, roles) - set(routes(response))
     assert not missing, f'{identity} 侧栏缺少入口：{sorted(missing)}'
 

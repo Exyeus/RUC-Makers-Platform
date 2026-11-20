@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0023_merge_grouping'),
     ]
@@ -14,7 +13,9 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='communityresponse',
             name='parent',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='hackathon.communityresponse'),
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='hackathon.communityresponse'
+            ),
         ),
         migrations.AddField(
             model_name='communityresponse',
@@ -32,7 +33,14 @@ class Migration(migrations.Migration):
                 ('hidden_fields', models.JSONField(blank=True, default=list)),
                 ('contacts', models.JSONField(blank=True, default=dict)),
                 ('hackathon', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='hackathon.hackathon')),
-                ('participant', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='social_preference', to='hackathon.participant')),
+                (
+                    'participant',
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name='social_preference',
+                        to='hackathon.participant',
+                    ),
+                ),
             ],
             options={
                 'abstract': False,
@@ -49,7 +57,10 @@ class Migration(migrations.Migration):
                 ('reason', models.TextField(max_length=1000)),
                 ('resolved', models.BooleanField(default=False)),
                 ('hackathon', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='hackathon.hackathon')),
-                ('reporter', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='hackathon.participant')),
+                (
+                    'reporter',
+                    models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='hackathon.participant'),
+                ),
             ],
             options={
                 'abstract': False,
@@ -65,11 +76,20 @@ class Migration(migrations.Migration):
                 ('client_id', models.UUIDField()),
                 ('author', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='hackathon.participant')),
                 ('hackathon', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='hackathon.hackathon')),
-                ('intent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='chat_messages', to='hackathon.matchintent')),
+                (
+                    'intent',
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name='chat_messages',
+                        to='hackathon.matchintent',
+                    ),
+                ),
             ],
             options={
                 'indexes': [models.Index(fields=['intent', 'id'], name='hack_chat_cursor')],
-                'constraints': [models.UniqueConstraint(fields=('intent', 'author', 'client_id'), name='hack_chat_retry')],
+                'constraints': [
+                    models.UniqueConstraint(fields=('intent', 'author', 'client_id'), name='hack_chat_retry')
+                ],
             },
         ),
         migrations.CreateModel(

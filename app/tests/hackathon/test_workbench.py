@@ -54,7 +54,7 @@ def test_unregistered_next_task_and_deadlines(client, hackathon, user):
     assert len(deadlines) == 2
     assert deadlines[0]['datetime'] == deadlines[1]['datetime']
     assert deadlines[0].text == deadlines[1].text
-    assert 'Asia/Shanghai' in soup.select_one('.ruc-deadline-value').text
+    assert '北京时间' in soup.select_one('.ruc-deadline-value').text
     assert deadlines[0].text == timezone.localtime(
         hackathon.submission_deadline, ZoneInfo(hackathon.event.timezone)
     ).strftime('%Y 年 %-m 月 %-d 日 %H:%M')
@@ -373,10 +373,21 @@ def test_populated_public_information_retains_content_and_escaping(client, hacka
         assert '置顶通知' in soup.select_one('.announcement').text
 
 
-@pytest.mark.parametrize('route', [
-    'schedule', 'announcements', 'resources', 'teams', 'team-directory', 'idea-exchange',
-    'project', 'gallery', 'stage', 'support',
-])
+@pytest.mark.parametrize(
+    'route',
+    [
+        'schedule',
+        'announcements',
+        'resources',
+        'teams',
+        'team-directory',
+        'idea-exchange',
+        'project',
+        'gallery',
+        'stage',
+        'support',
+    ],
+)
 def test_workspace_theme_and_navigation_survive_page_changes(client, hackathon, team, user, route):
     client.force_login(user)
     response = client.get(endpoint(hackathon, route))

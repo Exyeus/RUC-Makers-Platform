@@ -34,6 +34,11 @@ class AdmissionGrant(EventRecord):
     )
     approved = models.BooleanField('通过选拔', default=True)
     reason = models.CharField('核验 / 更正原因（仅主办方可见）', max_length=500, blank=True)
+    # Columns of the organizer's roster export (飞书): kept for matching and team setup, never shown publicly.
+    name = models.CharField('姓名', max_length=80, blank=True)
+    college = models.CharField('学院与年级', max_length=120, blank=True)
+    wechat = models.CharField('微信号', max_length=80, blank=True)
+    teammates = models.CharField('意向队友', max_length=300, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['hackathon', 'student_id'], name='hack_admission_student')]
@@ -47,3 +52,18 @@ class UpdateDelivery(TimestampedModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['hackathon', 'campaign', 'user'], name='hack_update_delivery')]
+
+
+class JudgeInvite(EventRecord):
+    """A named judge seat's sign-in link. Only the SHA-256 of the token is stored."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='hackathon_judge_invites')
+    digest = models.CharField(max_length=64, unique=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    use_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created']

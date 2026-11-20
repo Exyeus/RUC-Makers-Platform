@@ -7,7 +7,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0010_hackathon_matching_capacity'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
@@ -17,7 +16,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='hackathon',
             name='program',
-            field=models.CharField(choices=[('maker_camp', '创客营'), ('hackathon', '黑客松（暂未开放）')], default='maker_camp', max_length=16, verbose_name='业务板块'),
+            field=models.CharField(
+                choices=[('maker_camp', '创客营'), ('hackathon', '黑客松（暂未开放）')],
+                default='maker_camp',
+                max_length=16,
+                verbose_name='业务板块',
+            ),
         ),
         migrations.AddField(
             model_name='participant',
@@ -32,7 +36,12 @@ class Migration(migrations.Migration):
                 ('updated', models.DateTimeField(auto_now=True, null=True)),
                 ('title', models.CharField(max_length=120, verbose_name='加分事项')),
                 ('description', models.TextField(max_length=3000, verbose_name='规则、所需证明与审核标准')),
-                ('points', models.PositiveSmallIntegerField(validators=[django.core.validators.MinValueValidator(1)], verbose_name='通过审核后加分')),
+                (
+                    'points',
+                    models.PositiveSmallIntegerField(
+                        validators=[django.core.validators.MinValueValidator(1)], verbose_name='通过审核后加分'
+                    ),
+                ),
                 ('active', models.BooleanField(default=False, verbose_name='公布并接受申请')),
                 ('position', models.PositiveSmallIntegerField(default=0, verbose_name='排序')),
                 ('hackathon', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='hackathon.hackathon')),
@@ -47,7 +56,22 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('created', models.DateTimeField(auto_now_add=True, null=True)),
                 ('updated', models.DateTimeField(auto_now=True, null=True)),
-                ('kind', models.CharField(choices=[('idea', '灵感 / 脑洞'), ('experience', '真实经历 / 痛点'), ('question', '开放问题'), ('showcase', '展示 / 开发日志'), ('help', '具体求助'), ('co_create', '微型共创'), ('recruit', '招募伙伴')], max_length=16, verbose_name='内容形式')),
+                (
+                    'kind',
+                    models.CharField(
+                        choices=[
+                            ('idea', '灵感 / 脑洞'),
+                            ('experience', '真实经历 / 痛点'),
+                            ('question', '开放问题'),
+                            ('showcase', '展示 / 开发日志'),
+                            ('help', '具体求助'),
+                            ('co_create', '微型共创'),
+                            ('recruit', '招募伙伴'),
+                        ],
+                        max_length=16,
+                        verbose_name='内容形式',
+                    ),
+                ),
                 ('title', models.CharField(max_length=120, verbose_name='标题')),
                 ('body', models.TextField(max_length=3000, verbose_name='分享内容')),
                 ('invitation', models.CharField(max_length=200, verbose_name='希望大家怎样回应')),
@@ -71,7 +95,14 @@ class Migration(migrations.Migration):
                 ('private', models.BooleanField(default=True, verbose_name='仅向发布者私密回应')),
                 ('author', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='hackathon.participant')),
                 ('hackathon', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='hackathon.hackathon')),
-                ('post', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='responses', to='hackathon.communitypost')),
+                (
+                    'post',
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name='responses',
+                        to='hackathon.communitypost',
+                    ),
+                ),
             ],
             options={
                 'ordering': ['created'],
@@ -84,12 +115,27 @@ class Migration(migrations.Migration):
                 ('created', models.DateTimeField(auto_now_add=True, null=True)),
                 ('updated', models.DateTimeField(auto_now=True, null=True)),
                 ('evidence', models.TextField(max_length=2000, verbose_name='完成说明与证明链接')),
-                ('state', models.CharField(choices=[('pending', '待审核'), ('approved', '已通过'), ('rejected', '未通过')], default='pending', max_length=12)),
+                (
+                    'state',
+                    models.CharField(
+                        choices=[('pending', '待审核'), ('approved', '已通过'), ('rejected', '未通过')],
+                        default='pending',
+                        max_length=12,
+                    ),
+                ),
                 ('awarded_points', models.PositiveSmallIntegerField(default=0)),
                 ('review_note', models.CharField(blank=True, max_length=500, verbose_name='审核说明')),
                 ('hackathon', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='hackathon.hackathon')),
-                ('participant', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='hackathon.participant')),
-                ('reviewer', models.ForeignKey(null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                (
+                    'participant',
+                    models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='hackathon.participant'),
+                ),
+                (
+                    'reviewer',
+                    models.ForeignKey(
+                        null=True, on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL
+                    ),
+                ),
                 ('rule', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='hackathon.bonusrule')),
             ],
             options={

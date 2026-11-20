@@ -122,9 +122,9 @@ if (stage) {
         card.className = 'next-card';
         const label = document.createElement('span');
         label.textContent = [
-          'NEXT / 下一队候场',
-          'UP NEXT / 设备检查',
-          'GET READY / 提前准备',
+          '下一队 · 候场',
+          '第二队 · 设备检查',
+          '第三队 · 提前准备',
         ][index];
         const name = document.createElement('strong');
         name.textContent = item.team;

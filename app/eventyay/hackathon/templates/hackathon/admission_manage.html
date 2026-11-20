@@ -1,17 +1,25 @@
 {% extends 'hackathon/base.html' %}
 {% block content %}
-<section class="page-heading"><div><h1>通过名单与准入</h1><p>先在站外完成报名筛选，再导入本届通过名单。账号注册不代表取得参赛资格。</p></div></section>
+<section class="page-heading"><div><h1>通过名单与准入</h1></div></section>
 <section class="panel"><h2>注册与活动访问模式</h2>
-<p>{% if open_testing %}<strong>当前：开放测试</strong>，注册后可进入活动，无需在通过名单中。{% else %}<strong>当前：通过名单筛选</strong>，注册仍开放，进入活动须通过资格核验。{% endif %}主办方、评委等角色权限不随此开关改变。</p>
+<p>{% if open_testing %}<strong>当前：开放测试</strong>，注册后可进入活动，无需在通过名单中。{% elif not hackathon.admission_required %}<strong>当前：未启用名单准入</strong>，注册账号即可进入活动。{% else %}<strong>当前：通过名单筛选</strong>，注册仍开放，进入活动须通过资格核验。{% endif %}主办方、评委等角色权限不随此开关改变。</p>
 <form method="post">{% csrf_token %}<input type="hidden" name="operation" value="mode">{% include 'hackathon/form_fields.html' with form=mode_form %}<button class="button" type="submit">保存准入模式</button></form>
 </section>
-<section class="panel"><h2>当前准入规则</h2><p>{% if open_testing %}以下名单规则在开放测试期间暂不执行，关闭测试后恢复。{% elif hackathon.admission_required %}已启用名单准入。{% else %}本活动未启用名单准入。{% endif %}选手须验证邮箱，绑定学号，并与通过名单中的原报名邮箱匹配；人工核验指定账号除外。工作人员按原角色授权。</p><p>CSV 示例（学号按文本保存，保留前导零）：</p><pre>student_id,email,approved
-2026000001,student@example.org,true</pre><p>approved=false 撤销资格；导入只更新文件中列出的学号，不会删除其他记录。请勿把尚未筛选的报名表当作通过名单。</p></section>
+<section class="panel"><h2>核对规则</h2><ul>
+<li>名单有邮箱：按邮箱核对</li>
+<li>名单无邮箱：按学号和注册姓名核对</li>
+<li>人工指定的账号优先</li>
+<li>无学号的行不自动导入，单独列出待核验</li>
+<li>重复导入只更新同一学号，不删除其他记录</li>
+</ul></section>
 <div class="two-column">
 <section class="panel"><h2>导入名单</h2><form method="post" enctype="multipart/form-data">{% csrf_token %}<input type="hidden" name="operation" value="preview">{% include 'hackathon/form_fields.html' with form=upload_form %}<button class="button" type="submit">预览名单</button></form>
-{% if preview.rows %}<h3>待导入 {{ preview.rows|length }} 条</h3><div class="table-wrap"><table><thead><tr><th>学号</th><th>原报名邮箱</th><th>通过</th></tr></thead><tbody>{% for row in preview.rows %}<tr><td>{{ row.student_id }}</td><td>{{ row.email }}</td><td>{{ row.approved|yesno:'是,否' }}</td></tr>{% endfor %}</tbody></table></div><form method="post">{% csrf_token %}<input type="hidden" name="operation" value="apply"><input type="hidden" name="preview_token" value="{{ preview.token }}"><button class="button" type="submit">确认导入上述名单</button></form>{% endif %}
+{% if preview.rows or preview.manual %}<h3>预览：可导入 {{ preview.rows|length }} 条（其中更新已有 {{ preview.updates|default:0 }} 条），需人工核验 {{ preview.manual|length }} 条</h3>
+{% if preview.rows %}<div class="table-wrap"><table><thead><tr><th>学号</th><th>姓名</th><th>学院与年级</th><th>微信号</th><th>意向队友</th><th>通过</th></tr></thead><tbody>{% for row in preview.rows %}<tr><td class="sw-mono">{{ row.student_id }}</td><td>{{ row.name|default:'—' }}</td><td>{{ row.college|default:'—' }}</td><td>{{ row.wechat|default:'—' }}</td><td>{{ row.teammates|default:'—' }}</td><td>{{ row.approved|yesno:'是,否' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if preview.manual %}<h3>需人工核验</h3><div class="table-wrap"><table><thead><tr><th>行</th><th>姓名 / 标识</th><th>微信号</th><th>原因</th></tr></thead><tbody>{% for item in preview.manual %}<tr><td class="sw-mono">{{ item.line }}</td><td>{{ item.label }}</td><td>{{ item.wechat|default:'—' }}</td><td>{{ item.reason }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if preview.rows %}<form method="post">{% csrf_token %}<input type="hidden" name="operation" value="apply"><input type="hidden" name="preview_token" value="{{ preview.token }}"><button class="button" type="submit">确认导入 {{ preview.rows|length }} 条</button></form>{% endif %}{% endif %}
 </section>
 <section class="panel"><h2>补录 / 更正 / 撤销</h2><p>人工指定账号前，请核对原报名手机号、微信等身份依据；这里不会自动发送短信，也不会合并或转移已有账号。</p><form method="post">{% csrf_token %}<input type="hidden" name="operation" value="grant">{% include 'hackathon/form_fields.html' with form=grant_form %}<button class="button" type="submit">保存资格</button></form></section>
 </div>
-<section class="panel"><h2>本届名单</h2><div class="table-wrap"><table><thead><tr><th>学号</th><th>原报名邮箱</th><th>通过</th><th>人工指定账号</th><th>核验 / 更正原因</th></tr></thead><tbody>{% for grant in grants %}<tr><td>{{ grant.student_id }}</td><td>{{ grant.email|default:'—' }}</td><td>{{ grant.approved|yesno:'是,否' }}</td><td>{{ grant.assigned_user.email|default:'—' }}</td><td>{{ grant.reason }}</td></tr>{% empty %}<tr><td colspan="5">尚未导入通过名单。启用准入时，普通注册用户将留在宣传页。</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="panel"><h2>本届名单</h2><div class="table-wrap"><table><thead><tr><th>学号</th><th>姓名</th><th>学院与年级</th><th>微信号</th><th>原报名邮箱</th><th>通过</th><th>人工指定账号</th><th>核验 / 更正原因</th></tr></thead><tbody>{% for grant in grants %}<tr><td class="sw-mono">{{ grant.student_id }}</td><td>{{ grant.name|default:'—' }}</td><td>{{ grant.college|default:'—' }}</td><td>{{ grant.wechat|default:'—' }}</td><td>{{ grant.email|default:'—' }}</td><td>{{ grant.approved|yesno:'是,否' }}</td><td>{{ grant.assigned_user.email|default:'—' }}</td><td>{{ grant.reason }}</td></tr>{% empty %}<tr><td colspan="8">尚未导入通过名单。启用准入时，普通注册用户将留在宣传页。</td></tr>{% endfor %}</tbody></table></div></section>
 {% endblock %}

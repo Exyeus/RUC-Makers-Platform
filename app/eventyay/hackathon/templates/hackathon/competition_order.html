@@ -1,0 +1,17 @@
+<div class="table-wrap">
+  <table class="sw-order">
+    <caption class="sr-only">路演顺序 v{{ state.order.version }}</caption>
+    <thead><tr><th scope="col">序号</th><th scope="col">队伍</th><th scope="col">作品</th><th scope="col">预计上场</th><th scope="col">确认</th></tr></thead>
+    <tbody>
+      {% for row in order_rows %}
+        <tr>
+          <td class="sw-mono">{{ row.position|stringformat:'03d' }}</td>
+          <td><span class="sw-strong">{{ row.team }}</span> <span class="sw-mono sw-label">{{ row.team_code }}</span></td>
+          <td>{{ row.title }}</td>
+          <td class="sw-mono">{{ row.expected|time:'H:i'|default:'—' }}</td>
+          <td>{% if row.contact.state == 'accepted' %}<span class="sw-tag sw-tag--done">已确认</span>{% elif row.contact.state == 'sent' %}<span class="sw-tag sw-tag--now">待确认</span>{% elif row.contact.state == 'pending' %}<span class="sw-tag">未发布</span>{% else %}<span class="sw-tag sw-tag--fail">{{ row.contact.get_state_display|default:'—' }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -123,6 +123,12 @@ ORGANIZER_ROUTES = {
     'material-policy',
     'material-snapshot',
     'judge-batch',
+    'judge-links',
+    'competition-plan',
+    'competition-day',
+    'roadshow-package',
+    'competition-review',
+    'awards-export',
 }
 JUDGE_ROUTES = {'judging', 'judge-live', 'score', 'workflow-judging', 'workflow-tasks', 'workflow-score'}
 VOLUNTEER_ROUTES = {'tasks'}
@@ -161,6 +167,9 @@ NAVIGATION_ALIASES = {
     'workflow-contact': 'workflow-manage',
     'material-snapshot': 'material-policy',
     'judge-batch': 'staff',
+    'judge-links': 'staff',
+    'competition-plan': 'competition-day',
+    'competition-review': 'competition-day',
     'workflow-judging': 'judging',
     'workflow-tasks': 'judging',
     'workflow-score': 'judging',
@@ -238,7 +247,7 @@ def workspace_navigation(request, hackathon, identity):
     doc/ui-workbench.md).
     """
     activity = [('schedule', '活动日程', 'calendar'), ('announcements', '通知公告', 'bell')]
-    reference = [('resources', '学习与指南', 'book'), ('gallery', '作品展厅', 'spark')]
+    reference = [('resources', '学习与指南', 'book'), ('gallery', '作品展厅', 'gallery')]
     help_entry = ('support', '帮助与支持', 'help')
     contestant_entries = [('teams', '我的队伍', 'users'), ('project', '我的作品', 'folder')]
     collaboration_entries = [('team-directory', '参与队伍', 'users'), ('idea-exchange', '想法交流', 'spark')]
@@ -250,17 +259,18 @@ def workspace_navigation(request, hackathon, identity):
             (
                 '我的待办',
                 [
+                    ('competition-day', '比赛日', 'clock'),
                     ('manage', '活动总控', 'grid'),
                     ('participants', '报名与签到', 'users'),
                     ('submissions', '作品检查', 'folder'),
                     ('manage-stage', '路演调度', 'play'),
                     results_entry,
-                    ('publish', '发布准备', 'spark'),
                 ],
             ),
             (
                 '配置与成员',
                 [
+                    ('publish', '发布准备', 'spark'),
                     ('content', '内容管理', 'book'),
                     ('staff', '成员与权限', 'badge'),
                     ('settings', '活动设置', 'settings'),
@@ -375,6 +385,10 @@ def working_identities(request, hackathon, identity):
 
 def page(request, template, **context):
     hackathon = request.hackathon
+    # Competition day runs on its own: the first page view after the deadline performs any due step.
+    from eventyay.hackathon.competition_day import tick
+
+    tick(hackathon)
     participant = request.participant
     route = request.resolver_match.url_name
     common = {
@@ -449,6 +463,8 @@ def home(request):
 
 
 def landing_context(request):
+    from eventyay.hackathon.competition_day import team_result
+
     h = request.hackathon
     participant = request.participant
     team = participant.team if participant else None
@@ -527,6 +543,8 @@ def landing_context(request):
         'featured_resources': Resource.published(h)[:3],
         'calendar_days': schedule_heatmap(h, schedule_items),
         'calendar_timeline': schedule_timeline(h, schedule_items),
+        'schedule_items': schedule_items,
+        'roadshow': team_result(h, team),
     }
 
 
@@ -851,7 +869,7 @@ def project(request):
     if not participant or not participant.team_id:
         return page(request, 'project', project=None, project_status=services.project_status(None), needs_team=True)
     captain = participant.team.captain_id == participant.pk
-    form = forms.ProjectForm(request.POST or None, instance=own)
+    form = forms.ProjectForm(request.POST or None, instance=own, hackathon=h)
     if request.method == 'POST':
         if not captain:
             raise PermissionDenied
@@ -896,6 +914,10 @@ def project(request):
         information_errors=information_errors(own),
         late_submission_allowed=late_submission_allowed(own),
         material_policy=policy,
+        has_preliminary=any(asset.kind == 'preliminary' for asset in assets),
+        has_roadshow=bool(own)
+        and own.final_material_kind in ('video', 'slides')
+        and any(asset.kind == own.final_material_kind for asset in assets),
         active_uploads=UploadSession.objects.filter(project=own, state='uploading', expires_at__gt=timezone.now())
         if own
         else [],
@@ -1657,8 +1679,8 @@ def staff(request):
                     detail = assignment.role
                     if impact['scoring']:
                         detail += (
-                            f" · 影响：{impact['confirmed']} 份已确认评分不再计入统计，"
-                            f"{impact['becoming_incomplete']} 个作品变为缺评"
+                            f' · 影响：{impact["confirmed"]} 份已确认评分不再计入统计，'
+                            f'{impact["becoming_incomplete"]} 个作品变为缺评'
                         )
                     if reason:
                         detail += f' · 原因：{reason}'
@@ -1786,7 +1808,7 @@ def attach_ticket_threads(hackathon, tickets):
         elif person:
             ticket.work_reference = {
                 'label': '在名单中查找本人',
-                'url': f"{url(hackathon, 'participants')}?{urlencode({'q': person.code})}",
+                'url': f'{url(hackathon, "participants")}?{urlencode({"q": person.code})}',
             }
         else:
             ticket.work_reference = None

@@ -135,7 +135,7 @@ def test_reviewer_tasks_are_read_only_materials_without_personal_scoring_debt(cl
     assert '复核已完成' not in text
     assert '本轮打分任务已全部确认' not in text
     assert '查看材料与原评委评分' in text
-    assert '作品可见的功能与完成度' in text
+    assert '功能与完成度' in text
     assert '8 / 10' in text
 
 
@@ -180,7 +180,8 @@ def test_closed_or_published_judge_reads_saved_values_without_editable_controls(
     assert ('结果已公布，本轮评分只读' if closed_by == 'published' else '本轮窗口已关闭，当前只读') in text
     assert '本轮评分窗口开放中' not in text
     _, tasks = read(client, review_ui, review_ui.judges[0], 'tasks')
-    assert '查看材料与已保存评分' in tasks.get_text()
+    assert '已确认' in tasks.get_text()
+    assert ('结果已公布，本轮评分只读' if closed_by == 'published' else '可查看已保存记录') in tasks.get_text()
     assert '并评分' not in tasks.get_text()
 
 

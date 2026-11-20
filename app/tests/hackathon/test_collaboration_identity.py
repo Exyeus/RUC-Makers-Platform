@@ -417,9 +417,7 @@ def test_the_identity_line_is_on_the_ticket_and_on_every_reply(
     assert identity in [node.get_text(' ', strip=True) for node in soup.select('.ticket-reply strong')]
 
 
-def test_the_thread_follows_the_writing_order_even_if_the_clock_moves_back(
-    client, hackathon, user, organizer_user
-):
+def test_the_thread_follows_the_writing_order_even_if_the_clock_moves_back(client, hackathon, user, organizer_user):
     """线程按写入顺序排列：系统时钟回拨时也不会把两轮说明倒过来。"""
     ticket = make_ticket(hackathon, user)
     first = TicketMessage.objects.create(

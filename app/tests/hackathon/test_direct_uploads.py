@@ -20,6 +20,7 @@ pytestmark = pytest.mark.django_db
 
 class Cloud:
     """An independent cloud view: acknowledgements must come from this service."""
+
     bucket = 'test-private'
 
     def __init__(self):
@@ -41,8 +42,12 @@ class Cloud:
         return 'https://cloud.invalid/part/' + str(Params['PartNumber'])
 
     def list_parts(self, UploadId, **kwargs):
-        return {'Parts': [{'PartNumber': n, 'Size': len(value), 'ETag': str(n)}
-                          for n, value in sorted(self.uploads[UploadId].items())]}
+        return {
+            'Parts': [
+                {'PartNumber': n, 'Size': len(value), 'ETag': str(n)}
+                for n, value in sorted(self.uploads[UploadId].items())
+            ]
+        }
 
     def complete_multipart_upload(self, UploadId, Key, MultipartUpload, **kwargs):
         self.objects[Key] = b''.join(self.uploads[UploadId][p['PartNumber']] for p in MultipartUpload['Parts'])
@@ -101,7 +106,7 @@ def test_direct_multipart_resume_verify_and_idempotence(client, hackathon, proje
     response = client.post(task['chunk_url'], b'x', content_type='application/octet-stream', HTTP_UPLOAD_OFFSET='0')
     assert response.status_code == 409
     assert client.post(task['ack_url'], {'offset': 0}).status_code == 409
-    put(cloud, task, 1, data[:CHUNK_SIZE - 1])
+    put(cloud, task, 1, data[: CHUNK_SIZE - 1])
     assert client.post(task['ack_url'], {'offset': 0}).status_code == 409
     put(cloud, task, 1, data[:CHUNK_SIZE])
     response = client.post(task['ack_url'], {'offset': 0})
@@ -178,8 +183,11 @@ def test_direct_deadline_resume_and_freeze(client, hackathon, project, user, clo
 
 def test_old_workers_can_insert_without_new_columns(client, hackathon, project, user, cloud):
     task = begin(client, hackathon, user, PDF)
-    old_columns = [field.column for field in UploadSession._meta.local_fields
-                   if field.name not in {'id', 'state', 'transport', 'storage_name', 'storage_upload_id'}]
+    old_columns = [
+        field.column
+        for field in UploadSession._meta.local_fields
+        if field.name not in {'id', 'state', 'transport', 'storage_name', 'storage_upload_id'}
+    ]
     quoted = ', '.join(connection.ops.quote_name(column) for column in old_columns)
     clone_id = uuid4()
     with connection.cursor() as cursor:
@@ -192,14 +200,17 @@ def test_old_workers_can_insert_without_new_columns(client, hackathon, project, 
     assert clone.transport == 'relay' and clone.storage_name == '' and clone.storage_upload_id == ''
 
 
-@pytest.mark.parametrize(('kind', 'filename', 'content_type'), [
-    ('preliminary', 'initial.mp4', 'video/mp4'),
-    ('preliminary', 'initial.WEBM', 'video/webm'),
-    ('video', 'final.mp4', 'video/mp4'),
-    ('video', 'final.webm', 'video/webm'),
-    ('slides', 'slides.pdf', 'application/octet-stream'),
-    ('source', 'source.pdf', 'application/octet-stream'),
-])
+@pytest.mark.parametrize(
+    ('kind', 'filename', 'content_type'),
+    [
+        ('preliminary', 'initial.mp4', 'video/mp4'),
+        ('preliminary', 'initial.MP4', 'video/mp4'),
+        ('video', 'final.mp4', 'video/mp4'),
+        ('video', 'final.webm', 'video/webm'),
+        ('slides', 'slides.pdf', 'application/octet-stream'),
+        ('source', 'source.pdf', 'application/octet-stream'),
+    ],
+)
 def test_direct_multipart_sets_media_type_only_for_explicit_video_kind(
     client, hackathon, project, user, cloud, kind, filename, content_type
 ):

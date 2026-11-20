@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0013_demoslot_ended_at'),
     ]
@@ -13,6 +12,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='project',
             name='state_reason',
-            field=models.CharField(blank=True, choices=[('edited', '已改未重交'), ('upload', '上传未完成'), ('review', '主办方要求补充')], default='', max_length=12, verbose_name='状态原因'),
+            field=models.CharField(
+                blank=True,
+                choices=[('edited', '已改未重交'), ('upload', '上传未完成'), ('review', '主办方要求补充')],
+                default='',
+                max_length=12,
+                verbose_name='状态原因',
+            ),
         ),
     ]

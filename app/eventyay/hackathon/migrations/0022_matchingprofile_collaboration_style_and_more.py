@@ -6,7 +6,6 @@ import eventyay.hackathon.matching_privacy
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0021_accountactiontoken_auth_hash'),
     ]

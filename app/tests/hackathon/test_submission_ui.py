@@ -1,4 +1,5 @@
 """Submission reading order and the server-rendered receipt contract."""
+
 import uuid
 from datetime import timedelta
 
@@ -25,7 +26,9 @@ def test_submission_controls_follow_materials_and_belong_to_project_form(client,
     _, soup = project_page(client, hackathon, team, user)
     sections = soup.select('.project-workflow > section')
     assert [section.select_one('h2').get('id') for section in sections] == [
-        'project-information-title', 'project-materials-title', 'project-submit-title',
+        'project-information-title',
+        'project-materials-title',
+        'project-submit-title',
     ]
     project_form = soup.select_one('[data-project-form]')
     assert not project_form.select('form')
@@ -47,8 +50,14 @@ def test_submission_controls_follow_materials_and_belong_to_project_form(client,
 def test_current_receipt_is_single_and_history_starts_collapsed(client, hackathon, team, user):
     receipt = uuid.uuid4()
     _, soup = project_page(
-        client, hackathon, team, user, state='submitted', revision=8,
-        submission_receipt=receipt, submission_intent_at=timezone.now(),
+        client,
+        hackathon,
+        team,
+        user,
+        state='submitted',
+        revision=8,
+        submission_receipt=receipt,
+        submission_intent_at=timezone.now(),
         submitted_at=timezone.now() - timedelta(hours=1),
     )
     assert len(soup.select('[data-submission-state]')) == 1
@@ -63,8 +72,14 @@ def test_current_receipt_is_single_and_history_starts_collapsed(client, hackatho
 def test_active_upload_is_visible_and_names_queued_action(client, hackathon, team, user):
     item = Project.objects.create(hackathon=hackathon, team=team, title='正在上传')
     UploadSession.objects.create(
-        hackathon=hackathon, project=item, user=user, kind='poster', original_filename='poster.png',
-        size=100, expires_at=timezone.now() + timedelta(hours=1), deadline_at=hackathon.submission_deadline,
+        hackathon=hackathon,
+        project=item,
+        user=user,
+        kind='poster',
+        original_filename='poster.png',
+        size=100,
+        expires_at=timezone.now() + timedelta(hours=1),
+        deadline_at=hackathon.submission_deadline,
     )
     client.force_login(user)
     soup = BeautifulSoup(client.get(endpoint(hackathon, 'project')).content, 'html.parser')

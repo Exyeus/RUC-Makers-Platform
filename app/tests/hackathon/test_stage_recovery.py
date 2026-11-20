@@ -192,9 +192,7 @@ def test_a_participant_cannot_rotate_the_token_or_remove_a_judge(client, hackath
     judge = make_judge(hackathon)
     client.force_login(participant.user)
     assert client.post(endpoint(hackathon, 'manage-stage'), {'action': 'token_issue'}).status_code == 403
-    assert (
-        client.post(endpoint(hackathon, 'staff'), {'action': 'remove', 'assignment': judge.pk}).status_code == 403
-    )
+    assert client.post(endpoint(hackathon, 'staff'), {'action': 'remove', 'assignment': judge.pk}).status_code == 403
     assert StaffAssignment.objects.filter(pk=judge.pk).exists()
     assert not StationToken.objects.filter(hackathon=hackathon).exists()
 

@@ -4,6 +4,7 @@ import hashlib
 import json
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from fractions import Fraction
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -109,8 +110,10 @@ def create_round(hackathon, user, *, kind, name, rules, panel, signer, signer_no
     validate_rules(rules)
     if not signer_nonstudent or not signer.is_active or signer.is_spam:
         raise ValidationError('请指定已核实身份的非学生总负责人签认名单。')
-    minimum = 2 if kind == 'preliminary' else 6
-    nonstudent = 0 if kind == 'preliminary' else 6
+    planned = rules.get('source') == 'plan'
+    # A competition plan states its own panel sizes; manual rounds keep the documented floors.
+    minimum = 2 if kind == 'preliminary' else (1 if planned else 6)
+    nonstudent = 0 if kind == 'preliminary' or planned else 6
     if rules['minimum_judges'] < minimum or rules['minimum_nonstudent'] < nonstudent:
         raise ValidationError('评委门槛低于本届方案：初评每道2人含非学生复核；决赛至少6名非学生评委。')
     if kind == 'final' and any(row['tracks'] for row in panel):
@@ -137,6 +140,14 @@ def create_round(hackathon, user, *, kind, name, rules, panel, signer, signer_no
     )
     if source:
         projects = projects.filter(pk__in=[row['project_id'] for row in signed_entries(source)])
+    elif planned:
+        # A planned preliminary judges exactly what the frozen snapshot found ready; the rest stay listed as issues.
+        from eventyay.hackathon.models import SubmissionSnapshot
+
+        frozen = SubmissionSnapshot.objects.filter(hackathon=h).order_by('-version').first()
+        entries = frozen.manifest['entries'] if frozen else []
+        ready = [row['project_id'] for row in entries if row['eligibility'] == 'ready']
+        projects = projects.filter(pk__in=ready)
     projects = list(projects.order_by('team__track_id', 'pk'))
     if not projects:
         raise ValidationError('没有可供本轮评审的已通过作品。')
@@ -158,12 +169,16 @@ def create_round(hackathon, user, *, kind, name, rules, panel, signer, signer_no
             raise ValidationError(
                 f'「{project.team.name}」的有效评委或非学生评委不足，已自动排除本队成员；本轮未建立。'
             )
-        if kind == 'preliminary' and not any(
-            row.get('nonstudent') is True
-            and (row['user_id'], str(project.team_id)) not in conflicts
-            and row['user_id'] not in {judge['user_id'] for judge in judges}
-            and (not row['tracks'] or str(project.team.track_id) in row['tracks'])
-            for row in rules.get('reviewers', [])
+        if (
+            kind == 'preliminary'
+            and not planned
+            and not any(
+                row.get('nonstudent') is True
+                and (row['user_id'], str(project.team_id)) not in conflicts
+                and row['user_id'] not in {judge['user_id'] for judge in judges}
+                and (not row['tracks'] or str(project.team.track_id) in row['tracks'])
+                for row in rules.get('reviewers', [])
+            )
         ):
             raise ValidationError(f'「{project.team.name}」缺少独立非学生复核人；复核人不能兼任该赛道打分。')
         tasks.append({'project_id': str(project.pk), 'judges': [row['user_id'] for row in judges]})
@@ -228,6 +243,17 @@ def set_round_open(hackathon, user, round, opening):
     return current
 
 
+def criterion_max(rules, criterion):
+    """Full marks of one dimension: its weight on the points scale, 10 on the legacy 0–10 scale."""
+    return criterion['weight'] if rules.get('scale') == 'points' else 10
+
+
+def score_total(rules, values):
+    if rules.get('scale') == 'points':
+        return sum(Decimal(values[c['key']]) for c in rules['criteria'])
+    return sum(Decimal(values[c['key']]) * c['weight'] / 10 for c in rules['criteria'])
+
+
 @transaction.atomic
 def save_round_score(hackathon, user, round, project, *, values, final, revision, feedback=''):
     h = services.lock_event(hackathon)
@@ -249,10 +275,11 @@ def save_round_score(hackathon, user, round, project, *, values, final, revision
     ):
         raise PermissionDenied
     expected = {row['key'] for row in current.rules['criteria']}
+    limits = {row['key']: criterion_max(current.rules, row) for row in current.rules['criteria']}
     if set(values) != expected or any(
-        value is not None and (type(value) is not int or not 0 <= value <= 10) for value in values.values()
+        value is not None and (type(value) is not int or not 0 <= value <= limits[key]) for key, value in values.items()
     ):
-        raise ValidationError('各项分数须为0至10的整数。')
+        raise ValidationError('各项分数须为 0 至该项满分之间的整数。')
     if final and any(value is None for value in values.values()):
         raise ValidationError('请填全各项分数后确认；缺项不会作为0分计入。')
     score = RoundScore.objects.filter(round=current, project=project, judge=user).first()
@@ -286,7 +313,7 @@ def round_results(round):
             ):
                 missing.append(judge_id)
                 continue
-            totals.append(sum(Decimal(score.values[c['key']]) * c['weight'] / 10 for c in round.rules['criteria']))
+            totals.append(score_total(round.rules, score.values))
             source.append({'judge_id': judge_id, 'revision': score.revision, 'values': score.values})
         totals.sort()
         trim = (
@@ -295,11 +322,18 @@ def round_results(round):
             else 0
         )
         counted = totals[trim : len(totals) - trim] if trim else totals
+        exact = Fraction(sum(counted)) / len(counted) if counted else None
+        # Rank on the exact mean; two decimals are for display only, so rounding never creates a tie.
         average = (
-            str((sum(counted) / len(counted)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)) if counted else None
+            str(
+                (Decimal(exact.numerator) / Decimal(exact.denominator)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+            )
+            if counted
+            else None
         )
         row.update(
             average=average,
+            exact=str(exact) if counted else None,
             complete=not missing and bool(task['judges']),
             missing=missing,
             expected=len(task['judges']),
@@ -307,16 +341,16 @@ def round_results(round):
             scores=source,
         )
         rows.append(row)
-    rows.sort(key=lambda r: (r['track_id'], not r['complete'], -Decimal(r['average'] or 0), r['project_id']))
+    rows.sort(key=lambda r: (r['track_id'], not r['complete'], -Fraction(r['exact'] or 0), r['project_id']))
     previous, rank, track_index, track = None, 0, 0, None
     for row in rows:
         if row['track_id'] != track:
             previous, rank, track_index, track = None, 0, 0, row['track_id']
         track_index += 1
-        if row['complete'] and row['average'] != previous:
+        if row['complete'] and row['exact'] != previous:
             rank = track_index
         row['rank'] = rank if row['complete'] else None
-        previous = row['average']
+        previous = row['exact']
     return rows
 
 
@@ -362,7 +396,7 @@ def make_snapshot(hackathon, user, round, *, kind, reason, seats=None, alternate
                 if len(order) != len(candidates) or set(order) != {row['project_id'] for row in candidates}:
                     raise ValidationError('人工复核顺序必须完整列出该赛道每个作品且不重复。')
                 candidates.sort(key=lambda row: order.index(row['project_id']))
-            elif count < len(candidates) and candidates[count - 1]['average'] == candidates[count]['average']:
+            elif count < len(candidates) and candidates[count - 1]['exact'] == candidates[count]['exact']:
                 raise ValidationError('入围边界同分，请填写人工复核顺序和依据后生成；系统不会按编号擅自决定。')
             for index, row in enumerate(candidates):
                 row['status'] = (

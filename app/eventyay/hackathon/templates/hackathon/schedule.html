@@ -1,10 +1,8 @@
 {% extends 'hackathon/base.html' %}
+{% load hackathon_swiss %}
 {% block content %}
   <section class="page-heading">
     <div>
-      <div class="eyebrow">
-        THE JOURNEY, TOGETHER
-      </div>
       <h1>
         活动日程
       </h1>
@@ -61,7 +59,7 @@
     {% for item in items %}
       {% ifchanged item.starts_at.date %}
         <h2 class="day-heading">
-          {{ item.starts_at|date:'m 月 d 日 · l' }}
+          {{ item.starts_at|date:'n 月 j 日' }} · {{ item.starts_at|weekday_zh }}
         </h2>
       {% endifchanged %}
       <article class="schedule-row{% if item.starts_at <= now and item.ends_at >= now %} happening{% endif %}">

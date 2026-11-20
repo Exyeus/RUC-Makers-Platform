@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0019_stationtoken_connection_state'),
     ]
