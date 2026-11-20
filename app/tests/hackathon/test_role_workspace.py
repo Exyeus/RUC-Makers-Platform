@@ -102,10 +102,7 @@ def heading_text(response):
 
 def page_access_levels():
     """每个路由的访问级别，取自 event_view 装饰器。"""
-    return {
-        pattern.name: getattr(pattern.callback, 'access', 'public')
-        for pattern in hackathon_urls.event_patterns
-    }
+    return {pattern.name: getattr(pattern.callback, 'access', 'public') for pattern in hackathon_urls.event_patterns}
 
 
 # 下载与轮询类响应不渲染工作台页面，因此不参与侧栏身份判定。
@@ -118,9 +115,7 @@ def test_every_restricted_route_keeps_its_own_sidebar_column():
     for name, access in page_access_levels().items():
         if access in {'public', 'login'} or name in NON_PAGE_ROUTES:
             continue
-        assert any(
-            name in expected or navigation_column(name) in expected for expected in sets
-        ), name
+        assert any(name in expected or navigation_column(name) in expected for expected in sets), name
 
 
 def columns_the_identity_can_open(identity, roles=()):
@@ -329,7 +324,11 @@ def test_mobile_bar_follows_the_working_identity(
 
 def test_mobile_bar_for_anonymous_visitors(client, hackathon):
     assert mobile_bar(client.get(endpoint(hackathon, 'schedule'))) == [
-        '首页', '我的队伍', '参与队伍', '想法交流', '更多',
+        '首页',
+        '我的队伍',
+        '参与队伍',
+        '想法交流',
+        '更多',
     ]
 
 
@@ -593,9 +592,7 @@ def test_sidebar_covers_every_page_the_identity_can_open(
     account = request.getfixturevalue(fixture_name)
     client.force_login(account)
     response = client.get(endpoint(hackathon, entry))
-    roles = set(
-        StaffAssignment.objects.filter(hackathon=hackathon, user=account).values_list('role', flat=True)
-    )
+    roles = set(StaffAssignment.objects.filter(hackathon=hackathon, user=account).values_list('role', flat=True))
     missing = columns_the_identity_can_open(identity, roles) - set(routes(response))
     assert not missing, f'{identity} 侧栏缺少入口：{sorted(missing)}'
 

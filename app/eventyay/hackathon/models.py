@@ -296,8 +296,11 @@ class Project(EventRecord):
     review_note = models.TextField('检查意见 / 补录理由', blank=True)
     equipment_checked = models.BooleanField('投影、声音、视频切换已演练', default=False)
     final_material_kind = models.CharField(
-        '现场上场材料（手动选择）', max_length=12, blank=True, db_default='',
-        choices=[('slides', 'PDF 演示文稿'), ('video', '现场视频')]
+        '现场上场材料（手动选择）',
+        max_length=12,
+        blank=True,
+        db_default='',
+        choices=[('slides', 'PDF 演示文稿'), ('video', '现场视频')],
     )
     award = models.CharField('奖项 / 后续孵化资源', max_length=200, blank=True)
 

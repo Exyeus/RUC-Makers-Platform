@@ -1,15 +1,18 @@
 """Organizer pages for competition day: the plan, the command center and the roadshow order."""
 
+from urllib.parse import quote
+
 from django import forms
 from django.contrib import messages
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from eventyay.base.models import User
-from eventyay.hackathon import competition_day, roadshow_package, services
+from eventyay.hackathon import competition_day, competition_review, roadshow_package, services
 from eventyay.hackathon import workflow_services as workflow
 from eventyay.hackathon.downloads import stream_file
 from eventyay.hackathon.models import StaffAssignment, Track
@@ -211,3 +214,122 @@ def package(request):
         return redirect(url(h, 'competition-day'))
     services.audit(h, request.user, '下载路演材料包', order.pk, f'顺序 v{order.version}')
     return stream_file(request, source, size, roadshow_package.package_name(order))
+
+
+def review_reason(kind, plan, data):
+    default = (
+        f'按初评平均分排序，各赛道前 {plan.seats} 名入围，随后 {plan.alternates} 名候补。'
+        if kind == 'finalists'
+        else '按决赛平均分分赛道排名确定奖项。'
+    )
+    reason = (data.get('reason') or '').strip() or default
+    note = (data.get('tie_note') or '').strip()
+    return reason, note
+
+
+@event_view('login')
+@require_http_methods(['GET', 'POST'])
+def review(request):
+    h = request.hackathon
+    state = competition_day.status(h)
+    kind = 'awards' if state['stage'] in {'awards', 'done'} else 'finalists'
+    progress = state['final'] if kind == 'awards' else state['preliminary']
+    if not progress:
+        raise Http404
+    item = progress['round']
+    organizer, signer = request.hackathon_organizer, request.user.pk == item.signer_id
+    if not organizer and not signer:
+        raise PermissionDenied
+    plan = state['plan']
+    seats, alternates = (plan.seats, plan.alternates) if kind == 'finalists' and plan else (0, 0)
+    tracks = competition_review.tracks_for(item, seats, alternates)
+    waiting = competition_review.pending(item, kind)
+    errors = []
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        try:
+            if action == 'generate' and organizer:
+                reason, note = review_reason(kind, plan, request.POST)
+                if kind == 'finalists':
+                    selections = competition_review.selections_from(tracks, request.POST)
+                    if selections and not note:
+                        raise ValidationError('请写明同分裁定依据。')
+                    workflow.make_snapshot(
+                        h,
+                        request.user,
+                        item,
+                        kind='finalists',
+                        reason=reason + (f'同分裁定：{note}' if note else ''),
+                        seats={track['id']: seats for track in tracks},
+                        alternates=alternates,
+                        selections=selections,
+                    )
+                else:
+                    awards, split = competition_review.awards_from(tracks, request.POST)
+                    if not awards:
+                        raise ValidationError('请至少填写一个奖项。')
+                    if split and not note:
+                        raise ValidationError(f'{"、".join(split)}有同分作品获得不同奖项，请写明裁定依据。')
+                    workflow.make_snapshot(
+                        h,
+                        request.user,
+                        item,
+                        kind='awards',
+                        reason=reason + (f'同分裁定：{note}' if note else ''),
+                        awards=awards,
+                    )
+                messages.success(request, '名单已生成，请签认。' if signer else '名单已生成，等待签认。')
+            elif action == 'sign' and signer and waiting:
+                workflow.sign_snapshot(h, request.user, waiting, request.POST.get('sha256', ''))
+                messages.success(request, '已签认入围名单。' if kind == 'finalists' else '已签认获奖名单。')
+                if organizer:
+                    return redirect(url(h, 'competition-day'))
+            else:
+                raise ValidationError('无法执行此操作。')
+        except ValidationError as error:
+            errors = error.messages
+        except PermissionDenied:
+            errors = ['当前账号不能签认此名单。']
+        else:
+            return redirect(url(h, 'competition-review'))
+    signed = state['awards'] if kind == 'awards' else state['finalists']
+    shown = waiting or signed
+    return page(
+        request,
+        'competition_review',
+        page_title='获奖确认' if kind == 'awards' else '入围复核',
+        workspace_identity='organizer' if organizer else 'reviewer',
+        kind=kind,
+        round=item,
+        progress=progress,
+        tracks=tracks,
+        seats=seats,
+        alternates=alternates,
+        waiting=waiting,
+        signed=signed,
+        shown_tracks=competition_review.snapshot_tracks(shown) if shown else [],
+        ties=any(track['decide'] for track in tracks) or kind == 'awards',
+        suggested={key: value for track in tracks for key, value in competition_review.suggested_awards(track).items()}
+        if kind == 'awards'
+        else {},
+        award_choices=competition_review.AWARD_CHOICES,
+        can_generate=organizer and not item.is_open and progress['left'] == 0,
+        is_signer=signer,
+        is_organizer=organizer,
+        errors=errors,
+        default_reason=review_reason(kind, plan, {})[0] if plan else '',
+    )
+
+
+@event_view('organizer')
+@require_http_methods(['GET'])
+def awards_export(request):
+    h = request.hackathon
+    snapshot = workflow.current_signed_snapshot(h, 'awards')
+    if not snapshot:
+        raise Http404
+    services.audit(h, request.user, '导出获奖名单', snapshot.pk, f'v{snapshot.version}')
+    response = HttpResponse(competition_review.awards_csv(snapshot), content_type='text/csv; charset=utf-8')
+    name = quote(f'造物有心_获奖名单_v{snapshot.version:03d}.csv')
+    response['Content-Disposition'] = f"attachment; filename*=UTF-8''{name}"
+    return response

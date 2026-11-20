@@ -955,7 +955,7 @@ def test_failed_checksum_visible_in_status(client, hackathon, project, user):
 def corrupt_png_crc():
     data = bytearray(png().read())
     marker = data.index(b'IDAT')
-    length = struct.unpack('>I', data[marker - 4:marker])[0]
+    length = struct.unpack('>I', data[marker - 4 : marker])[0]
     data[marker + 4 + length] ^= 1
     return bytes(data)
 

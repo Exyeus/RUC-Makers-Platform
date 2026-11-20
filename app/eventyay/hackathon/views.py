@@ -127,6 +127,8 @@ ORGANIZER_ROUTES = {
     'competition-plan',
     'competition-day',
     'roadshow-package',
+    'competition-review',
+    'awards-export',
 }
 JUDGE_ROUTES = {'judging', 'judge-live', 'score', 'workflow-judging', 'workflow-tasks', 'workflow-score'}
 VOLUNTEER_ROUTES = {'tasks'}
@@ -167,6 +169,7 @@ NAVIGATION_ALIASES = {
     'judge-batch': 'staff',
     'judge-links': 'staff',
     'competition-plan': 'competition-day',
+    'competition-review': 'competition-day',
     'workflow-judging': 'judging',
     'workflow-tasks': 'judging',
     'workflow-score': 'judging',
@@ -1676,8 +1679,8 @@ def staff(request):
                     detail = assignment.role
                     if impact['scoring']:
                         detail += (
-                            f" · 影响：{impact['confirmed']} 份已确认评分不再计入统计，"
-                            f"{impact['becoming_incomplete']} 个作品变为缺评"
+                            f' · 影响：{impact["confirmed"]} 份已确认评分不再计入统计，'
+                            f'{impact["becoming_incomplete"]} 个作品变为缺评'
                         )
                     if reason:
                         detail += f' · 原因：{reason}'
@@ -1805,7 +1808,7 @@ def attach_ticket_threads(hackathon, tickets):
         elif person:
             ticket.work_reference = {
                 'label': '在名单中查找本人',
-                'url': f"{url(hackathon, 'participants')}?{urlencode({'q': person.code})}",
+                'url': f'{url(hackathon, "participants")}?{urlencode({"q": person.code})}',
             }
         else:
             ticket.work_reference = None

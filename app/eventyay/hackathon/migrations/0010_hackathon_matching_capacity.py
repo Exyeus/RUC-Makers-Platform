@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0009_alter_hackathon_matching_freeze_snapshot_and_more'),
     ]
@@ -14,6 +13,8 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='hackathon',
             name='matching_capacity',
-            field=models.PositiveIntegerField(default=150, validators=[django.core.validators.MinValueValidator(1)], verbose_name='正式录取容量'),
+            field=models.PositiveIntegerField(
+                default=150, validators=[django.core.validators.MinValueValidator(1)], verbose_name='正式录取容量'
+            ),
         ),
     ]

@@ -631,3 +631,25 @@ html[data-theme] .sw-masthead nav a { align-items: flex-start !important; }
 .sw-order { width: 100%; font-family: var(--sw-cjk); font-size: var(--sw-fs-small); }
 .sw-order td, .sw-order th { padding: 12px 12px 12px 0; text-align: left; }
 @media (max-width: 720px) { .sw-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 12px; } .sw-progress-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Finalist review and awards ---------- */
+.sw-review-form { display: flex; flex-direction: column; gap: 32px; }
+.sw-rank tr.is-cut td { border-bottom: 2px solid var(--sw-ink); }
+.sw-rank tr.is-tie td { background: #fff4f8; }
+.sw-rank td { vertical-align: middle; }
+.sw-scores { display: flex; flex-wrap: wrap; gap: 4px 10px; font-family: var(--sw-mono); font-size: var(--sw-fs-data); }
+.sw-scores span { white-space: nowrap; }
+.sw-tie, .sw-award { min-height: 44px; border: 1.5px solid var(--sw-ink); border-radius: 0; padding: 0 10px; font: inherit; background: #fff; }
+.sw-tie { width: 72px; font-family: var(--sw-mono); }
+.sw-award { width: 140px; }
+.sw-tie:focus-visible, .sw-award:focus-visible { outline: 3px solid var(--sw-violet); outline-offset: 1px; }
+.sw-review-fields { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px 24px; align-items: start; font-family: var(--sw-cjk); }
+.sw-review-fields label { padding-top: 10px; font-size: var(--sw-fs-label); font-weight: 600; }
+.sw-review-fields textarea { min-height: 64px; border: 1.5px solid var(--sw-ink); border-radius: 0; padding: 10px 12px; font: inherit; }
+.sw-review-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; font-family: var(--sw-cjk); }
+.sw-review-summary h3 { margin: 0 0 8px; font-size: var(--sw-fs-label); }
+.sw-review-summary ol { margin: 0; padding-left: 1.6em; display: flex; flex-direction: column; gap: 6px; font-size: var(--sw-fs-small); }
+.sw-review-summary li.is-alt { color: var(--sw-grey-2); }
+.sw-sign { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding: 24px; margin-bottom: 24px; }
+.sw-sign h2 { margin: 0; font-family: var(--sw-cjk); font-size: var(--sw-fs-subhead) !important; }
+@media (max-width: 720px) { .sw-review-summary, .sw-review-fields { grid-template-columns: 1fr; } .sw-review-fields label { padding-top: 0; } }

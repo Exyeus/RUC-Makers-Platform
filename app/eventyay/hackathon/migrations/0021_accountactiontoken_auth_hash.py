@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0020_hackathon_admission_required_accountactiontoken_and_more'),
     ]

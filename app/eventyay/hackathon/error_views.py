@@ -8,11 +8,12 @@ from eventyay.base.views import errors as original
 
 
 def is_workspace_page(request):
-    return (request.path.startswith('/hackathon/tongzhou26/')
-            and not request_prefers_json_api(request)
-            and request.headers.get('X-Requested-With') != 'XMLHttpRequest'
-            and ('text/html' in request.headers.get('Accept', '')
-                 or not request.headers.get('Accept', '')))
+    return (
+        request.path.startswith('/hackathon/tongzhou26/')
+        and not request_prefers_json_api(request)
+        and request.headers.get('X-Requested-With') != 'XMLHttpRequest'
+        and ('text/html' in request.headers.get('Accept', '') or not request.headers.get('Accept', ''))
+    )
 
 
 def render_error(code, status):

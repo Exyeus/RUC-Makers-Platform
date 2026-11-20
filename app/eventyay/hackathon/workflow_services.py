@@ -168,12 +168,16 @@ def create_round(hackathon, user, *, kind, name, rules, panel, signer, signer_no
             raise ValidationError(
                 f'「{project.team.name}」的有效评委或非学生评委不足，已自动排除本队成员；本轮未建立。'
             )
-        if kind == 'preliminary' and not planned and not any(
-            row.get('nonstudent') is True
-            and (row['user_id'], str(project.team_id)) not in conflicts
-            and row['user_id'] not in {judge['user_id'] for judge in judges}
-            and (not row['tracks'] or str(project.team.track_id) in row['tracks'])
-            for row in rules.get('reviewers', [])
+        if (
+            kind == 'preliminary'
+            and not planned
+            and not any(
+                row.get('nonstudent') is True
+                and (row['user_id'], str(project.team_id)) not in conflicts
+                and row['user_id'] not in {judge['user_id'] for judge in judges}
+                and (not row['tracks'] or str(project.team.track_id) in row['tracks'])
+                for row in rules.get('reviewers', [])
+            )
         ):
             raise ValidationError(f'「{project.team.name}」缺少独立非学生复核人；复核人不能兼任该赛道打分。')
         tasks.append({'project_id': str(project.pk), 'judges': [row['user_id'] for row in judges]})

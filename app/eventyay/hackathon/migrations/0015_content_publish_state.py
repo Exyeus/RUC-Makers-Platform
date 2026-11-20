@@ -11,9 +11,7 @@ def publishable_fields(model_name):
         migrations.AddField(
             model_name=model_name,
             name='state',
-            field=models.CharField(
-                choices=CHOICES, default='published', max_length=12, verbose_name='发布状态'
-            ),
+            field=models.CharField(choices=CHOICES, default='published', max_length=12, verbose_name='发布状态'),
             preserve_default=False,
         ),
         migrations.AddField(

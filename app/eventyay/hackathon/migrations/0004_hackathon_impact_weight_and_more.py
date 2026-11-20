@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0003_alter_asset_file'),
     ]
@@ -14,27 +13,42 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='hackathon',
             name='impact_weight',
-            field=models.PositiveSmallIntegerField(default=20, validators=[django.core.validators.MaxValueValidator(100)], verbose_name='实际价值权重（%）'),
+            field=models.PositiveSmallIntegerField(
+                default=20, validators=[django.core.validators.MaxValueValidator(100)], verbose_name='实际价值权重（%）'
+            ),
         ),
         migrations.AddField(
             model_name='hackathon',
             name='implementation_weight',
-            field=models.PositiveSmallIntegerField(default=40, validators=[django.core.validators.MaxValueValidator(100)], verbose_name='完成度与实机演示权重（%）'),
+            field=models.PositiveSmallIntegerField(
+                default=40,
+                validators=[django.core.validators.MaxValueValidator(100)],
+                verbose_name='完成度与实机演示权重（%）',
+            ),
         ),
         migrations.AddField(
             model_name='hackathon',
             name='innovation_weight',
-            field=models.PositiveSmallIntegerField(default=30, validators=[django.core.validators.MaxValueValidator(100)], verbose_name='创新性权重（%）'),
+            field=models.PositiveSmallIntegerField(
+                default=30, validators=[django.core.validators.MaxValueValidator(100)], verbose_name='创新性权重（%）'
+            ),
         ),
         migrations.AddField(
             model_name='hackathon',
             name='presentation_weight',
-            field=models.PositiveSmallIntegerField(default=10, validators=[django.core.validators.MaxValueValidator(100)], verbose_name='表达权重（%）'),
+            field=models.PositiveSmallIntegerField(
+                default=10, validators=[django.core.validators.MaxValueValidator(100)], verbose_name='表达权重（%）'
+            ),
         ),
         migrations.AddField(
             model_name='hackathon',
             name='score_aggregation',
-            field=models.CharField(choices=[('mean', '全部有效评分取平均（默认）'), ('trimmed', '去掉最高、最低分后取平均')], default='mean', max_length=12, verbose_name='评委总分汇总方式'),
+            field=models.CharField(
+                choices=[('mean', '全部有效评分取平均（默认）'), ('trimmed', '去掉最高、最低分后取平均')],
+                default='mean',
+                max_length=12,
+                verbose_name='评委总分汇总方式',
+            ),
         ),
         migrations.AddField(
             model_name='hackathon',
@@ -44,7 +58,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='hackathon',
             name='trim_extremes',
-            field=models.PositiveSmallIntegerField(default=1, validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(5)], verbose_name='两端各去掉的评分数量'),
+            field=models.PositiveSmallIntegerField(
+                default=1,
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(5)],
+                verbose_name='两端各去掉的评分数量',
+            ),
         ),
         migrations.AddField(
             model_name='score',

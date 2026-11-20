@@ -262,7 +262,20 @@ def judging(request):
         if 'judge' in request.hackathon_roles
         else None
     )
-    return page(request, 'workflow_judging', rounds=rounds, workspace_identity=identity)
+    from eventyay.hackathon.competition_review import pending
+
+    to_sign = [
+        found
+        for item in JudgingRound.objects.filter(hackathon=h, signer=request.user)
+        if (found := pending(item, 'finalists' if item.kind == 'preliminary' else 'awards'))
+    ]
+    return page(
+        request,
+        'workflow_judging',
+        rounds=rounds,
+        to_sign=to_sign,
+        workspace_identity=identity or ('reviewer' if to_sign else None),
+    )
 
 
 @event_view('login')

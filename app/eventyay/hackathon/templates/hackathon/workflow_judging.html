@@ -3,6 +3,12 @@
   <section class="page-heading">
     <div><h1>评审工作台 · 选择轮次</h1><p>初评与决赛分别保存；各轮仅显示分配给你的打分任务或复核资料。</p></div>
   </section>
+  {% for item in to_sign %}
+    <section class="sw-block sw-block--violet sw-sign">
+      <h2>待签认 · {% if item.kind == 'awards' %}获奖名单{% else %}入围名单{% endif %} v{{ item.version }}</h2>
+      <a class="sw-btn sw-btn--light" href="{% url 'hackathon:competition-review' hackathon.slug %}">核对并签认<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
+    </section>
+  {% endfor %}
   {% for round in rounds %}
     <section class="panel">
       <h2>{{ round.name }} · {{ round.get_kind_display }} v{{ round.version }}</h2>

@@ -203,9 +203,7 @@ def test_staff_only_announcement_preview_says_it_never_reaches_contestants(clien
     client.force_login(organizer_user)
     _, item = create_content(client, hackathon, 'announcement', 'draft', audience='staff')
 
-    page = client.get(
-        endpoint(hackathon, 'content-preview', kind='announcement', item_id=item.pk)
-    ).content.decode()
+    page = client.get(endpoint(hackathon, 'content-preview', kind='announcement', item_id=item.pk)).content.decode()
     assert '只发给工作人员' in page
 
 

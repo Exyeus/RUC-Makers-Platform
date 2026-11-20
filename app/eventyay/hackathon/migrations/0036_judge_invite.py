@@ -6,58 +6,57 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ("hackathon", "0035_admission_roster_columns"),
+        ('hackathon', '0035_admission_roster_columns'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name="JudgeInvite",
+            name='JudgeInvite',
             fields=[
                 (
-                    "id",
+                    'id',
                     models.BigAutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name="ID",
+                        verbose_name='ID',
                     ),
                 ),
-                ("created", models.DateTimeField(auto_now_add=True, null=True)),
-                ("updated", models.DateTimeField(auto_now=True, null=True)),
-                ("digest", models.CharField(max_length=64, unique=True)),
-                ("expires_at", models.DateTimeField()),
-                ("revoked_at", models.DateTimeField(blank=True, null=True)),
-                ("last_used_at", models.DateTimeField(blank=True, null=True)),
-                ("use_count", models.PositiveIntegerField(default=0)),
+                ('created', models.DateTimeField(auto_now_add=True, null=True)),
+                ('updated', models.DateTimeField(auto_now=True, null=True)),
+                ('digest', models.CharField(max_length=64, unique=True)),
+                ('expires_at', models.DateTimeField()),
+                ('revoked_at', models.DateTimeField(blank=True, null=True)),
+                ('last_used_at', models.DateTimeField(blank=True, null=True)),
+                ('use_count', models.PositiveIntegerField(default=0)),
                 (
-                    "created_by",
+                    'created_by',
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="+",
+                        related_name='+',
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),
                 (
-                    "hackathon",
+                    'hackathon',
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        to="hackathon.hackathon",
+                        to='hackathon.hackathon',
                     ),
                 ),
                 (
-                    "user",
+                    'user',
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="hackathon_judge_invites",
+                        related_name='hackathon_judge_invites',
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),
             ],
             options={
-                "ordering": ["-created"],
+                'ordering': ['-created'],
             },
         ),
     ]

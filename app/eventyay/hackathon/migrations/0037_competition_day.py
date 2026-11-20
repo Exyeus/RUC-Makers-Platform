@@ -8,123 +8,102 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ("hackathon", "0036_judge_invite"),
+        ('hackathon', '0036_judge_invite'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name="CompetitionPlan",
+            name='CompetitionPlan',
             fields=[
                 (
-                    "id",
+                    'id',
                     models.BigAutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name="ID",
+                        verbose_name='ID',
                     ),
                 ),
-                ("created", models.DateTimeField(auto_now_add=True, null=True)),
-                ("updated", models.DateTimeField(auto_now=True, null=True)),
+                ('created', models.DateTimeField(auto_now_add=True, null=True)),
+                ('updated', models.DateTimeField(auto_now=True, null=True)),
                 (
-                    "preliminary_panel",
-                    models.JSONField(
-                        blank=True, default=dict, verbose_name="初评评委（按赛道）"
-                    ),
+                    'preliminary_panel',
+                    models.JSONField(blank=True, default=dict, verbose_name='初评评委（按赛道）'),
                 ),
                 (
-                    "final_panel",
-                    models.JSONField(blank=True, default=list, verbose_name="决赛评委"),
+                    'final_panel',
+                    models.JSONField(blank=True, default=list, verbose_name='决赛评委'),
                 ),
                 (
-                    "reviewers",
-                    models.JSONField(
-                        blank=True, default=dict, verbose_name="复核人（按赛道）"
-                    ),
+                    'reviewers',
+                    models.JSONField(blank=True, default=dict, verbose_name='复核人（按赛道）'),
                 ),
                 (
-                    "seats",
-                    models.PositiveSmallIntegerField(
-                        default=8, verbose_name="每赛道入围"
-                    ),
+                    'seats',
+                    models.PositiveSmallIntegerField(default=8, verbose_name='每赛道入围'),
                 ),
                 (
-                    "alternates",
-                    models.PositiveSmallIntegerField(
-                        default=2, verbose_name="每赛道候补"
-                    ),
+                    'alternates',
+                    models.PositiveSmallIntegerField(default=2, verbose_name='每赛道候补'),
                 ),
                 (
-                    "roadshow_start",
-                    models.DateTimeField(
-                        blank=True, null=True, verbose_name="路演开始"
-                    ),
+                    'roadshow_start',
+                    models.DateTimeField(blank=True, null=True, verbose_name='路演开始'),
                 ),
                 (
-                    "slot_minutes",
-                    models.PositiveSmallIntegerField(
-                        default=5, verbose_name="每队时长（分钟，含换场）"
-                    ),
+                    'slot_minutes',
+                    models.PositiveSmallIntegerField(default=5, verbose_name='每队时长（分钟，含换场）'),
                 ),
                 (
-                    "confirm_minutes",
-                    models.PositiveSmallIntegerField(
-                        default=15, verbose_name="入围确认时限（分钟）"
-                    ),
+                    'confirm_minutes',
+                    models.PositiveSmallIntegerField(default=15, verbose_name='入围确认时限（分钟）'),
                 ),
                 (
-                    "auto_lock",
-                    models.BooleanField(
-                        default=True, verbose_name="截止后自动锁定并开始初评"
-                    ),
+                    'auto_lock',
+                    models.BooleanField(default=True, verbose_name='截止后自动锁定并开始初评'),
                 ),
-                ("locked_at", models.DateTimeField(blank=True, null=True)),
-                ("last_error", models.CharField(blank=True, max_length=500)),
-                ("last_attempt_at", models.DateTimeField(blank=True, null=True)),
+                ('locked_at', models.DateTimeField(blank=True, null=True)),
+                ('last_error', models.CharField(blank=True, max_length=500)),
+                ('last_attempt_at', models.DateTimeField(blank=True, null=True)),
                 (
-                    "hackathon",
+                    'hackathon',
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        to="hackathon.hackathon",
+                        to='hackathon.hackathon',
                     ),
                 ),
                 (
-                    "signer",
+                    'signer',
                     models.ForeignKey(
                         blank=True,
                         null=True,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="+",
+                        related_name='+',
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),
                 (
-                    "updated_by",
+                    'updated_by',
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="+",
+                        related_name='+',
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),
             ],
             options={
-                "constraints": [
-                    models.UniqueConstraint(
-                        fields=("hackathon",), name="hack_competition_plan"
-                    )
-                ],
+                'constraints': [models.UniqueConstraint(fields=('hackathon',), name='hack_competition_plan')],
             },
         ),
         migrations.CreateModel(
-            name="RoadshowOrder",
+            name='RoadshowOrder',
             fields=[
-                ("created", models.DateTimeField(auto_now_add=True, null=True)),
-                ("updated", models.DateTimeField(auto_now=True, null=True)),
+                ('created', models.DateTimeField(auto_now_add=True, null=True)),
+                ('updated', models.DateTimeField(auto_now=True, null=True)),
                 (
-                    "id",
+                    'id',
                     models.UUIDField(
                         default=uuid.uuid4,
                         editable=False,
@@ -132,49 +111,49 @@ class Migration(migrations.Migration):
                         serialize=False,
                     ),
                 ),
-                ("version", models.PositiveIntegerField()),
-                ("entries", models.JSONField()),
-                ("reason", models.CharField(max_length=500)),
-                ("published_at", models.DateTimeField(blank=True, null=True)),
+                ('version', models.PositiveIntegerField()),
+                ('entries', models.JSONField()),
+                ('reason', models.CharField(max_length=500)),
+                ('published_at', models.DateTimeField(blank=True, null=True)),
                 (
-                    "created_by",
+                    'created_by',
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="+",
+                        related_name='+',
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),
                 (
-                    "hackathon",
+                    'hackathon',
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        to="hackathon.hackathon",
+                        to='hackathon.hackathon',
                     ),
                 ),
                 (
-                    "snapshot",
+                    'snapshot',
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="orders",
-                        to="hackathon.resultsnapshot",
+                        related_name='orders',
+                        to='hackathon.resultsnapshot',
                     ),
                 ),
                 (
-                    "supersedes",
+                    'supersedes',
                     models.ForeignKey(
                         blank=True,
                         null=True,
                         on_delete=django.db.models.deletion.PROTECT,
-                        to="hackathon.roadshoworder",
+                        to='hackathon.roadshoworder',
                     ),
                 ),
             ],
             options={
-                "ordering": ["-version"],
-                "constraints": [
+                'ordering': ['-version'],
+                'constraints': [
                     models.UniqueConstraint(
-                        fields=("hackathon", "version"),
-                        name="hack_roadshow_order_version",
+                        fields=('hackathon', 'version'),
+                        name='hack_roadshow_order_version',
                     )
                 ],
             },

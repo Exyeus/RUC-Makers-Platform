@@ -350,8 +350,15 @@ def finish_upload(session):
     require_owner(hackathon, session.user, project)
     require_project_editable(project, allow_queued=True)
     asset = install_asset(
-        hackathon, session.user, project, session.kind, session.original_filename, session.size,
-        digest, relative, media_probe
+        hackathon,
+        session.user,
+        project,
+        session.kind,
+        session.original_filename,
+        session.size,
+        digest,
+        relative,
+        media_probe,
     )
     if asset.file.name != relative:
         transaction.on_commit(lambda: remove_asset(relative))

@@ -117,7 +117,7 @@ def test_declined_application_can_be_renewed(client, hackathon, team):
     assert application.message == '我改了方向，还是想加入'
 
 
-@pytest.mark.parametrize("recommendations", [False, True])
+@pytest.mark.parametrize('recommendations', [False, True])
 def test_solo_captain_can_dissolve_the_team_and_start_over(client, hackathon, team, recommendations):
     hackathon.matching_enabled = recommendations
     hackathon.matching_roster_enabled = False

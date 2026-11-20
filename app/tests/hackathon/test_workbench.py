@@ -373,10 +373,21 @@ def test_populated_public_information_retains_content_and_escaping(client, hacka
         assert '置顶通知' in soup.select_one('.announcement').text
 
 
-@pytest.mark.parametrize('route', [
-    'schedule', 'announcements', 'resources', 'teams', 'team-directory', 'idea-exchange',
-    'project', 'gallery', 'stage', 'support',
-])
+@pytest.mark.parametrize(
+    'route',
+    [
+        'schedule',
+        'announcements',
+        'resources',
+        'teams',
+        'team-directory',
+        'idea-exchange',
+        'project',
+        'gallery',
+        'stage',
+        'support',
+    ],
+)
 def test_workspace_theme_and_navigation_survive_page_changes(client, hackathon, team, user, route):
     client.force_login(user)
     response = client.get(endpoint(hackathon, route))

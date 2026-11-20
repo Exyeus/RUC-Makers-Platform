@@ -1,4 +1,5 @@
 """Copy referenced immutable assets; verify both ends without changing the database."""
+
 import hashlib
 
 from django.core.files import File

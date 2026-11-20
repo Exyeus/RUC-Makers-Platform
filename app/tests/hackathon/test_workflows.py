@@ -96,10 +96,18 @@ def local_moment(value):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    'name', [
-        'home', 'schedule', 'announcements', 'resources', 'team-directory', 'idea-exchange',
-        'gallery', 'stage', 'results',
-    ]
+    'name',
+    [
+        'home',
+        'schedule',
+        'announcements',
+        'resources',
+        'team-directory',
+        'idea-exchange',
+        'gallery',
+        'stage',
+        'results',
+    ],
 )
 def test_public_pages_render(client, hackathon, name):
     response = client.get(endpoint(hackathon, name))

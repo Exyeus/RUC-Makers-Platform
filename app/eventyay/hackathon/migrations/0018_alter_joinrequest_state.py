@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0017_score_partial_draft'),
     ]
@@ -13,6 +12,15 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='joinrequest',
             name='state',
-            field=models.CharField(choices=[('pending', '待处理'), ('accepted', '已加入'), ('declined', '已婉拒'), ('withdrawn', '已撤回')], default='pending', max_length=12),
+            field=models.CharField(
+                choices=[
+                    ('pending', '待处理'),
+                    ('accepted', '已加入'),
+                    ('declined', '已婉拒'),
+                    ('withdrawn', '已撤回'),
+                ],
+                default='pending',
+                max_length=12,
+            ),
         ),
     ]

@@ -1,0 +1,109 @@
+{% extends 'hackathon/base.html' %}
+{% block content %}
+<div class="sw-command sw-review">
+  <div class="sw-command-head">
+    <h1>{% if kind == 'awards' %}获奖确认{% else %}入围复核{% endif %}</h1>
+    <dl class="sw-kv">
+      {% if kind == 'finalists' %}<dt>名额</dt><dd>每赛道入围 {{ seats }} · 候补 {{ alternates }}</dd>{% endif %}
+      <dt>签认人</dt><dd>{{ round.signer.get_display_name }}</dd>
+      {% if is_organizer %}<dt>比赛日</dt><dd><a class="text-link" href="{% url 'hackathon:competition-day' hackathon.slug %}">返回</a></dd>{% endif %}
+    </dl>
+  </div>
+
+  {% if errors %}<div class="form-errors" role="alert"><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+
+  {% if waiting or signed %}
+    {% with list=waiting|default:signed %}
+    <section class="sw-stage-panel" aria-labelledby="list-title">
+      <div class="sw-rule-head">
+        <h2 id="list-title">{% if waiting %}待签认{% else %}已签认{% endif %} · v{{ list.version }}</h2>
+        <span class="sw-mono">{{ list.sha256|slice:':12' }}</span>
+      </div>
+      <div class="sw-review-summary">
+        {% for track in shown_tracks %}
+          <div>
+            <h3>{{ track.name }}</h3>
+            <ol>
+              {% for row in track.rows %}
+                {% if kind == 'awards' %}
+                  {% if row.award %}<li><span class="sw-tag sw-tag--selected">{{ row.award }}</span> {{ row.team }} · {{ row.title }}</li>{% endif %}
+                {% elif row.status == 'finalist' %}<li>{{ row.team }} · {{ row.title }}</li>
+                {% elif row.status == 'alternate' %}<li class="is-alt"><span class="sw-tag sw-tag--draft">候补</span> {{ row.team }} · {{ row.title }}</li>{% endif %}
+              {% endfor %}
+            </ol>
+          </div>
+        {% endfor %}
+      </div>
+      {% if waiting %}
+        {% if is_signer %}
+          <form method="post" class="sw-stage-actions">{% csrf_token %}
+            <input type="hidden" name="action" value="sign"><input type="hidden" name="sha256" value="{{ waiting.sha256 }}">
+            <button class="sw-btn sw-btn--commit" type="submit">签认{% if kind == 'awards' %}获奖{% else %}入围{% endif %}名单<svg aria-hidden="true"><use href="#i-arrow" /></svg></button>
+          </form>
+        {% else %}
+          <p>等待 {{ round.signer.get_display_name }} 签认。签认人登录后在评审工作台进入本页。</p>
+        {% endif %}
+      {% elif kind == 'awards' and is_organizer %}
+        <div class="sw-stage-actions"><a class="sw-btn" href="{% url 'hackathon:awards-export' hackathon.slug %}">下载获奖名单 CSV</a></div>
+      {% endif %}
+    </section>
+    {% endwith %}
+  {% endif %}
+
+  <form method="post" class="sw-review-form">
+    {% csrf_token %}<input type="hidden" name="action" value="generate">
+    {% if round.is_open %}<p class="sw-label">评分尚未关闭，排名仍会变化。</p>{% elif progress.left %}<p class="sw-label">还差 {{ progress.left }} 份评分，补齐后才能生成名单。</p>{% endif %}
+    {% for track in tracks %}
+      <section class="sw-stage-panel" aria-labelledby="track-{{ forloop.counter }}">
+        <div class="sw-rule-head"><h2 id="track-{{ forloop.counter }}">{{ track.name }}</h2><span class="sw-mono">{{ track.rows|length }}</span></div>
+        <div class="table-wrap">
+          <table class="sw-order sw-rank">
+            <caption class="sr-only">{{ track.name }}排名</caption>
+            <thead><tr><th scope="col">名次</th><th scope="col">队伍</th><th scope="col">作品</th><th scope="col">均分</th><th scope="col">评委分</th><th scope="col">{% if kind == 'awards' %}奖项{% else %}建议{% endif %}</th></tr></thead>
+            <tbody>
+              {% for row in track.rows %}
+                <tr class="{% if row.cut %}is-cut{% endif %}{% if row.decide %} is-tie{% endif %}">
+                  <td class="sw-mono">{{ row.rank|default:'—' }}</td>
+                  <td><span class="sw-strong">{{ row.team }}</span> <span class="sw-mono sw-label">{{ row.team_code }}</span></td>
+                  <td>{{ row.title }}</td>
+                  <td class="sw-mono">{{ row.average|default:'—' }}{% if row.tie %} <span class="sw-tag sw-tag--now">同分</span>{% endif %}</td>
+                  <td class="sw-scores">{% for judge in row.judges %}<span title="{{ judge.name }}">{{ judge.total }}</span>{% endfor %}{% if row.missing %}<span class="sw-tag sw-tag--fail">缺 {{ row.missing|length }}</span>{% endif %}{% if row.wide %}<span class="sw-tag sw-tag--draft">分差 {{ row.spread }}</span>{% endif %}</td>
+                  <td>
+                    {% if kind == 'awards' %}
+                      <label class="sr-only" for="award-{{ row.project_id }}">{{ row.team }}奖项</label>
+                      <input class="sw-award" id="award-{{ row.project_id }}" name="award_{{ row.project_id }}" list="award-choices" maxlength="40" value="{% for key, value in suggested.items %}{% if key == row.project_id %}{{ value }}{% endif %}{% endfor %}">
+                    {% elif row.decide %}
+                      <label class="sr-only" for="tie-{{ row.project_id }}">{{ row.team }}复核顺序</label>
+                      <input class="sw-tie" id="tie-{{ row.project_id }}" name="tie_{{ row.project_id }}" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="顺序" required>
+                    {% elif row.suggested == 'finalist' %}<span class="sw-tag sw-tag--done">入围</span>
+                    {% elif row.suggested == 'alternate' %}<span class="sw-tag sw-tag--draft">候补</span>
+                    {% else %}<span class="sw-label">—</span>{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if track.decide %}<p class="sw-label">入围线或候补线上有同分作品。请在同分作品中填写 1、2、3… 的复核顺序。</p>{% endif %}
+      </section>
+    {% endfor %}
+    {% if kind == 'awards' %}<datalist id="award-choices">{% for choice in award_choices %}<option value="{{ choice }}">{% endfor %}</datalist>{% endif %}
+    {% if is_organizer and not signed or is_organizer and waiting %}
+      <section class="sw-stage-panel" aria-labelledby="basis-title">
+        <h2 id="basis-title">依据</h2>
+        <div class="sw-review-fields">
+          <label for="reason">名单依据</label>
+          <textarea id="reason" name="reason" rows="2" maxlength="1000">{{ default_reason }}</textarea>
+          {% if ties %}
+            <label for="tie-note">同分裁定依据</label>
+            <textarea id="tie-note" name="tie_note" rows="2" maxlength="1000"></textarea>
+          {% endif %}
+        </div>
+        <div class="sw-stage-actions">
+          <button class="sw-btn" type="submit"{% if not can_generate %} disabled{% endif %}>{% if waiting %}重新生成{% else %}生成{% endif %}{% if kind == 'awards' %}获奖{% else %}入围{% endif %}名单<svg aria-hidden="true"><use href="#i-arrow" /></svg></button>
+        </div>
+      </section>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

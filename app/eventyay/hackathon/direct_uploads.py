@@ -120,8 +120,7 @@ def verify(session):
         remote = parts(storage, session)
         expected = list(range(1, (session.size + CHUNK_SIZE - 1) // CHUNK_SIZE + 1))
         if [part['PartNumber'] for part in remote] != expected or any(
-            part['Size'] != min(CHUNK_SIZE, session.size - (part['PartNumber'] - 1) * CHUNK_SIZE)
-            for part in remote
+            part['Size'] != min(CHUNK_SIZE, session.size - (part['PartNumber'] - 1) * CHUNK_SIZE) for part in remote
         ):
             raise uploads.UploadConflict('云端文件尚未完整传输，请重新选择原文件继续。')
         storage.client.complete_multipart_upload(
@@ -176,9 +175,7 @@ def cleanup(session_id, name, upload_id):
         storage = backend(session)
         if upload_id:
             try:
-                storage.client.abort_multipart_upload(
-                    Bucket=storage.bucket, Key=storage.key(name), UploadId=upload_id
-                )
+                storage.client.abort_multipart_upload(Bucket=storage.bucket, Key=storage.key(name), UploadId=upload_id)
             except Exception as error:
                 if getattr(error, 'response', {}).get('Error', {}).get('Code') not in ('NoSuchUpload', '404'):
                     raise

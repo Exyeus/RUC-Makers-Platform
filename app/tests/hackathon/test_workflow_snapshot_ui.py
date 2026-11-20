@@ -80,11 +80,18 @@ def test_display_order_and_qualification_do_not_change_signed_manifest(client, h
     rows = page.select('[data-snapshot-entry]')
     assert [int(row['data-position']) for row in rows] == [1, 2, 3, 4, 5]
     assert [row.select_one('[data-snapshot-result]').get_text(strip=True) for row in rows] == [
-        '入围', '候补', '未入围', '已退出', '待核对'
+        '入围',
+        '候补',
+        '未入围',
+        '已退出',
+        '待核对',
     ]
     for row in rows:
         assert [label.get_text(strip=True) for label in row.select('dt')] == [
-            '顺序', '赛道 / 队伍', '名次 / 平均分', '资格'
+            '顺序',
+            '赛道 / 队伍',
+            '名次 / 平均分',
+            '资格',
         ]
 
     snapshot.refresh_from_db()

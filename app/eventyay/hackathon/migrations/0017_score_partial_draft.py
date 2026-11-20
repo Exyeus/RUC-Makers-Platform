@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('hackathon', '0016_ticket_thread'),
     ]
@@ -14,21 +13,41 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='score',
             name='impact',
-            field=models.PositiveSmallIntegerField(blank=True, null=True, validators=[django.core.validators.MaxValueValidator(10)], verbose_name='实际价值 · 20%'),
+            field=models.PositiveSmallIntegerField(
+                blank=True,
+                null=True,
+                validators=[django.core.validators.MaxValueValidator(10)],
+                verbose_name='实际价值 · 20%',
+            ),
         ),
         migrations.AlterField(
             model_name='score',
             name='implementation',
-            field=models.PositiveSmallIntegerField(blank=True, null=True, validators=[django.core.validators.MaxValueValidator(10)], verbose_name='完成度与实机演示 · 40%'),
+            field=models.PositiveSmallIntegerField(
+                blank=True,
+                null=True,
+                validators=[django.core.validators.MaxValueValidator(10)],
+                verbose_name='完成度与实机演示 · 40%',
+            ),
         ),
         migrations.AlterField(
             model_name='score',
             name='innovation',
-            field=models.PositiveSmallIntegerField(blank=True, null=True, validators=[django.core.validators.MaxValueValidator(10)], verbose_name='创新性 · 30%'),
+            field=models.PositiveSmallIntegerField(
+                blank=True,
+                null=True,
+                validators=[django.core.validators.MaxValueValidator(10)],
+                verbose_name='创新性 · 30%',
+            ),
         ),
         migrations.AlterField(
             model_name='score',
             name='presentation',
-            field=models.PositiveSmallIntegerField(blank=True, null=True, validators=[django.core.validators.MaxValueValidator(10)], verbose_name='表达 · 10%'),
+            field=models.PositiveSmallIntegerField(
+                blank=True,
+                null=True,
+                validators=[django.core.validators.MaxValueValidator(10)],
+                verbose_name='表达 · 10%',
+            ),
         ),
     ]
