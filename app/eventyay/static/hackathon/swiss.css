@@ -578,3 +578,13 @@ html[data-theme] .sw-masthead nav a:hover { text-decoration: underline; text-und
 html[data-theme] .sw-masthead { align-items: start !important; }
 html[data-theme] .sw-masthead nav { justify-content: space-between !important; align-items: flex-start !important; }
 html[data-theme] .sw-masthead nav a { align-items: flex-start !important; }
+/* Phone masthead: one row. Brand on the left, the account action on the right. */
+@media (max-width: 720px) {
+  html[data-theme] .sw-masthead { grid-template-columns: 1fr auto !important; align-items: center !important; padding: 8px 0 !important; row-gap: 0 !important; }
+  html[data-theme] .sw-masthead .sw-brand { grid-column: 1 !important; }
+  html[data-theme] .sw-masthead .sw-brand > span:last-child, html[data-theme] .sw-masthead .sw-col-2, html[data-theme] .sw-masthead .sw-col-3 { display: none !important; }
+  html[data-theme] .sw-masthead nav { grid-column: 2 !important; margin: 0 -10px 0 0 !important; }
+  html[data-theme] .sw-masthead nav a:not(:last-child) { display: none !important; }
+  html[data-theme] .sw-masthead nav a:last-child { align-items: center !important; font-size: var(--sw-fs-body) !important; }
+  html[data-theme] .sw-masthead .sw-brand > span:first-child { font-size: var(--sw-fs-body); min-height: 44px; }
+}
