@@ -8,14 +8,12 @@
     <dl class="sw-kv sw-ov-meta" aria-label="我的状态">
       <dt>队伍</dt><dd>{% if team %}{{ team.name }}{% if team.code %} · <span class="sw-mono">{{ team.code }}</span>{% endif %}{% else %}尚未组队{% endif %}</dd>
       <dt>赛道</dt><dd>{% if team %}{{ team.track.name }}{% else %}—{% endif %}</dd>
-      <dt>作品</dt><dd class="sw-strong">{% if project %}{{ project_status.label }}{% else %}尚无作品记录{% endif %}</dd>
     </dl>
 
     <section class="sw-block sw-block--violet sw-next" aria-labelledby="next-task-title" data-task="{{ current_task.key }}">
-      <span class="sw-clock-head"><span><span class="sw-dot" aria-hidden="true"></span> 下一步</span><span>准备 {{ completed_steps|length }} / {{ checklist|length }} 项已完成</span></span>
+      <span class="sw-clock-head"><span><span class="sw-dot" aria-hidden="true"></span> 下一步</span></span>
       <h2 id="next-task-title">{{ current_task.title }}</h2>
       <p class="ruc-task-description">{{ current_task.detail }}</p>
-      {% if required_count %}<p>参赛必读 · 已读 {{ read_count }} / {{ required_count }} 篇</p>{% endif %}
       <p class="ruc-inline-deadline">作品截止：{% include 'hackathon/workbench_deadline.html' %}</p>
       <div class="sw-actions ruc-actions">
         <a class="sw-btn sw-btn--light ruc-button--primary" href="{{ current_task.url }}">{{ current_task.label }}<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
@@ -28,7 +26,7 @@
     </section>
 
     <section class="sw-block sw-block--ink sw-timer" aria-labelledby="deadline-title"{% if not next_deadline.passed %} data-sw-countdown="{{ next_deadline.at|date:'c' }}"{% endif %}>
-      <span id="deadline-title">{% if next_deadline.passed %}{{ next_deadline.label }}{% else %}距{{ next_deadline.label }}还剩{% endif %}</span>
+      <span id="deadline-title">{% if next_deadline.passed %}{{ next_deadline.label }}{% else %}距{{ next_deadline.label }}{% endif %}</span>
       <span class="sw-clock-value">
         <span class="sw-num sw-count"><span data-sw-main>{% if next_deadline.passed %}已截止{% else %}{{ next_deadline.main }}{% endif %}</span><span class="sw-sec" data-sw-tail>{% if not next_deadline.passed %}{{ next_deadline.tail }}{% endif %}</span></span>
               <small>{{ next_deadline.at|date:'n 月 j 日 H:i' }}</small>
@@ -37,7 +35,7 @@
     </section>
 
     <section class="sw-ov-sched" aria-labelledby="milestones-title">
-      <div class="sw-rule-head"><h2 id="milestones-title">关键时间</h2><span class="sw-label">北京时间 · 到点自动执行</span></div>
+      <div class="sw-rule-head"><h2 id="milestones-title">关键时间</h2></div>
       {% for item in milestones %}
         <div class="sw-mini-row is-{{ item.state }}">
           <time datetime="{{ item.at|date:'c' }}">{{ item.at|date:'m.d H:i' }}</time>
@@ -62,7 +60,7 @@
         {% if team %}
           <a class="sw-item-row" href="{% url 'hackathon:teams' hackathon.slug %}"><span><strong>{{ team.name }}</strong><small>{{ team.track.name }} · {{ team.get_state_display }}</small></span><span class="sw-tag sw-tag--done">已组队</span></a>
         {% else %}
-          <a class="sw-item-row" href="{% url 'hackathon:team-directory' hackathon.slug %}"><span><strong>寻找或创建队伍</strong><small>在“参与队伍”寻找伙伴，或发起自己的队伍</small></span><span class="sw-tag">尚未组队</span></a>
+          <a class="sw-item-row" href="{% url 'hackathon:team-directory' hackathon.slug %}"><span><strong>寻找或创建队伍</strong></span><span class="sw-tag">尚未组队</span></a>
         {% endif %}
       </section>
       <section class="ruc-schedule" aria-labelledby="schedule-title">
@@ -80,7 +78,7 @@
       <section aria-labelledby="help-title">
         <h2 class="sw-rule-head" id="help-title">帮助</h2>
         {% if waiting_ticket %}<p class="sw-label">工单 #{{ waiting_ticket.pk }} 等你补充：{{ waiting_ticket.subject }}</p>{% endif %}
-        <a class="sw-item-row" href="{% url 'hackathon:support' hackathon.slug %}"><span><strong>联系支持团队</strong><small>组队、材料上传或路演遇到问题</small></span><span aria-hidden="true">→</span></a>
+        <a class="sw-item-row" href="{% url 'hackathon:support' hackathon.slug %}"><span><strong>联系支持团队</strong></span><span aria-hidden="true">→</span></a>
       </section>
     </div>
 

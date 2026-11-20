@@ -138,7 +138,8 @@ def test_event_organizer_login_keeps_management_navigation(client, hackathon, us
     response = client.get(endpoint(hackathon, 'home'))
     assert response.context['is_organizer']
     assert '主办' in [item['label'] for item in response.context['identities']]
-    assert 'aria-label="主办方后台"' in response.content.decode()
+    organizer = next(item for item in response.context['identities'] if item['key'] == 'organizer')
+    assert f'href="{organizer["url"]}"' in response.content.decode()
     assert client.get(endpoint(hackathon, 'manage')).status_code == 200
     assert client.get(endpoint(hackathon, 'organizer-login')).url == endpoint(hackathon, 'manage')
 
@@ -158,7 +159,7 @@ def test_email_participant_keeps_participant_permissions(client, hackathon, part
     assert response.url == endpoint(hackathon, 'home')
     assert client.get(endpoint(hackathon, 'manage')).status_code == 403
     body = client.get(endpoint(hackathon, 'home')).content.decode()
-    assert 'aria-label="主办方后台"' not in body
+    assert endpoint(hackathon, 'manage') not in body
     assert 'href="' + endpoint(hackathon, 'organizer-login') + '"' in body
 
 

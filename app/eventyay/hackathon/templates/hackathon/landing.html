@@ -3,7 +3,7 @@
 {% block landing_details %}
         {% sw_milestones hackathon 9 schedule_items as milestones %}
         <section class="sw-grid sw-section" id="schedule" aria-labelledby="schedule-title">
-          <div class="sw-section-num"><span class="sw-num">2</span><strong id="schedule-title">赛程</strong><span class="sw-label">北京时间，到点自动执行</span></div>
+          <div class="sw-section-num"><span class="sw-num">2</span><strong id="schedule-title">赛程</strong></div>
           <div class="sw-section-body">
             <div class="sw-sched-head" aria-hidden="true"><span>时间</span><span>事项</span><span>地点</span><span>状态</span></div>
             {% for item in milestones %}
@@ -20,14 +20,14 @@
           </div>
         </section>
         <section class="sw-grid sw-section" id="tracks" aria-labelledby="tracks-title">
-          <div class="sw-section-num"><span class="sw-num">3</span><strong id="tracks-title">赛道</strong><span class="sw-label">{{ tracks|length }} 个赛道</span></div>
+          <div class="sw-section-num"><span class="sw-num">3</span><strong id="tracks-title">赛道</strong></div>
           <div class="sw-section-body sw-tracks">
             {% for track in tracks %}
               <article class="sw-track">
                 <span class="sw-mono">{{ forloop.counter|stringformat:'02d' }}</span>
                 <h3>{{ track.name }}</h3>
                 <p>{{ track.description }}</p>
-                <a class="text-link" href="{% url 'hackathon:team-directory' hackathon.slug %}?track={{ track.pk }}">查看这个赛道的队伍</a>
+                <a class="text-link" href="{% url 'hackathon:team-directory' hackathon.slug %}?track={{ track.pk }}">查看队伍</a>
               </article>
             {% empty %}
               <p class="sw-label">赛道即将公布。</p>

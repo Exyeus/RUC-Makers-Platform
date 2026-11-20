@@ -8,10 +8,10 @@
     <form method="post" action="{% url 'hackathon:logout' hackathon.slug %}">{% csrf_token %}<button class="button secondary" type="submit">退出登录</button></form>
   {% else %}
     <div class="auth-heading">
-      <h2 id="login-title">{% if signup %}注册账号{% else %}登录账号{% endif %}</h2>
-      <a href="{% if signup %}{% url 'hackathon:student-login' hackathon.slug %}{% else %}{% url 'hackathon:student-signup' hackathon.slug %}{% endif %}">{% if signup %}已有账号，去登录{% else %}注册账号{% endif %}</a>
+      <h2 id="login-title">{% if signup %}注册{% else %}登录{% endif %}</h2>
+      <a href="{% if signup %}{% url 'hackathon:student-login' hackathon.slug %}{% else %}{% url 'hackathon:student-signup' hackathon.slug %}{% endif %}">{% if signup %}已有账号？登录{% else %}注册账号{% endif %}</a>
     </div>
-    <p class="auth-intro">{% if request.hackathon_open_testing %}当前开放测试，学号或邮箱注册后即可体验活动功能。{% else %}学号或邮箱均可登录同一账号。参赛资格以组委会本届通过名单为准。{% endif %}</p>
+    {% if request.hackathon_open_testing %}<p class="auth-intro">开放测试中，注册后即可使用全部功能。</p>{% elif signup %}<p class="auth-intro">注册不代表获得参赛资格，资格以本届录取名单为准。</p>{% endif %}
     <form method="post"{% if signup %} data-unified-signup{% endif %} action="{% if signup %}{% url 'hackathon:student-signup' hackathon.slug %}{% else %}{% url 'hackathon:student-login' hackathon.slug %}{% endif %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">
       {% csrf_token %}{% include 'hackathon/form_fields.html' %}
       {% if signup %}<p class="field-help">请使用本人邮箱，完成验证后可绑定学号。学号注册也须验证绑定邮箱；本站不会获取校园系统密码。</p>{% endif %}

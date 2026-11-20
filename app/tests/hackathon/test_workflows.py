@@ -104,7 +104,8 @@ def local_moment(value):
 def test_public_pages_render(client, hackathon, name):
     response = client.get(endpoint(hackathon, name))
     assert response.status_code == 200
-    assert b'HACKATHON' in response.content
+    # Workspace pages carry the program mark; the landing names the event itself.
+    assert b'HACKATHON' in response.content or hackathon.name.encode() in response.content
 
 
 @pytest.mark.django_db

@@ -3,7 +3,7 @@
   <section class="page-heading">
     <div>
       <h1>我的作品</h1>
-      <p><strong>最终作品提交截止：{% include 'hackathon/workbench_deadline.html' %}</strong><br>{% if material_policy.enabled %}请分别上传初评材料和路演材料。初评：不超过 1 分钟的 MP4；路演：不超过 3 分钟的视频或 PDF。{% endif %}上传完成或保存草稿不等于正式提交，请在截止前完成正式提交并查看回执。</p>
+      <p>最终作品提交截止：{% include 'hackathon/workbench_deadline.html' %}</p>
     </div>
   </section>
   {% if needs_team %}
@@ -68,10 +68,10 @@
       </section>
       <section class="panel" aria-labelledby="project-materials-title">
         {% if material_policy.enabled %}
-          <h2 id="project-materials-title"><span class="sw-mono">02</span> 初评材料与路演材料</h2>
+          <h2 id="project-materials-title"><span class="sw-mono">02</span> 材料</h2>
           <div class="sw-slots" aria-label="两类材料">
             <div class="sw-slot">
-              <span class="sw-label">初评材料 · MP4，≤ 1 分钟 · 初评评委只看这一份</span>
+              <span class="sw-strong">初评材料</span><span class="sw-label">MP4 · 不超过 1 分钟</span>
               {% for asset in project_assets %}{% if asset.kind == 'preliminary' %}
                 <strong>{{ asset.original_filename|default:asset.filename }}</strong>
                 <span class="sw-label">{{ asset.size|filesizeformat }}{% if asset.media_probe.duration_seconds %} · {{ asset.media_probe.duration_seconds|floatformat:1 }} 秒{% endif %}</span>
@@ -80,14 +80,14 @@
               {% if not has_preliminary %}<span class="sw-tag">尚未上传</span>{% endif %}
             </div>
             <div class="sw-slot">
-              <span class="sw-label">路演材料 · 视频 ≤ 3 分钟，或 PDF，二选一</span>
+              <span class="sw-strong">路演材料</span><span class="sw-label">视频不超过 3 分钟，或 PDF</span>
               {% for asset in project_assets %}{% if asset.kind == project.final_material_kind and asset.kind != 'preliminary' %}
                 <strong>{{ asset.original_filename|default:asset.filename }}</strong>
                 <span class="sw-label">{% if asset.kind == 'slides' %}PDF{% else %}视频{% endif %} · {{ asset.size|filesizeformat }}{% if asset.media_probe.duration_seconds %} · {{ asset.media_probe.duration_seconds|floatformat:1 }} 秒{% endif %}</span>
                 {% if asset.kind == 'slides' or asset.media_probe.state == 'verified' %}<span class="sw-tag sw-tag--done">已就绪</span>{% else %}<span class="sw-tag sw-tag--now">待校验</span>{% endif %}
               {% endif %}{% endfor %}
               {% if not has_roadshow %}<span class="sw-tag">尚未上传</span>{% endif %}
-              <span class="sw-label">再上传另一种形式会替换当前路演材料。</span>
+              {% if has_roadshow %}<span class="sw-label">上传另一种形式将替换当前文件</span>{% endif %}
             </div>
           </div>
         {% else %}
@@ -149,7 +149,7 @@
       </section>
       {% if captain %}
         <section class="panel submission-check" aria-labelledby="project-submit-title">
-          <h2 id="project-submit-title"><span class="sw-mono">03</span> 自查并正式提交</h2>
+          <h2 id="project-submit-title"><span class="sw-mono">03</span> 正式提交</h2>
           <ul>
             {% if material_policy.enabled %}
               <li>初评视频是 MP4 且不超过 1 分钟，画面、字幕和声音正常</li>

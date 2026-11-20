@@ -294,7 +294,7 @@ def test_sidebar_follows_the_switched_identity(client, hackathon, organizer_user
     assert player_view.context['working_identity'] == '选手'
     assert player_view.context['page_title'] == '参赛总览'
     assert 'manage' not in routes(player_view)
-    assert 'aria-label="主办方后台"' in player_view.content.decode()
+    assert 'aria-label="当前工作身份"' in player_view.content.decode()
     back = next(item for item in player_view.context['identities'] if item['key'] == 'organizer')
     assert client.get(back['url']).context['navigation_groups'][0][0] == '我的待办'
 

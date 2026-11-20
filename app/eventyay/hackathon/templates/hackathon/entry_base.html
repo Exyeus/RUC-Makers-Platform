@@ -24,9 +24,7 @@
     <a class="skip-link" href="#main">跳转至主要内容</a>
     <div class="sw-page">
       <header class="sw-grid sw-masthead">
-        <a class="sw-brand" href="{% url 'hackathon:home' hackathon.slug %}" aria-label="活动主页"><span class="sw-dot" aria-hidden="true"></span>造物有心 <span class="sw-label" lang="en">HACKATHON</span></a>
-        <span class="sw-col-2">{% if hackathon.slug == 'tongzhou26' %}中国人民大学<br>第二届黑客松{% else %}{{ hackathon.name }}<br>黑客松{% endif %}</span>
-        <span class="sw-col-3">{{ hackathon.event.date_from|date:'m.d' }}—{{ hackathon.event.date_to|date:'m.d' }}<br>{{ hackathon.venue|default:'活动场地待公布' }}</span>
+        <a class="sw-brand" href="{% url 'hackathon:home' hackathon.slug %}"><span class="sw-dot" aria-hidden="true"></span>造物有心</a>
         <nav aria-label="主导航">
           <a href="{% url 'hackathon:home' hackathon.slug %}#schedule">赛程</a>
           <a href="{% url 'hackathon:home' hackathon.slug %}#tracks">赛道</a>
@@ -45,31 +43,34 @@
             <span class="sw-clock-head"><span>{% if next_deadline.passed %}{{ next_deadline.label }}{% else %}距{{ next_deadline.label }}{% endif %}</span><span class="sw-dot" aria-hidden="true"></span></span>
             <span class="sw-clock-value">
               <span class="sw-num sw-count"><span data-sw-main>{% if next_deadline.passed %}已截止{% else %}{{ next_deadline.main }}{% endif %}</span><span class="sw-sec" data-sw-tail>{% if not next_deadline.passed %}{{ next_deadline.tail }}{% endif %}</span></span>
-              <small>{{ next_deadline.at|date:'n 月 j 日 H:i' }} 北京时间</small>
+              <small>{{ next_deadline.at|date:'n 月 j 日 H:i' }}</small>
             </span>
           </div>
         </section>
         <section class="sw-grid sw-intro" aria-label="活动介绍">
           <p class="sw-title">{% if hackathon.slug == 'tongzhou26' %}中国人民大学第二届<br>「造物有心」黑客松{% else %}{{ hackathon.name }}{% endif %}</p>
-          <p class="sw-lede">{{ hackathon.tagline }}{% if hackathon.slug == 'tongzhou26' %} 带着一个想解决的问题来，在赛期里从零做出能运行、能演示的作品。三个赛道，总奖金 30,000 元。{% endif %}</p>
+          <div class="sw-lede">
+            <dl class="sw-kv"><dt>时间</dt><dd>{{ hackathon.event.date_from|date:'n 月 j 日' }}—{{ hackathon.event.date_to|date:'n 月 j 日' }}</dd><dt>地点</dt><dd>{{ hackathon.venue|default:'待公布' }}</dd></dl>
+            <p>{% if hackathon.slug == 'tongzhou26' %}带着一个想解决的问题来，在赛期里从零做出能运行、能演示的作品。三个赛道，总奖金 30,000 元。{% else %}{{ hackathon.tagline }}{% endif %}</p>
+          </div>
           <div class="sw-cta">
             {% if request.user.is_authenticated %}
               <a class="sw-btn" href="{% url 'hackathon:home' hackathon.slug %}">进入参赛工作台<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
             {% else %}
-              <a class="sw-btn" href="#join">登录参赛<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
+              <a class="sw-btn" href="#join">登录<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
             {% endif %}
-            <span class="sw-label">{% if hackathon.registration_deadline < now %}本届报名已于 {{ hackathon.registration_deadline|date:'n 月 j 日 H:i' }} 截止。已录取选手可继续登录完成组队和作品提交。{% else %}报名截止：{{ hackathon.registration_deadline|date:'n 月 j 日 H:i' }}（北京时间）{% endif %}</span>
+            <span class="sw-label">{% if hackathon.registration_deadline < now %}报名已截止，已录取选手可直接登录。{% else %}报名截止：{{ hackathon.registration_deadline|date:'n 月 j 日 H:i' }}{% endif %}</span>
           </div>
         </section>
         <section class="sw-grid sw-section" id="join" aria-label="登录与账号">
-          <div class="sw-section-num"><span class="sw-num">1</span>{% block auth_heading %}<strong>登录参赛</strong><span class="sw-label">学号或邮箱登录同一账号</span>{% endblock %}</div>
+          <div class="sw-section-num"><span class="sw-num">1</span>{% block auth_heading %}<strong>账号</strong>{% endblock %}</div>
           <div class="sw-section-body sw-auth">{% block auth_card %}{% include 'hackathon/student_auth_card.html' with form=login_form %}{% endblock %}</div>
         </section>
         {% block landing_details %}{% endblock %}
       </main>
       <footer class="sw-landing-footer">
         <span><img class="association-logo brand-logo-light" src="{% static 'hackathon/brand/makers-logo-red.png' %}" width="112" height="34" alt="中国人民大学创客协会"></span>
-        <span>{{ hackathon.name }} · {{ hackathon.event.date_from|date:'Y' }} · 所有时间均为北京时间，以服务器时间为准</span>
+        <span>{{ hackathon.name }} · {{ hackathon.event.date_from|date:'Y' }} · 时间均为北京时间</span>
       </footer>
     </div>
   </body>
