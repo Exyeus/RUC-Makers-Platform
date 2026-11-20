@@ -852,7 +852,7 @@ def project(request):
     if not participant or not participant.team_id:
         return page(request, 'project', project=None, project_status=services.project_status(None), needs_team=True)
     captain = participant.team.captain_id == participant.pk
-    form = forms.ProjectForm(request.POST or None, instance=own)
+    form = forms.ProjectForm(request.POST or None, instance=own, hackathon=h)
     if request.method == 'POST':
         if not captain:
             raise PermissionDenied
@@ -897,6 +897,10 @@ def project(request):
         information_errors=information_errors(own),
         late_submission_allowed=late_submission_allowed(own),
         material_policy=policy,
+        has_preliminary=any(asset.kind == 'preliminary' for asset in assets),
+        has_roadshow=bool(own)
+        and own.final_material_kind in ('video', 'slides')
+        and any(asset.kind == own.final_material_kind for asset in assets),
         active_uploads=UploadSession.objects.filter(project=own, state='uploading', expires_at__gt=timezone.now())
         if own
         else [],

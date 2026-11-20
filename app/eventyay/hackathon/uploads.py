@@ -25,7 +25,12 @@ from eventyay.hackathon.services import (
     require_submission_open,
 )
 from eventyay.hackathon.storage import DurableFileStorage, local_root, remove_asset, temporary_root
-from eventyay.hackathon.submission_materials import capture_intent, require_information, retained_storage
+from eventyay.hackathon.submission_materials import (
+    capture_intent,
+    material_policy,
+    require_information,
+    retained_storage,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -275,7 +280,13 @@ def install_asset(hackathon, user, project, kind, original, size, checksum, stor
     if project.state not in (Project.State.DRAFT, Project.State.QUEUED):
         project.state = Project.State.CHANGES
         project.state_reason = Project.StateReason.EDITED
-    project.save(update_fields=['revision', 'equipment_checked', 'state', 'state_reason', 'updated'])
+    fields = ['revision', 'equipment_checked', 'state', 'state_reason', 'updated']
+    policy = material_policy(hackathon)
+    if policy and policy.enabled and kind in ('video', 'slides'):
+        # Roadshow material is one of video or PDF; the latest upload is the chosen form.
+        project.final_material_kind = kind
+        fields.append('final_material_kind')
+    project.save(update_fields=fields)
     DemoSlot.objects.filter(project=project, state='ready').update(state='waiting')
     audit(hackathon, user, '上传作品材料', project.code, f'{asset.get_kind_display()} · {checksum} · {original}')
     return asset

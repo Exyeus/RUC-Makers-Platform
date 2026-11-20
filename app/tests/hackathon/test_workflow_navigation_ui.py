@@ -105,8 +105,9 @@ def test_material_use_name_matches_selector_saved_asset_and_status(client, hacka
     response = client.get(endpoint(hackathon, 'project'))
     assert response.status_code == 200
     soup = BeautifulSoup(response.content, 'html.parser')
-    label = ('现场视频' if enabled else '备用录屏') if kind == 'video' else kind
-    assert soup.select_one('[data-upload-form] option[value="video"]').text == ('现场视频' if enabled else '备用录屏')
+    video_label = '路演材料 · 视频（≤ 3 分钟）' if enabled else '备用录屏'
+    label = video_label if kind == 'video' else kind
+    assert soup.select_one('[data-upload-form] option[value="video"]').text == video_label
     assert f'{label} · presentation.mp4' in soup.select_one('[data-asset-list]').text
     status = client.get(endpoint(hackathon, 'project-status')).json()
     material = status['materials'][0]

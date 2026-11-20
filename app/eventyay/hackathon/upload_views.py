@@ -149,7 +149,7 @@ def get_session(request, upload_id):
 @require_POST
 @upload_errors
 def start(request):
-    form = UploadStartForm(request.POST)
+    form = UploadStartForm(request.POST, hackathon=request.hackathon)
     if not form.is_valid():
         return JsonResponse(
             {'error': ' '.join(message for errors in form.errors.values() for message in errors)}, status=400

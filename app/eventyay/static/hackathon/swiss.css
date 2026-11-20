@@ -473,3 +473,14 @@ html[data-theme] .table-wrap { overflow-x: auto; max-width: 100%; }
 .sw-count { display: inline-flex; align-items: baseline; white-space: nowrap; line-height: 0.9; }
 .sw-count .sw-sec { margin-left: 0.04em; font-size: 0.36em; font-weight: 500; letter-spacing: -0.02em; opacity: 0.72; font-variant-numeric: tabular-nums; }
 .sw-clock-value small, .sw-timer .sw-clock-value small { font-size: var(--sw-fs-label); }
+
+/* ---------- Submission: two material slots ---------- */
+.sw-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 8px 0 20px; }
+.sw-slot { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 12px; border-top: 1px solid var(--sw-ink); min-width: 0; }
+.sw-slot strong { font-family: var(--sw-cjk); font-size: var(--sw-fs-body); word-break: break-all; }
+html[data-theme] .panel h2 .sw-mono { margin-right: 6px; font-size: var(--sw-fs-label); color: var(--sw-grey); }
+html[data-theme] .project-summary, html[data-theme] .project-workflow .panel { max-width: 960px; }
+@media (max-width: 720px) { .sw-slots { grid-template-columns: 1fr; } }
+html[data-theme] .form-errors, html[data-theme] .message.warning, html[data-theme] .warning-text { background: transparent !important; border: 0 !important; border-top: 1px solid var(--sw-ink) !important; border-bottom: 1px solid var(--sw-ink) !important; color: var(--sw-ink) !important; padding: 12px 0 12px 16px !important; box-shadow: inset 4px 0 0 var(--sw-pink) !important; }
+html[data-theme] .form-errors strong { color: var(--sw-ink) !important; }
+html[data-theme] .form-errors ul { margin: 6px 0 0; padding-left: 18px; }

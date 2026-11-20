@@ -175,6 +175,6 @@ ALLOWED_EXTENSIONS = {
     'poster': {'.png', '.jpg', '.jpeg', '.webp'},
     'slides': {'.pdf', '.pptx'},
     'video': {'.mp4', '.webm'},
-    'preliminary': {'.mp4', '.webm'},
+    'preliminary': {'.mp4'},
     'source': {'.zip', '.pdf'},
 }

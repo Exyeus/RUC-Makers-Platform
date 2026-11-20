@@ -194,7 +194,7 @@ def test_old_workers_can_insert_without_new_columns(client, hackathon, project, 
 
 @pytest.mark.parametrize(('kind', 'filename', 'content_type'), [
     ('preliminary', 'initial.mp4', 'video/mp4'),
-    ('preliminary', 'initial.WEBM', 'video/webm'),
+    ('preliminary', 'initial.MP4', 'video/mp4'),
     ('video', 'final.mp4', 'video/mp4'),
     ('video', 'final.webm', 'video/webm'),
     ('slides', 'slides.pdf', 'application/octet-stream'),

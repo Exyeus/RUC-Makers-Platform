@@ -34,7 +34,12 @@ from eventyay.hackathon.models import (
 )
 from eventyay.hackathon.reviewing import fingerprint
 from eventyay.hackathon.scoring import CRITERIA, weights
-from eventyay.hackathon.submission_materials import material_kind_label, material_policy
+from eventyay.hackathon.submission_materials import (
+    POLICY_KINDS,
+    material_format_error,
+    material_kind_label,
+    material_policy,
+)
 from eventyay.hackathon.widgets import CategorizedTags, TagsField, UnavailableHoursField
 
 
@@ -335,9 +340,16 @@ class ProjectForm(forms.ModelForm):
             'demo_instructions': forms.Textarea(attrs={'rows': 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, hackathon=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['version'].initial = self.instance.revision
+        policy = material_policy(hackathon)
+        if policy and policy.enabled:
+            # The roadshow form follows the last uploaded roadshow file; no manual switch.
+            self.fields.pop('final_material_kind', None)
+            for name in ('repository_url', 'demo_url', 'backup_url', 'demo_instructions', 'description'):
+                if name in self.fields:
+                    self.fields[name].label = f'{self.fields[name].label}（选填）'
         for name in ('demo_url', 'backup_url'):
             self.fields[name].validators.append(validate_demo_url)
 
@@ -352,8 +364,11 @@ class AssetForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.hackathon = hackathon
         policy = material_policy(hackathon)
+        kinds = POLICY_KINDS if policy and policy.enabled else [kind for kind, _label in Asset.Kind.choices]
+        if policy and policy.enabled:
+            self.fields['file'].label = '上传文件（最大 512 MiB）'
         self.fields['kind'].choices = [('', '请选择材料用途')] + [
-            (kind, material_kind_label(kind, policy)) for kind, _label in Asset.Kind.choices
+            (kind, material_kind_label(kind, policy)) for kind in kinds
         ]
 
     def clean(self):
@@ -366,7 +381,10 @@ class AssetForm(forms.ModelForm):
             raise ValidationError(f'请选择非空且不超过 {limit // (1024 * 1024)} MiB 的文件。')
         suffix = Path(upload.name).suffix.lower()
         if suffix not in ALLOWED_EXTENSIONS[kind]:
-            raise ValidationError('此材料类型不支持该格式。海报用 PNG/JPG/WebP；文稿用 PDF/PPTX；录屏用 MP4/WebM。')
+            raise ValidationError('此材料类型不支持该格式。初评视频用 MP4；路演材料用 MP4/WebM 视频或 PDF。')
+        policy_error = material_format_error(self.hackathon, kind, upload.name)
+        if policy_error:
+            raise ValidationError(policy_error)
         signature = upload.read(16)
         upload.seek(0)
         try:
@@ -419,11 +437,19 @@ class UploadStartForm(forms.Form):
     checksum = forms.RegexField(r'^[0-9a-f]{64}$', required=False)
     client_clicked_at = forms.DateTimeField(required=False)
 
+    def __init__(self, *args, hackathon=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.hackathon = hackathon
+
     def clean(self):
         data = super().clean()
         kind, filename, size = data.get('kind'), data.get('filename'), data.get('size')
         if kind and filename and Path(filename).suffix.lower() not in ALLOWED_EXTENSIONS[kind]:
             raise ValidationError('所选材料类型不支持此文件格式。')
+        if kind and filename:
+            policy_error = material_format_error(self.hackathon, kind, filename)
+            if policy_error:
+                raise ValidationError(policy_error)
         if kind == 'poster' and size and size > POSTER_MAX_SIZE:
             raise ValidationError('海报不能超过 20 MiB。')
         if filename:
