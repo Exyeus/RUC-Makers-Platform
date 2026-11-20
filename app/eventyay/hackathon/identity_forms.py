@@ -134,12 +134,17 @@ class StudentBindingForm(forms.Form):
 
 
 class AdmissionCSVForm(forms.Form):
-    file = forms.FileField(label='通过名单 CSV', help_text='UTF-8 CSV，表头 student_id,email,approved；先预览再导入。')
+    file = forms.FileField(
+        label='通过名单（飞书导出的 .xlsx 或 .csv）',
+        help_text='表头可用：姓名、学号、学院与年级、微信号、意向队友，或 student_id,email,approved。先预览再导入。',
+    )
 
     def clean_file(self):
         upload = self.cleaned_data['file']
-        if upload.size > 256 * 1024:
-            raise ValidationError('CSV 文件不能超过 256 KB。')
+        if not upload.name.lower().endswith(('.csv', '.xlsx')):
+            raise ValidationError('请上传 .xlsx 或 .csv 文件。')
+        if upload.size > 2 * 1024 * 1024:
+            raise ValidationError('文件不能超过 2 MB。')
         return upload
 
 

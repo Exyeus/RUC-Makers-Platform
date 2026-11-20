@@ -23,6 +23,15 @@ def key_deadlines(hackathon):
     ]
 
 
+def remaining(delta):
+    """Server-rendered countdown text, the same format swiss.js keeps updating."""
+    seconds = max(0, int(delta.total_seconds()))
+    hours, minutes, seconds = seconds // 3600, seconds % 3600 // 60, seconds % 60
+    if hours >= 100:
+        return {'main': f'{hours // 24} 天', 'tail': f' {hours % 24:02d} 时'}
+    return {'main': f'{hours:02d}:{minutes:02d}', 'tail': f':{seconds:02d}'}
+
+
 @register.simple_tag
 def sw_next_deadline(hackathon):
     """The next deadline still ahead; after the last one, that last one marked passed."""
@@ -31,7 +40,7 @@ def sw_next_deadline(hackathon):
     ordered = sorted(key_deadlines(hackathon), key=lambda item: item[0])
     for at, label in ordered:
         if at > now:
-            return {'at': at.astimezone(zone), 'label': label, 'passed': False}
+            return {'at': at.astimezone(zone), 'label': label, 'passed': False, **remaining(at - now)}
     at, label = ordered[-1]
     return {'at': at.astimezone(zone), 'label': label, 'passed': True}
 

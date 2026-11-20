@@ -362,3 +362,74 @@ def test_bad_csv_is_atomic_and_cannot_reuse_another_sessions_preview(client, scr
     assert response.status_code == 200 and '重复' in response.content.decode()
     assert not AdmissionGrant.objects.exists()
     assert client.post(location, {'operation': 'apply', 'preview_token': 'copied-token'}).status_code == 400
+
+
+FEISHU_HEADER = '姓名,学号,学院与年级,微信号,意向队友\n'
+
+
+def feishu_xlsx(rows):
+    import openpyxl
+
+    book = openpyxl.Workbook()
+    sheet = book.active
+    sheet.append(['姓名', '学号', '学院与年级', '微信号', '意向队友'])
+    for row in rows:
+        sheet.append(row)
+    buffer = io.BytesIO()
+    book.save(buffer)
+    return SimpleUploadedFile('roster.xlsx', buffer.getvalue())
+
+
+@pytest.mark.parametrize('kind', ['csv', 'xlsx'])
+def test_feishu_roster_previews_then_imports_and_lists_rows_without_student_id(client, screened, organizer_user, kind):
+    rows = [['创造者', '20260001', '信息学院 2023 级', 'maker_wx', '李四'], ['校外同学', '', '外校', 'guest_wx', '']]
+    if kind == 'csv':
+        body = FEISHU_HEADER + ''.join(','.join(row) + '\n' for row in rows)
+        upload = SimpleUploadedFile('roster.csv', body.encode('utf-8-sig'))
+    else:
+        upload = feishu_xlsx(rows)
+    location = endpoint(screened, 'admission-manage')
+    client.force_login(organizer_user)
+    response = client.post(location, {'operation': 'preview', 'file': upload})
+    assert response.status_code == 200
+    preview = client.session['admission_import']
+    assert [row['student_id'] for row in preview['rows']] == ['20260001']
+    assert preview['manual'][0]['label'] == '校外同学' and '缺少学号' in preview['manual'][0]['reason']
+    assert '需人工核验' in response.content.decode()
+    assert not AdmissionGrant.objects.exists()
+    assert client.post(location, {'operation': 'apply', 'preview_token': preview['token']}).status_code == 302
+    grant = AdmissionGrant.objects.get()
+    assert (grant.name, grant.college, grant.wechat, grant.teammates) == (
+        '创造者',
+        '信息学院 2023 级',
+        'maker_wx',
+        '李四',
+    )
+    assert grant.email == '' and grant.approved
+
+
+def test_roster_without_email_admits_matching_student_id_and_name_only(screened, user):
+    verified(user)
+    StudentAccount.objects.create(user=user, student_id='20260001')
+    grant = AdmissionGrant.objects.create(hackathon=screened, student_id='20260001', name='别人')
+    assert not identity.admitted(user, screened)
+    grant.name = ' 创 造者 '
+    grant.save()
+    assert identity.admitted(user, screened)
+    grant.name = ''
+    grant.save()
+    assert not identity.admitted(user, screened)
+
+
+def test_reimport_keeps_manual_assignment_and_note(client, screened, organizer_user, user):
+    AdmissionGrant.objects.create(
+        hackathon=screened, student_id='20260001', assigned_user=user, reason='已核验身份证明'
+    )
+    location = endpoint(screened, 'admission-manage')
+    client.force_login(organizer_user)
+    body = FEISHU_HEADER + '创造者,20260001,信息学院,new_wx,\n'
+    client.post(location, {'operation': 'preview', 'file': SimpleUploadedFile('r.csv', body.encode())})
+    client.post(location, {'operation': 'apply', 'preview_token': client.session['admission_import']['token']})
+    grant = AdmissionGrant.objects.get()
+    assert grant.assigned_user == user and grant.reason == '已核验身份证明'
+    assert grant.wechat == 'new_wx'

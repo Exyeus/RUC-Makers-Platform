@@ -30,8 +30,8 @@
     <section class="sw-block sw-block--ink sw-timer" aria-labelledby="deadline-title"{% if not next_deadline.passed %} data-sw-countdown="{{ next_deadline.at|date:'c' }}"{% endif %}>
       <span id="deadline-title">{% if next_deadline.passed %}{{ next_deadline.label }}{% else %}距{{ next_deadline.label }}还剩{% endif %}</span>
       <span class="sw-clock-value">
-        <span class="sw-num" data-sw-main>{% if next_deadline.passed %}已截止{% else %}{{ next_deadline.at|timeuntil }}{% endif %}</span>
-        <small><span data-sw-tail></span>　{{ next_deadline.at|date:'n 月 j 日 H:i' }}</small>
+        <span class="sw-num sw-count"><span data-sw-main>{% if next_deadline.passed %}已截止{% else %}{{ next_deadline.main }}{% endif %}</span><span class="sw-sec" data-sw-tail>{% if not next_deadline.passed %}{{ next_deadline.tail }}{% endif %}</span></span>
+              <small>{{ next_deadline.at|date:'n 月 j 日 H:i' }}</small>
       </span>
       <span class="sw-timer-foot ruc-deadline-value"><span>作品提交截止</span>{% include 'hackathon/workbench_deadline.html' %}</span>
     </section>

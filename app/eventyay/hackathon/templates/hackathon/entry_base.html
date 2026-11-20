@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-components.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/ui-refactor.css' %}">
     <link rel="stylesheet" href="{% versioned_static 'hackathon/theme.css' %}">
-    <link rel="stylesheet" href="{% versioned_static 'hackathon/swiss.css' %}">
+    <link rel="stylesheet" href="{% static 'hackathon/fonts/misans/MiSans-Regular.min.css' %}"><link rel="stylesheet" href="{% static 'hackathon/fonts/misans/MiSans-Medium.min.css' %}"><link rel="stylesheet" href="{% static 'hackathon/fonts/misans/MiSans-Bold.min.css' %}"><link rel="stylesheet" href="{% versioned_static 'hackathon/swiss.css' %}">
     <script type="module" src="{% versioned_static 'hackathon/ui.js' %}"></script>
     <script type="module" src="{% static 'hackathon/account.js' %}"></script>
     <script type="module" src="{% versioned_static 'hackathon/swiss.js' %}"></script>
@@ -44,8 +44,8 @@
           <div class="sw-clock sw-block sw-block--violet"{% if not next_deadline.passed %} data-sw-countdown="{{ next_deadline.at|date:'c' }}"{% endif %}>
             <span class="sw-clock-head"><span>{% if next_deadline.passed %}{{ next_deadline.label }}{% else %}距{{ next_deadline.label }}{% endif %}</span><span class="sw-dot" aria-hidden="true"></span></span>
             <span class="sw-clock-value">
-              <span class="sw-num" data-sw-main>{% if next_deadline.passed %}已截止{% else %}{{ next_deadline.at|timeuntil }}{% endif %}</span>
-              <small><span data-sw-tail></span>　{{ next_deadline.at|date:'n 月 j 日 H:i' }} 北京时间</small>
+              <span class="sw-num sw-count"><span data-sw-main>{% if next_deadline.passed %}已截止{% else %}{{ next_deadline.main }}{% endif %}</span><span class="sw-sec" data-sw-tail>{% if not next_deadline.passed %}{{ next_deadline.tail }}{% endif %}</span></span>
+              <small>{{ next_deadline.at|date:'n 月 j 日 H:i' }} 北京时间</small>
             </span>
           </div>
         </section>

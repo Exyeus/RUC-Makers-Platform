@@ -21,7 +21,7 @@ function render(block, offset) {
   const minutes = Math.floor((left % 3600) / 60);
   const seconds = left % 60;
   if (main) main.textContent = hours >= 100 ? `${Math.floor(hours / 24)} 天` : `${pad(hours)}:${pad(minutes)}`;
-  if (tail) tail.textContent = hours >= 100 ? `${pad(hours % 24)} 时 ${pad(minutes)} 分` : `:${pad(seconds)}`;
+  if (tail) tail.textContent = hours >= 100 ? ` ${pad(hours % 24)} 时` : `:${pad(seconds)}`;
   return true;
 }
 

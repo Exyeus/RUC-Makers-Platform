@@ -34,6 +34,11 @@ class AdmissionGrant(EventRecord):
     )
     approved = models.BooleanField('通过选拔', default=True)
     reason = models.CharField('核验 / 更正原因（仅主办方可见）', max_length=500, blank=True)
+    # Columns of the organizer's roster export (飞书): kept for matching and team setup, never shown publicly.
+    name = models.CharField('姓名', max_length=80, blank=True)
+    college = models.CharField('学院与年级', max_length=120, blank=True)
+    wechat = models.CharField('微信号', max_length=80, blank=True)
+    teammates = models.CharField('意向队友', max_length=300, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['hackathon', 'student_id'], name='hack_admission_student')]

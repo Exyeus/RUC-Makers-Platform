@@ -1,7 +1,10 @@
 import csv
 import io
 import secrets
+import zipfile
 
+import openpyxl
+from django import forms
 from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
 from django.core.exceptions import ValidationError
@@ -26,6 +29,7 @@ from eventyay.hackathon.identity_forms import (
     ChangeEmailForm,
     IdentifierForm,
     StudentBindingForm,
+    student_identifier,
 )
 from eventyay.hackathon.models import StudentAccount
 from eventyay.hackathon.permissions import event_view
@@ -218,43 +222,158 @@ def unsubscribe(request, hackathon_slug=None):
     return response
 
 
-def parse_csv(upload):
+ROSTER_COLUMNS = {
+    'student_id': 'student_id',
+    '学号': 'student_id',
+    'email': 'email',
+    '邮箱': 'email',
+    '原报名邮箱': 'email',
+    'approved': 'approved',
+    '是否通过': 'approved',
+    'name': 'name',
+    '姓名': 'name',
+    '学院与年级': 'college',
+    '学院': 'college',
+    '微信号': 'wechat',
+    '微信': 'wechat',
+    '意向队友': 'teammates',
+}
+ROSTER_LIMITS = {'name': 80, 'college': 120, 'wechat': 80, 'teammates': 300}
+
+
+def roster_records(upload):
+    """Rows of a CSV or XLSX roster as dicts keyed by the original headers."""
+    data = upload.read()
+    if upload.name.lower().endswith('.xlsx'):
+        try:
+            workbook = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        except (zipfile.BadZipFile, KeyError, ValueError, OSError) as error:
+            raise ValidationError('无法读取 Excel 文件，请从飞书重新导出 .xlsx 或 .csv。') from error
+        values = [
+            ['' if cell is None else str(cell).strip() for cell in row]
+            for row in workbook.worksheets[0].iter_rows(values_only=True)
+        ]
+        workbook.close()
+        if not values:
+            raise ValidationError('表格没有内容。')
+        headers = [header.strip() for header in values[0]]
+        return headers, [dict(zip(headers, row)) for row in values[1:]]
+    for encoding in ('utf-8-sig', 'gb18030'):
+        try:
+            text = data.decode(encoding)
+            break
+        except UnicodeError:
+            continue
+    else:
+        raise ValidationError('无法识别文件编码，请导出为 UTF-8 CSV 或 .xlsx。')
     try:
-        reader = csv.DictReader(io.StringIO(upload.read().decode('utf-8-sig')))
-        if not reader.fieldnames or not {'student_id', 'email'} <= set(reader.fieldnames):
-            raise ValidationError('CSV 必须包含 student_id 和 email 表头，可选 approved（true / false）。')
-        result, students, emails = [], set(), set()
-        for index, row in enumerate(reader, 2):
-            if index > 3001:
-                raise ValidationError('一次最多导入 3000 人。')
-            state = (row.get('approved') or 'true').strip().lower()
-            if state not in {'true', 'false', '1', '0'}:
-                raise ValidationError(f'第 {index} 行 approved 只能为 true / false / 1 / 0。')
-            form = AdmissionGrantForm(
+        reader = csv.DictReader(io.StringIO(text))
+        headers = [header.strip() for header in (reader.fieldnames or [])]
+        reader.fieldnames = headers
+        return headers, list(reader)
+    except csv.Error as error:
+        raise ValidationError('无法读取 CSV。') from error
+
+
+def parse_roster(upload):
+    """Normalize an organizer roster: ``rows`` to import and ``manual`` entries needing a person.
+
+    Accepts the platform CSV (student_id,email,approved) and the 飞书 export
+    (姓名 / 学号 / 学院与年级 / 微信号 / 意向队友). Rows without a usable 学号
+    never become grants: they are listed for manual verification instead.
+    """
+    headers, records = roster_records(upload)
+    columns = {header: ROSTER_COLUMNS[header] for header in headers if header in ROSTER_COLUMNS}
+    if 'student_id' not in columns.values():
+        raise ValidationError('表头需要包含“学号”（或 student_id）。可选：姓名、学院与年级、微信号、意向队友、邮箱。')
+    rows, manual, students = [], [], set()
+    for index, record in enumerate(records, 2):
+        if index > 3001:
+            raise ValidationError('一次最多导入 3000 人。')
+        values = {field: '' for field in ROSTER_COLUMNS.values()}
+        for header, field in columns.items():
+            values[field] = ' '.join(str(record.get(header) or '').split())
+        if not any(values.values()):
+            continue
+        for field, limit in ROSTER_LIMITS.items():
+            values[field] = values[field][:limit]
+        label = values['name'] or values['wechat'] or f'第 {index} 行'
+        if not values['student_id']:
+            manual.append(
                 {
-                    'student_id': row.get('student_id', ''),
-                    'email': row.get('email', ''),
-                    'approved': state in {'true', '1'},
-                    'reason': '组委会名单导入',
+                    'line': index,
+                    'label': label,
+                    'wechat': values['wechat'],
+                    'reason': '缺少学号（校外或漏填），需人工核验',
                 }
             )
-            if not form.is_valid():
-                raise ValidationError(
-                    f'第 {index} 行：' + '；'.join(str(e) for errors in form.errors.values() for e in errors)
-                )
-            values = form.cleaned_data
-            sid, email = values['student_id'], values['email']
-            if sid in students or (email and email in emails):
-                raise ValidationError(f'第 {index} 行学号或邮箱重复。')
-            students.add(sid)
-            if email:
-                emails.add(email)
-            result.append({'student_id': sid, 'email': email, 'approved': values['approved']})
-        if not result:
-            raise ValidationError('CSV 没有有效数据。')
-        return result
-    except (UnicodeError, csv.Error) as error:
-        raise ValidationError('无法读取 CSV，请使用 UTF-8 编码。') from error
+            continue
+        state = (values['approved'] or 'true').lower()
+        if state not in {'true', 'false', '1', '0', '是', '否'}:
+            manual.append(
+                {'line': index, 'label': label, 'wechat': values['wechat'], 'reason': '“是否通过”只能填 是 / 否'}
+            )
+            continue
+        try:
+            sid = student_identifier(values['student_id'])
+            email = forms.EmailField(max_length=190, required=False).clean(values['email']).lower()
+        except ValidationError as error:
+            manual.append(
+                {'line': index, 'label': label, 'wechat': values['wechat'], 'reason': '；'.join(error.messages)}
+            )
+            continue
+        if sid in students:
+            manual.append(
+                {'line': index, 'label': label, 'wechat': values['wechat'], 'reason': f'学号 {sid} 重复，已保留第一条'}
+            )
+            continue
+        students.add(sid)
+        rows.append(
+            {
+                'student_id': sid,
+                'email': email,
+                'approved': state in {'true', '1', '是'},
+                'name': values['name'],
+                'college': values['college'],
+                'wechat': values['wechat'],
+                'teammates': values['teammates'],
+            }
+        )
+    if not rows and not manual:
+        raise ValidationError('文件没有有效数据。')
+    return {'rows': rows, 'manual': manual}
+
+
+def parse_csv(upload):
+    """Kept for callers of the original importer; strict rows only."""
+    result = parse_roster(upload)
+    if result['manual']:
+        first = result['manual'][0]
+        raise ValidationError(f'第 {first["line"]} 行：{first["reason"]}')
+    return result['rows']
+
+
+@transaction.atomic
+def import_grant(request, row):
+    """Update roster columns only; a re-import never clears a manual assignment or note."""
+    grant = AdmissionGrant.objects.filter(hackathon=request.hackathon, student_id=row['student_id']).first()
+    created = grant is None
+    grant = grant or AdmissionGrant(hackathon=request.hackathon, student_id=row['student_id'], reason='组委会名单导入')
+    grant.approved = row['approved']
+    if row['email']:
+        grant.email = row['email']
+    for field in ('name', 'college', 'wechat', 'teammates'):
+        if row.get(field):
+            setattr(grant, field, row[field])
+    grant.save()
+    audit(
+        request.hackathon,
+        request.user,
+        '导入通过名单',
+        row['student_id'],
+        f'approved={grant.approved}; created={created}',
+    )
+    return created
 
 
 @transaction.atomic
@@ -303,14 +422,21 @@ def admission_manage(request):
 
     if operation == 'preview' and upload_form.is_valid():
         try:
-            rows = parse_csv(upload_form.cleaned_data['file'])
+            parsed = parse_roster(upload_form.cleaned_data['file'])
         except ValidationError as error:
             upload_form.add_error('file', error)
         else:
+            known = set(
+                AdmissionGrant.objects.filter(
+                    hackathon=request.hackathon, student_id__in=[row['student_id'] for row in parsed['rows']]
+                ).values_list('student_id', flat=True)
+            )
             request.session['admission_import'] = {
                 'event': request.hackathon.pk,
                 'token': secrets.token_urlsafe(24),
-                'rows': rows,
+                'rows': parsed['rows'],
+                'manual': parsed['manual'],
+                'updates': len(known),
             }
     if operation == 'apply':
         preview = request.session.get('admission_import', {})
@@ -321,10 +447,13 @@ def admission_manage(request):
         ):
             return HttpResponseBadRequest('预览已失效，请重新上传名单。')
         with transaction.atomic():
-            for row in preview['rows']:
-                save_grant(request, {**row, 'assigned_user': None, 'reason': '组委会名单导入'})
+            created = sum(import_grant(request, row) for row in preview['rows'])
         request.session.pop('admission_import', None)
-        messages.success(request, f'已更新 {len(preview["rows"])} 条通过名单；其他名单记录保持不变。')
+        messages.success(
+            request,
+            f'已导入 {len(preview["rows"])} 条：新增 {created} 条，更新 {len(preview["rows"]) - created} 条；'
+            '名单外的记录与人工指定账号保持不变。',
+        )
         return redirect(route(request, 'admission-manage'))
     if operation == 'grant' and grant_form.is_valid():
         save_grant(request, grant_form.cleaned_data)

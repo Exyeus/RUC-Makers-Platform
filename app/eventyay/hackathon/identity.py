@@ -55,7 +55,14 @@ def admitted(user, hackathon):
     # A manual assignment is authoritative, including after a recovery-email change.
     if grant.assigned_user_id:
         return grant.assigned_user_id == user.pk
-    return bool(grant.email and grant.email.casefold() == user.email.casefold())
+    if grant.email:
+        return grant.email.casefold() == user.email.casefold()
+    # Rosters without emails (飞书 export) match the bound student ID plus the registered name.
+    return bool(grant.name) and same_name(grant.name, user.fullname)
+
+
+def same_name(left, right):
+    return ''.join((left or '').split()).casefold() == ''.join((right or '').split()).casefold()
 
 
 def public_status(user, hackathon):
