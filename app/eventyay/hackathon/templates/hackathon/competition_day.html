@@ -53,7 +53,10 @@
         <form method="post">{% csrf_token %}<input type="hidden" name="action" value="shuffle"><button class="sw-btn" type="submit">生成随机路演顺序<svg aria-hidden="true"><use href="#i-arrow" /></svg></button></form>
       {% else %}
         {% include 'hackathon/competition_order.html' %}
-        <form method="post" class="sw-stage-actions">{% csrf_token %}<input type="hidden" name="action" value="publish"><button class="sw-btn sw-btn--commit" type="submit">发布名单与顺序<svg aria-hidden="true"><use href="#i-arrow" /></svg></button></form>
+        <div class="sw-stage-actions">
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="publish"><button class="sw-btn sw-btn--commit" type="submit">发布名单与顺序<svg aria-hidden="true"><use href="#i-arrow" /></svg></button></form>
+          <a class="sw-btn sw-btn--outline" href="{% url 'hackathon:roadshow-package' hackathon.slug %}">下载路演材料 ZIP</a>
+        </div>
       {% endif %}
     </section>
 
@@ -66,6 +69,7 @@
         {% if s == 'roadshow' %}
           <form method="post">{% csrf_token %}<input type="hidden" name="action" value="start-final"><button class="sw-btn" type="submit">开始决赛评分<svg aria-hidden="true"><use href="#i-arrow" /></svg></button></form>
           <a class="sw-btn sw-btn--outline" href="{% url 'hackathon:manage-stage' hackathon.slug %}">路演调度</a>
+          <a class="sw-btn sw-btn--outline" href="{% url 'hackathon:roadshow-package' hackathon.slug %}">下载路演材料 ZIP</a>
         {% elif s == 'awards' %}
           <a class="sw-btn" href="{% url 'hackathon:workflow-round' hackathon.slug state.final.round.pk %}">生成获奖名单<svg aria-hidden="true"><use href="#i-arrow" /></svg></a>
         {% endif %}

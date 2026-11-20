@@ -177,3 +177,61 @@ def test_an_approved_work_with_failed_materials_does_not_block_the_round(hackath
     assert competition_day.lock_and_start(hackathon) == 'failed'
     plan.refresh_from_db()
     assert '没有可供本轮评审' in plan.last_error
+
+
+def test_roadshow_package_names_files_in_order_and_lists_them(
+    client, hackathon, organizer_user, settings, tmp_path, monkeypatch
+):
+    import csv
+    import hashlib
+    import io
+    import zipfile
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from eventyay.hackathon.models import Asset
+    from eventyay.hackathon.storage import PrivateStorage
+
+    settings.DATA_DIR = str(tmp_path)
+    monkeypatch.setattr(Asset._meta.get_field('file'), 'storage', PrivateStorage())
+    plan, projects, judges = plan_with(hackathon, organizer_user)
+    for project in projects:
+        data = f'%PDF-{project.pk}'.encode()
+        item = Asset(
+            hackathon=hackathon,
+            project=project,
+            kind='slides',
+            filename='deck.pdf',
+            original_filename='路演.pdf',
+            checksum=hashlib.sha256(data).hexdigest(),
+            size=len(data),
+        )
+        item.file.save('deck.pdf', SimpleUploadedFile('deck.pdf', data))
+    hackathon.submission_deadline = timezone.now() - timedelta(minutes=1)
+    hackathon.save()
+    competition_day.lock_and_start(hackathon)
+    item = JudgingRound.objects.get(hackathon=hackathon, kind='preliminary')
+    fill(hackathon, item, judges, projects, value=lambda project: projects.index(project) % 10)
+    shortlist(hackathon, organizer_user, item, seats=2)
+    order = competition_day.shuffle_order(hackathon, organizer_user)
+    client.force_login(organizer_user)
+    response = client.get(endpoint(hackathon, 'roadshow-package'))
+    assert response.status_code == 200
+    assert '%E8%B7%AF%E6%BC%94%E6%9D%90%E6%96%99' in response['Content-Disposition']
+    archive = zipfile.ZipFile(io.BytesIO(b''.join(response.streaming_content)))
+    names = sorted(name for name in archive.namelist() if name.endswith('.pdf'))
+    assert [name[:3] for name in names] == [f'{row["position"]:03d}' for row in order.entries]
+    first = order.entries[0]
+    assert names[0] == f'001_{first["team_code"]}_{first["captain"]}_{first["title"]}.pdf'
+    rows = list(csv.reader(io.StringIO(archive.read('路演材料清单.csv').decode('utf-8-sig'))))
+    assert rows[0][0] == '路演序号' and len(rows) == len(order.entries) + 1
+
+
+def test_roadshow_package_refuses_when_a_finalist_has_no_material(client, hackathon, organizer_user):
+    plan, projects, judges = ready_for_publish(hackathon, organizer_user)
+    competition_day.shuffle_order(hackathon, organizer_user)
+    client.force_login(organizer_user)
+    response = client.get(endpoint(hackathon, 'roadshow-package'))
+    assert response.status_code == 302
+    follow = client.get(response.url).content.decode()
+    assert '路演材料包未生成' in follow and '没有路演材料' in follow

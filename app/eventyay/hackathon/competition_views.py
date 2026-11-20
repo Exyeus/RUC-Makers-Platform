@@ -9,8 +9,9 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from eventyay.base.models import User
-from eventyay.hackathon import competition_day, services
+from eventyay.hackathon import competition_day, roadshow_package, services
 from eventyay.hackathon import workflow_services as workflow
+from eventyay.hackathon.downloads import stream_file
 from eventyay.hackathon.models import StaffAssignment, Track
 from eventyay.hackathon.permissions import event_view
 from eventyay.hackathon.views import page, url
@@ -192,3 +193,21 @@ def command(request):
                 }
             )
     return page(request, 'competition_day', page_title='比赛日', state=state, stages=stages, order_rows=order_rows)
+
+
+@event_view('organizer')
+@require_http_methods(['GET'])
+def package(request):
+    h = request.hackathon
+    order = competition_day.current_order(h)
+    if order is None:
+        messages.error(request, '请先生成路演顺序。')
+        return redirect(url(h, 'competition-day'))
+    tracks = {str(track.pk): track.name for track in Track.objects.filter(hackathon=h)}
+    try:
+        source, size = roadshow_package.build(order, tracks)
+    except ValidationError as error:
+        messages.error(request, '路演材料包未生成：' + '；'.join(error.messages))
+        return redirect(url(h, 'competition-day'))
+    services.audit(h, request.user, '下载路演材料包', order.pk, f'顺序 v{order.version}')
+    return stream_file(request, source, size, roadshow_package.package_name(order))

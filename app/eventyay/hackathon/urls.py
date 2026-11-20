@@ -25,6 +25,7 @@ event_patterns = [
     path('manage/judges/links/', judge_link_views.manage, name='judge-links'),
     path('manage/competition-day/', competition_views.command, name='competition-day'),
     path('manage/competition-day/plan/', competition_views.plan, name='competition-plan'),
+    path('manage/competition-day/package/', competition_views.package, name='roadshow-package'),
     path('account/judge-link/', judge_link_views.sign_in, name='judge-link'),
     path('assets/<uuid:asset_id>/media/', staff_tools.media, name='media'),
     path('assets/<uuid:asset_id>/source/', staff_tools.media_source, name='media-source'),

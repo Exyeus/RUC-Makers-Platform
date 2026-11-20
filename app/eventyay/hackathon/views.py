@@ -126,6 +126,7 @@ ORGANIZER_ROUTES = {
     'judge-links',
     'competition-plan',
     'competition-day',
+    'roadshow-package',
 }
 JUDGE_ROUTES = {'judging', 'judge-live', 'score', 'workflow-judging', 'workflow-tasks', 'workflow-score'}
 VOLUNTEER_ROUTES = {'tasks'}
