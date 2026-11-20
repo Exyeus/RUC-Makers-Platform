@@ -24,7 +24,9 @@
     <a class="skip-link" href="#main">跳转至主要内容</a>
     <div class="sw-page">
       <header class="sw-grid sw-masthead">
-        <a class="sw-brand" href="{% url 'hackathon:home' hackathon.slug %}"><span class="sw-dot" aria-hidden="true"></span>造物有心</a>
+        <a class="sw-brand" href="{% url 'hackathon:home' hackathon.slug %}"><span><span class="sw-dot" aria-hidden="true"></span>造物有心</span><span>第二届黑客松</span></a>
+        <span class="sw-col-2">{% if hackathon.slug == 'tongzhou26' %}中国人民大学<br>通州校区{% else %}{{ hackathon.name }}<br>{{ hackathon.venue|default:'地点待公布' }}{% endif %}</span>
+        <span class="sw-col-3">{{ hackathon.event.date_from|date:'m.d' }}—{{ hackathon.event.date_to|date:'m.d' }}<br>北京时间</span>
         <nav aria-label="主导航">
           <a href="{% url 'hackathon:home' hackathon.slug %}#schedule">赛程</a>
           <a href="{% url 'hackathon:home' hackathon.slug %}#tracks">赛道</a>
