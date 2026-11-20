@@ -653,3 +653,7 @@ html[data-theme] .sw-masthead nav a { align-items: flex-start !important; }
 .sw-sign { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding: 24px; margin-bottom: 24px; }
 .sw-sign h2 { margin: 0; font-family: var(--sw-cjk); font-size: var(--sw-fs-subhead) !important; }
 @media (max-width: 720px) { .sw-review-summary, .sw-review-fields { grid-template-columns: 1fr; } .sw-review-fields label { padding-top: 0; } }
+.sw-rank { table-layout: fixed; min-width: 760px; }
+.sw-rank .c-rank { width: 56px; } .sw-rank .c-team { width: 24%; } .sw-rank .c-title { width: auto; }
+.sw-rank .c-avg { width: 96px; } .sw-rank .c-scores { width: 24%; } .sw-rank .c-act { width: 168px; }
+.sw-rank td, .sw-rank th { overflow-wrap: anywhere; }

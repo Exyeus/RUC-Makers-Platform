@@ -6,7 +6,6 @@
     <dl class="sw-kv">
       {% if kind == 'finalists' %}<dt>名额</dt><dd>每赛道入围 {{ seats }} · 候补 {{ alternates }}</dd>{% endif %}
       <dt>签认人</dt><dd>{{ round.signer.get_display_name }}</dd>
-      {% if is_organizer %}<dt>比赛日</dt><dd><a class="text-link" href="{% url 'hackathon:competition-day' hackathon.slug %}">返回</a></dd>{% endif %}
     </dl>
   </div>
 
@@ -55,10 +54,11 @@
     {% if round.is_open %}<p class="sw-label">评分尚未关闭，排名仍会变化。</p>{% elif progress.left %}<p class="sw-label">还差 {{ progress.left }} 份评分，补齐后才能生成名单。</p>{% endif %}
     {% for track in tracks %}
       <section class="sw-stage-panel" aria-labelledby="track-{{ forloop.counter }}">
-        <div class="sw-rule-head"><h2 id="track-{{ forloop.counter }}">{{ track.name }}</h2><span class="sw-mono">{{ track.rows|length }}</span></div>
+        <h2 id="track-{{ forloop.counter }}">{{ track.name }}</h2>
         <div class="table-wrap">
           <table class="sw-order sw-rank">
             <caption class="sr-only">{{ track.name }}排名</caption>
+            <colgroup><col class="c-rank"><col class="c-team"><col class="c-title"><col class="c-avg"><col class="c-scores"><col class="c-act"></colgroup>
             <thead><tr><th scope="col">名次</th><th scope="col">队伍</th><th scope="col">作品</th><th scope="col">均分</th><th scope="col">评委分</th><th scope="col">{% if kind == 'awards' %}奖项{% else %}建议{% endif %}</th></tr></thead>
             <tbody>
               {% for row in track.rows %}
@@ -67,7 +67,7 @@
                   <td><span class="sw-strong">{{ row.team }}</span> <span class="sw-mono sw-label">{{ row.team_code }}</span></td>
                   <td>{{ row.title }}</td>
                   <td class="sw-mono">{{ row.average|default:'—' }}{% if row.tie %} <span class="sw-tag sw-tag--now">同分</span>{% endif %}</td>
-                  <td class="sw-scores">{% for judge in row.judges %}<span title="{{ judge.name }}">{{ judge.total }}</span>{% endfor %}{% if row.missing %}<span class="sw-tag sw-tag--fail">缺 {{ row.missing|length }}</span>{% endif %}{% if row.wide %}<span class="sw-tag sw-tag--draft">分差 {{ row.spread }}</span>{% endif %}</td>
+                  <td><div class="sw-scores">{% for judge in row.judges %}<span title="{{ judge.name }}">{{ judge.total }}</span>{% endfor %}{% if row.missing %}<span class="sw-tag sw-tag--fail">缺 {{ row.missing|length }}</span>{% endif %}{% if row.wide %}<span class="sw-tag sw-tag--draft">分差 {{ row.spread }}</span>{% endif %}</div></td>
                   <td>
                     {% if kind == 'awards' %}
                       <label class="sr-only" for="award-{{ row.project_id }}">{{ row.team }}奖项</label>
