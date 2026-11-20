@@ -9,6 +9,7 @@ tick (management command or the next page view after the deadline).
 
 import logging
 import random
+from datetime import timedelta
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -17,10 +18,10 @@ from django.utils import timezone
 
 from eventyay.hackathon import services
 from eventyay.hackathon import workflow_services as workflow
-from eventyay.hackathon.models import Project, StaffAssignment, Track
+from eventyay.hackathon.models import DemoSlot, Project, StaffAssignment, Track
 from eventyay.hackathon.submission_materials import capture_snapshot
 from eventyay.hackathon.workflow_forms import ROUND_CRITERIA
-from eventyay.hackathon.workflow_models import CompetitionPlan, JudgingRound, RoadshowOrder
+from eventyay.hackathon.workflow_models import CompetitionPlan, FinalistContact, JudgingRound, RoadshowOrder
 
 
 logger = logging.getLogger(__name__)
@@ -148,7 +149,7 @@ def tick(hackathon):
 def expected_start(plan, position):
     if not plan or not plan.roadshow_start:
         return None
-    return plan.roadshow_start + timezone.timedelta(minutes=plan.slot_minutes * (position - 1))
+    return plan.roadshow_start + timedelta(minutes=plan.slot_minutes * (position - 1))
 
 
 def current_order(hackathon):
@@ -201,3 +202,166 @@ def shuffle_order(hackathon, actor, rng=None):
     )
     services.audit(h, actor, '生成随机路演顺序', order.pk, f'v{order.version} · {len(entries)} 队')
     return order
+
+
+@transaction.atomic
+def publish_order(hackathon, actor, order):
+    """Publish the signed list and its order together: queue, in-site notices and confirmation windows."""
+    workflow.require_organizer(hackathon, actor)
+    h = services.lock_event(hackathon)
+    order = RoadshowOrder.objects.select_for_update().get(hackathon=h, pk=order.pk)
+    if order.snapshot_id != getattr(workflow.current_signed_snapshot(h), 'pk', None):
+        raise ValidationError('入围名单已更新，请为新名单生成路演顺序。')
+    if order.published_at:
+        return order
+    if h.results_published:
+        raise ValidationError('成绩已公布，路演队列已锁定。')
+    slots = list(DemoSlot.objects.filter(hackathon=h))
+    if any(slot.state in {'live', 'done'} for slot in slots):
+        raise ValidationError('路演已经开始，不能整体替换队列。')
+    wanted = [row['project_id'] for row in order.entries]
+    DemoSlot.objects.filter(hackathon=h).exclude(project_id__in=wanted).delete()
+    for row in order.entries:
+        DemoSlot.objects.update_or_create(
+            hackathon=h, project_id=row['project_id'], defaults={'position': row['position']}
+        )
+    plan = plan_for(h)
+    now = timezone.now()
+    window = timedelta(minutes=plan.confirm_minutes if plan else 15)
+    FinalistContact.objects.filter(hackathon=h, snapshot=order.snapshot, state='pending').update(
+        state='sent', channel='站内通知', sent_at=now, deadline=now + window
+    )
+    order.published_at = now
+    order.save(update_fields=['published_at', 'updated'])
+    services.audit(h, actor, '发布入围名单与路演顺序', order.pk, f'v{order.version}')
+    return order
+
+
+def team_result(hackathon, team):
+    """What a team sees once the list is published: finalist with slot, alternate, or not selected."""
+    if not team:
+        return None
+    order = current_order(hackathon)
+    if not order or not order.published_at:
+        return None
+    snapshot = order.snapshot
+    row = next((entry for entry in snapshot.manifest['entries'] if entry['team_id'] == str(team.pk)), None)
+    if row is None:
+        return None
+    result = {'status': row['status'], 'snapshot': snapshot, 'order': order}
+    if row['status'] == 'finalist':
+        slot = next((entry for entry in order.entries if entry['team_id'] == str(team.pk)), None)
+        plan = plan_for(hackathon)
+        result['position'] = slot['position'] if slot else None
+        result['total'] = len(order.entries)
+        result['expected'] = expected_start(plan, slot['position']) if slot else None
+        result['contact'] = FinalistContact.objects.filter(hackathon=hackathon, snapshot=snapshot, team=team).first()
+    return result
+
+
+# ---------- Final round ----------
+
+
+@transaction.atomic
+def start_final(hackathon, actor):
+    """Create the final round from the plan's panel over the signed finalists and open it."""
+    workflow.require_organizer(hackathon, actor)
+    plan = plan_for(hackathon)
+    if not plan or not plan.final_panel:
+        raise ValidationError('请先在比赛日配置中选择决赛评委。')
+    if not plan.signer_id:
+        raise ValidationError('请先在比赛日配置中指定评审总负责人。')
+    existing = JudgingRound.objects.filter(hackathon=hackathon, kind='final').first()
+    if existing and existing.source_snapshot_id == getattr(workflow.current_signed_snapshot(hackathon), 'pk', None):
+        if not existing.is_open and not existing.snapshots.exists():
+            workflow.set_round_open(hackathon, actor, existing, True)
+        return existing
+    item = workflow.create_round(
+        hackathon,
+        actor,
+        kind='final',
+        name='决赛',
+        rules=round_rules('final', plan),
+        panel=[{'user_id': str(pk), 'tracks': [], 'nonstudent': True} for pk in plan.final_panel],
+        signer=plan.signer,
+        signer_nonstudent=True,
+    )
+    workflow.set_round_open(hackathon, actor, item, True)
+    return item
+
+
+# ---------- Command center ----------
+
+
+def round_progress(item):
+    if not item:
+        return None
+    rows = workflow.round_results(item)
+    expected = sum(row['expected'] for row in rows)
+    confirmed = sum(row['confirmed'] for row in rows)
+    remaining = {}
+    for task in item.tasks:
+        for judge_id in task['judges']:
+            remaining.setdefault(judge_id, 0)
+    for row in rows:
+        for judge_id in row['missing']:
+            remaining[judge_id] = remaining.get(judge_id, 0) + 1
+    names = {row['user_id']: row.get('name', '') for row in item.panel}
+    return {
+        'round': item,
+        'rows': rows,
+        'expected': expected,
+        'confirmed': confirmed,
+        'percent': round(confirmed * 100 / expected) if expected else 0,
+        'left': expected - confirmed,
+        'incomplete': sum(not row['complete'] for row in rows),
+        'judges': sorted(
+            ({'name': names.get(key, key), 'left': value} for key, value in remaining.items()),
+            key=lambda judge: -judge['left'],
+        ),
+    }
+
+
+def status(hackathon):
+    """Where competition day stands and the single next action."""
+    now = timezone.now()
+    plan = plan_for(hackathon)
+    preliminary = JudgingRound.objects.filter(hackathon=hackathon, kind='preliminary').first()
+    final = JudgingRound.objects.filter(hackathon=hackathon, kind='final').first()
+    finalists = workflow.current_signed_snapshot(hackathon)
+    awards = workflow.current_signed_snapshot(hackathon, 'awards')
+    order = current_order(hackathon)
+    if awards:
+        stage = 'done'
+    elif now < hackathon.submission_deadline or not preliminary:
+        stage = 'deadline'
+    elif preliminary.is_open:
+        stage = 'preliminary'
+    elif not finalists:
+        stage = 'review'
+    elif not order or not order.published_at:
+        stage = 'publish'
+    elif not final:
+        stage = 'roadshow'
+    elif final.is_open:
+        stage = 'final'
+    else:
+        stage = 'awards'
+    contacts = (
+        list(FinalistContact.objects.filter(hackathon=hackathon, snapshot=finalists).select_related('team'))
+        if finalists
+        else []
+    )
+    return {
+        'now': now,
+        'stage': stage,
+        'plan': plan,
+        'problems': plan_problems(hackathon, plan),
+        'preliminary': round_progress(preliminary),
+        'final': round_progress(final),
+        'finalists': finalists,
+        'order': order,
+        'awards': awards,
+        'contacts': contacts,
+        'accepted': sum(contact.state == 'accepted' for contact in contacts),
+    }

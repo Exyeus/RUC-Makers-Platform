@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 
 from eventyay.base.models import User
 from eventyay.hackathon import competition_day, services
+from eventyay.hackathon import workflow_services as workflow
 from eventyay.hackathon.models import StaffAssignment, Track
 from eventyay.hackathon.permissions import event_view
 from eventyay.hackathon.views import page, url
@@ -112,3 +113,82 @@ def plan(request):
         plan=current,
         problems=competition_day.plan_problems(h, current) if current else [],
     )
+
+
+STAGES = [
+    ('deadline', '提交截止'),
+    ('preliminary', '初评'),
+    ('review', '入围复核'),
+    ('publish', '发布'),
+    ('roadshow', '决赛路演'),
+    ('awards', '获奖确认'),
+]
+STAGE_INDEX = {
+    'deadline': 0,
+    'preliminary': 1,
+    'review': 2,
+    'publish': 3,
+    'roadshow': 4,
+    'final': 4,
+    'awards': 5,
+    'done': 6,
+}
+
+
+@event_view('organizer')
+@require_http_methods(['GET', 'POST'])
+def command(request):
+    h = request.hackathon
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        state = competition_day.status(h)
+        try:
+            if action == 'lock':
+                result = competition_day.lock_and_start(h)
+                if result != 'done':
+                    raise ValidationError(competition_day.plan_for(h).last_error or '尚未到截止时间。')
+                messages.success(request, '已锁定作品并开放初评。')
+            elif action == 'close-preliminary' and state['preliminary']:
+                workflow.set_round_open(h, request.user, state['preliminary']['round'], False)
+                messages.success(request, '初评已关闭。')
+            elif action == 'shuffle':
+                order = competition_day.shuffle_order(h, request.user)
+                messages.success(request, f'已生成路演顺序 v{order.version}。')
+            elif action == 'publish' and state['order']:
+                competition_day.publish_order(h, request.user, state['order'])
+                messages.success(request, '名单与路演顺序已发布，入围队伍已收到站内通知。')
+            elif action == 'start-final':
+                competition_day.start_final(h, request.user)
+                messages.success(request, '决赛评分已开放。')
+            elif action == 'close-final' and state['final']:
+                workflow.set_round_open(h, request.user, state['final']['round'], False)
+                messages.success(request, '决赛评分已关闭。')
+            else:
+                raise ValidationError('当前阶段不能执行这个操作。')
+        except ValidationError as error:
+            messages.error(request, '；'.join(error.messages))
+        return redirect(url(h, 'competition-day'))
+    state = competition_day.status(h)
+    current = STAGE_INDEX[state['stage']]
+    stages = [
+        {
+            'key': key,
+            'label': label,
+            'no': f'0{index + 1}',
+            'state': 'done' if index < current else 'now' if index == current else 'next',
+        }
+        for index, (key, label) in enumerate(STAGES)
+    ]
+    plan = state['plan']
+    order_rows = []
+    if state['order']:
+        contacts = {str(contact.team_id): contact for contact in state['contacts']}
+        for row in state['order'].entries:
+            order_rows.append(
+                {
+                    **row,
+                    'expected': competition_day.expected_start(plan, row['position']),
+                    'contact': contacts.get(row['team_id']),
+                }
+            )
+    return page(request, 'competition_day', page_title='比赛日', state=state, stages=stages, order_rows=order_rows)

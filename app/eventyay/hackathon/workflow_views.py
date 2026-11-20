@@ -209,7 +209,9 @@ def confirm(request, snapshot_id):
         except ValidationError as issue:
             error = '；'.join(issue.messages)
         else:
-            messages.success(request, '已确认参加决赛，请按要求完成到场和设备核对。')
+            messages.success(request, '已确认参加决赛。')
+            if request.POST.get('return') == 'home':
+                return redirect(url(h, 'home'))
             return redirect(address(h, 'confirm', snapshot_id=item.pk))
     return page(request, 'workflow_confirm', snapshot=item, contact=contact, error=error)
 

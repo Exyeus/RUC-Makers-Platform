@@ -595,3 +595,39 @@ html[data-theme] .sw-masthead nav a { align-items: flex-start !important; }
 .sw-checks > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0 16px; }
 .sw-checks label { display: flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 400 !important; font-size: var(--sw-fs-small) !important; cursor: pointer; }
 @media (max-width: 900px) { .sw-plan .sw-track-panel { grid-template-columns: 1fr; } }
+
+/* ---------- Finalist result on the overview ---------- */
+.sw-overview .sw-result { grid-column: 1 / -1; }
+.sw-result-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 24px; align-items: end; }
+.sw-result-grid h2 { margin: 0; font-family: var(--sw-cjk); font-size: var(--sw-fs-heading) !important; font-weight: 700; color: #fff !important; }
+.sw-result-grid > div { display: flex; flex-direction: column; gap: 8px; }
+.sw-result-num, .sw-result-time { font-size: var(--sw-fs-numeral); color: #fff; }
+.sw-result-num small { font-size: 0.3em; letter-spacing: 0; }
+.sw-result p { margin: 0; }
+.sw-overview .sw-result-note { grid-column: 1 / -1; display: flex; gap: 16px; align-items: baseline; padding: 14px 0; border-top: 1px solid var(--sw-ink); border-bottom: 1px solid var(--sw-ink); font-family: var(--sw-cjk); }
+@media (max-width: 720px) { .sw-result-grid { grid-template-columns: 1fr 1fr; } .sw-result-grid h2 { grid-column: 1 / -1; } }
+
+/* ---------- Competition day command center ---------- */
+.sw-command { display: flex; flex-direction: column; gap: 32px; max-width: 1080px; }
+.sw-command-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; }
+.sw-command-head h1 { margin: 0; font-family: var(--sw-cjk); font-size: var(--sw-fs-title) !important; font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; }
+.sw-stages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 16px; }
+.sw-stages li { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 6px solid var(--sw-rule-soft); color: var(--sw-grey); font-family: var(--sw-cjk); font-size: var(--sw-fs-small); }
+.sw-stages li.is-done { border-top-color: var(--sw-ink); color: var(--sw-ink); }
+.sw-stages li.is-now { border-top-color: var(--sw-pink); color: var(--sw-ink); }
+.sw-stages .sw-mono { font-size: var(--sw-fs-caption); }
+.sw-stage-panel { display: flex; flex-direction: column; gap: 20px; border-top: 1px solid var(--sw-ink); padding-top: 20px; }
+.sw-stage-panel h2 { margin: 0; font-family: var(--sw-cjk); font-size: var(--sw-fs-heading) !important; font-weight: 700; }
+.sw-stage-panel p { margin: 0; font-family: var(--sw-cjk); }
+.sw-big-row { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; }
+.sw-big-row .sw-num { font-size: var(--sw-fs-numeral); }
+.sw-big-row .sw-num small { font-size: 0.34em; color: var(--sw-grey); letter-spacing: 0; }
+.sw-progress { width: 100%; height: 8px; }
+.sw-progress-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.sw-progress-grid h3 { margin: 0; font-size: var(--sw-fs-label); }
+.sw-stage-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.sw-btn--commit { background: var(--sw-violet) !important; border-color: var(--sw-violet) !important; }
+.sw-btn--commit:hover { background: var(--sw-violet-ink) !important; }
+.sw-order { width: 100%; font-family: var(--sw-cjk); font-size: var(--sw-fs-small); }
+.sw-order td, .sw-order th { padding: 12px 12px 12px 0; text-align: left; }
+@media (max-width: 720px) { .sw-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 12px; } .sw-progress-grid { grid-template-columns: 1fr; } }

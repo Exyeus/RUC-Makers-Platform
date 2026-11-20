@@ -125,6 +125,7 @@ ORGANIZER_ROUTES = {
     'judge-batch',
     'judge-links',
     'competition-plan',
+    'competition-day',
 }
 JUDGE_ROUTES = {'judging', 'judge-live', 'score', 'workflow-judging', 'workflow-tasks', 'workflow-score'}
 VOLUNTEER_ROUTES = {'tasks'}
@@ -164,7 +165,7 @@ NAVIGATION_ALIASES = {
     'material-snapshot': 'material-policy',
     'judge-batch': 'staff',
     'judge-links': 'staff',
-    'competition-plan': 'manage',
+    'competition-plan': 'competition-day',
     'workflow-judging': 'judging',
     'workflow-tasks': 'judging',
     'workflow-score': 'judging',
@@ -254,17 +255,18 @@ def workspace_navigation(request, hackathon, identity):
             (
                 '我的待办',
                 [
+                    ('competition-day', '比赛日', 'clock'),
                     ('manage', '活动总控', 'grid'),
                     ('participants', '报名与签到', 'users'),
                     ('submissions', '作品检查', 'folder'),
                     ('manage-stage', '路演调度', 'play'),
                     results_entry,
-                    ('publish', '发布准备', 'spark'),
                 ],
             ),
             (
                 '配置与成员',
                 [
+                    ('publish', '发布准备', 'spark'),
                     ('content', '内容管理', 'book'),
                     ('staff', '成员与权限', 'badge'),
                     ('settings', '活动设置', 'settings'),
@@ -457,6 +459,8 @@ def home(request):
 
 
 def landing_context(request):
+    from eventyay.hackathon.competition_day import team_result
+
     h = request.hackathon
     participant = request.participant
     team = participant.team if participant else None
@@ -536,6 +540,7 @@ def landing_context(request):
         'calendar_days': schedule_heatmap(h, schedule_items),
         'calendar_timeline': schedule_timeline(h, schedule_items),
         'schedule_items': schedule_items,
+        'roadshow': team_result(h, team),
     }
 
 

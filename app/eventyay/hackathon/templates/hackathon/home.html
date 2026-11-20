@@ -10,6 +10,35 @@
       <dt>赛道</dt><dd>{% if team %}{{ team.track.name }}{% else %}—{% endif %}</dd>
     </dl>
 
+    {% if roadshow %}
+      {% if roadshow.status == 'finalist' %}
+        <section class="sw-block sw-block--ink sw-result" aria-labelledby="result-title">
+          <span class="sw-clock-head"><span>入围名单 v{{ roadshow.snapshot.version }}</span></span>
+          <div class="sw-result-grid">
+            <h2 id="result-title">已入围决赛</h2>
+            <div><span class="sw-label">路演序号</span><span class="sw-num sw-result-num">{{ roadshow.position|stringformat:'02d' }}<small> / {{ roadshow.total }}</small></span></div>
+            {% if roadshow.expected %}<div><span class="sw-label">预计上场</span><span class="sw-num sw-result-time">{{ roadshow.expected|time:'H:i' }}</span></div>{% endif %}
+          </div>
+          {% if roadshow.contact.state == 'accepted' %}
+            <p>已确认参加。</p>
+          {% elif roadshow.contact.state == 'sent' and team.captain_id == participant.pk %}
+            <form method="post" action="{% url 'hackathon:workflow-confirm' hackathon.slug roadshow.snapshot.pk %}">
+              {% csrf_token %}<input type="hidden" name="return" value="home">
+              <button class="sw-btn sw-btn--light" type="submit">已收到，确认参加<svg aria-hidden="true"><use href="#i-arrow" /></svg></button>
+            </form>
+            <p class="sw-label">请在 {{ roadshow.contact.deadline|time:'H:i' }} 前确认</p>
+          {% elif roadshow.contact.state == 'sent' %}
+            <p>等待队长确认，截止 {{ roadshow.contact.deadline|time:'H:i' }}。</p>
+          {% else %}
+            <p>确认时间已过，请立即联系赛务。</p>
+          {% endif %}
+        </section>
+      {% elif roadshow.status == 'alternate' %}
+        <section class="sw-result-note" aria-label="入围结果"><strong>候补</strong>如有入围队伍放弃，赛务会直接联系你。</section>
+      {% else %}
+        <section class="sw-result-note" aria-label="入围结果"><strong>未入围决赛</strong>感谢参赛。</section>
+      {% endif %}
+    {% endif %}
     <section class="sw-block sw-block--violet sw-next" aria-labelledby="next-task-title" data-task="{{ current_task.key }}">
       <span class="sw-clock-head"><span><span class="sw-dot" aria-hidden="true"></span> 下一步</span></span>
       <h2 id="next-task-title">{{ current_task.title }}</h2>

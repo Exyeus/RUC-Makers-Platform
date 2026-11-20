@@ -23,6 +23,7 @@ event_patterns = [
     path("manage/material-snapshots/<int:snapshot_id>/", submission_views.snapshot, name="material-snapshot"),
     path('manage/judges/batch/', staff_tools.batch_judges, name='judge-batch'),
     path('manage/judges/links/', judge_link_views.manage, name='judge-links'),
+    path('manage/competition-day/', competition_views.command, name='competition-day'),
     path('manage/competition-day/plan/', competition_views.plan, name='competition-plan'),
     path('account/judge-link/', judge_link_views.sign_in, name='judge-link'),
     path('assets/<uuid:asset_id>/media/', staff_tools.media, name='media'),

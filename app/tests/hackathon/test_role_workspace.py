@@ -224,9 +224,10 @@ def test_organizer_navigation_keeps_every_management_entry(client, hackathon, or
     client.force_login(organizer_user)
     response = client.get(endpoint(hackathon, 'manage'))
     assert response.context['is_organizer']
-    assert primary(response) == ['manage', 'participants', 'submissions', 'manage-stage', 'results', 'publish']
+    assert primary(response) == ['competition-day', 'manage', 'participants', 'submissions', 'manage-stage', 'results']
     assert len(primary(response)) <= 6
     for expected in (
+        'publish',
         'content',
         'staff',
         'settings',

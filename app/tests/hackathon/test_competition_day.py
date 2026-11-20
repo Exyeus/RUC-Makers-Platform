@@ -106,3 +106,74 @@ def test_roadshow_order_is_random_once_and_covers_every_finalist(hackathon, orga
     assert again.pk == order.pk and again.entries == order.entries
     start = competition_day.expected_start(plan, 3)
     assert start == plan.roadshow_start + timedelta(minutes=10)
+
+
+def ready_for_publish(hackathon, organizer_user):
+    plan, projects, judges = plan_with(hackathon, organizer_user)
+    hackathon.submission_deadline = timezone.now() - timedelta(minutes=1)
+    hackathon.save()
+    competition_day.lock_and_start(hackathon)
+    item = JudgingRound.objects.get(hackathon=hackathon, kind='preliminary')
+    fill(hackathon, item, judges, projects, value=lambda project: projects.index(project) % 10)
+    shortlist(hackathon, organizer_user, item, seats=2)
+    return plan, projects, judges
+
+
+def test_publish_queues_the_order_notifies_finalists_and_captain_confirms_from_overview(
+    client, hackathon, organizer_user
+):
+    from eventyay.hackathon.models import DemoSlot, Team
+    from eventyay.hackathon.workflow_models import FinalistContact
+
+    plan, projects, _judges = ready_for_publish(hackathon, organizer_user)
+    order = competition_day.shuffle_order(hackathon, organizer_user)
+    competition_day.publish_order(hackathon, organizer_user, order)
+    slots = {str(slot.project_id): slot.position for slot in DemoSlot.objects.filter(hackathon=hackathon)}
+    assert slots == {row['project_id']: row['position'] for row in order.entries}
+    contacts = FinalistContact.objects.filter(hackathon=hackathon)
+    assert contacts.count() == len(order.entries)
+    assert all(contact.state == 'sent' and contact.deadline for contact in contacts)
+    first = order.entries[0]
+    captain = Team.objects.get(pk=first['team_id']).captain.user
+    client.force_login(captain)
+    page = client.get(endpoint(hackathon, 'home')).content.decode()
+    assert '已入围决赛' in page and '确认参加' in page
+    response = client.post(endpoint(hackathon, 'workflow-confirm', snapshot_id=order.snapshot_id), {'return': 'home'})
+    assert response.status_code == 302 and response.url == endpoint(hackathon, 'home')
+    assert FinalistContact.objects.get(hackathon=hackathon, team_id=first['team_id']).state == 'accepted'
+
+
+def test_command_center_walks_the_day_with_one_action_per_stage(client, hackathon, organizer_user):
+    plan, projects, judges = ready_for_publish(hackathon, organizer_user)
+    client.force_login(organizer_user)
+    location = endpoint(hackathon, 'competition-day')
+    assert '生成随机路演顺序' in client.get(location).content.decode()
+    client.post(location, {'action': 'shuffle'})
+    assert '发布名单与顺序' in client.get(location).content.decode()
+    client.post(location, {'action': 'publish'})
+    assert '开始决赛评分' in client.get(location).content.decode()
+    client.post(location, {'action': 'start-final'})
+    final = JudgingRound.objects.get(hackathon=hackathon, kind='final')
+    assert final.is_open and len(final.tasks) == len(competition_day.current_order(hackathon).entries)
+    assert all(len(task['judges']) == len(plan.final_panel) for task in final.tasks)
+    assert '关闭决赛评分' in client.get(location).content.decode()
+
+
+def test_command_center_is_organizer_only(client, hackathon, user):
+    client.force_login(user)
+    assert client.get(endpoint(hackathon, 'competition-day')).status_code in {302, 403}
+    assert client.post(endpoint(hackathon, 'competition-day'), {'action': 'shuffle'}).status_code in {302, 403}
+
+
+def test_an_approved_work_with_failed_materials_does_not_block_the_round(hackathon, organizer_user):
+    from eventyay.hackathon.models import MaterialPolicy
+
+    plan, projects, _judges = plan_with(hackathon, organizer_user)
+    MaterialPolicy.objects.create(hackathon=hackathon, enabled=True)
+    Project.objects.filter(pk=projects[0].pk).update(state=Project.State.APPROVED)
+    hackathon.submission_deadline = timezone.now() - timedelta(minutes=1)
+    hackathon.save()
+    # Every synthetic work lacks materials under the policy: nothing is ready, so the plan reports it.
+    assert competition_day.lock_and_start(hackathon) == 'failed'
+    plan.refresh_from_db()
+    assert '没有可供本轮评审' in plan.last_error

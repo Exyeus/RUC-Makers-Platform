@@ -139,6 +139,14 @@ def create_round(hackathon, user, *, kind, name, rules, panel, signer, signer_no
     )
     if source:
         projects = projects.filter(pk__in=[row['project_id'] for row in signed_entries(source)])
+    elif planned:
+        # A planned preliminary judges exactly what the frozen snapshot found ready; the rest stay listed as issues.
+        from eventyay.hackathon.models import SubmissionSnapshot
+
+        frozen = SubmissionSnapshot.objects.filter(hackathon=h).order_by('-version').first()
+        entries = frozen.manifest['entries'] if frozen else []
+        ready = [row['project_id'] for row in entries if row['eligibility'] == 'ready']
+        projects = projects.filter(pk__in=ready)
     projects = list(projects.order_by('team__track_id', 'pk'))
     if not projects:
         raise ValidationError('没有可供本轮评审的已通过作品。')
